@@ -1,35 +1,29 @@
+import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 
-const EXTRACT_PROMPT = `You are an extraction engine for a personal OS. 
-Given a message from an entrepreneur, extract ALL actionable items.
+const EXTRACT_PROMPT = `You are an extraction engine for a personal OS.
+Extract ALL actionable items from the entrepreneur's message.
 
-Return ONLY a valid JSON array (no markdown, no explanation). Empty array [] if nothing to extract.
+Return ONLY a valid JSON array. Empty array [] if nothing to extract.
 
-Each item must match one of these shapes:
+IMPORTANT TYPE RULES:
+- "blocked on X" / "waiting on X" / "stuck on X" → type MUST be "blocker" not "project_update"
+- "need to decide X" / "deciding between X and Y" → type is "decision"  
+- "I should always/never X" / "rule: X" → type is "rule"
+- "slept X hours" / "feeling X" / "mood is X" → type is "daily_check"
+- Everything else about work progress → type is "project_update"
+- For decisions: only set probability if explicitly stated as a number. Otherwise leave null.
+- For daily_check mood: ONLY use these exact values: calm, focused, rushed, bored, anxious, fearful, angry, frustrated, overconfident, exhausted
 
-Project Update:
-{"type":"project_update","project":"project name","content":"what was done/is happening","update_type":"progress|blocker|note|decision","next_actions":"next steps if mentioned"}
+Shapes:
 
-Decision:
-{"type":"decision","project":"project name or null","content":"what the decision is about","context":"full context","verdict":"enter|wait|do_not_enter|null","probability":0-100 or null}
-
-Rule:
-{"type":"rule","content":"the rule as a clear statement","rule_text":"the rule","severity":1-3}
-
-Daily Check:
-{"type":"daily_check","mood":"one of: calm,focused,rushed,bored,anxious,fearful,angry,frustrated,overconfident,exhausted or null","sleep_hours":number or null,"stress":1-10 or null,"notes":"any context"}
-
-Rules for extraction:
-- Extract MULTIPLE items if the message contains multiple things
-- Be generous — if it sounds like a project update, extract it
-- "blocked on X" = project_update with update_type "blocker"
-- "need to decide X" = decision
-- "I should always/never X" = rule
-- "didn't sleep well / feeling X" = daily_check
-- Only skip extraction if the message is purely a question with no new information`;
+{"type":"project_update","project":"name","content":"what was done","update_type":"progress","next_actions":"next steps or null"}
+{"type":"blocker","project":"name","content":"what is blocked","next_actions":"null"}
+{"type":"decision","project":"name or null","content":"decision summary","context":"full context","verdict":null,"probability":null}
+{"type":"rule","content":"rule statement","rule_text":"rule as imperative statement","severity":2}
+{"type":"daily_check","mood":"exact value from list or null","sleep_hours":number or null,"stress":null,"notes":"context"}`;
 
 export async function POST(req: NextRequest) {
   const cookieStore = await cookies();
@@ -40,7 +34,7 @@ export async function POST(req: NextRequest) {
   );
 
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (!user) return NextResponse.json({ items: [] });
 
   const { message } = await req.json();
   if (!message?.trim()) return NextResponse.json({ items: [] });
@@ -48,20 +42,17 @@ export async function POST(req: NextRequest) {
   try {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      max_tokens: 800,
+      model: "gpt-4o-mini", max_tokens: 800,
       messages: [
         { role: "system", content: EXTRACT_PROMPT },
         { role: "user", content: message }
       ],
     });
-
     const text = response.choices[0]?.message?.content ?? "[]";
     const clean = text.replace(/```json|```/g, "").trim();
     const items = JSON.parse(clean);
     return NextResponse.json({ items: Array.isArray(items) ? items : [] });
   } catch (err: any) {
-    console.error("Extraction error:", err);
     return NextResponse.json({ items: [] });
   }
 }
