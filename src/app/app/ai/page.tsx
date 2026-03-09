@@ -147,27 +147,32 @@ function AIPageInner() {
     setThread(prev => [...prev, { message: userMsg }]);
     setLoading(true);
 
-    // AI response
-    const aiRes = await fetch("/api/ai", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: allMessages }),
-    });
-    const aiData = await aiRes.json();
+    // Run AI response and extraction IN PARALLEL
+    const isQ = isQuestion(content);
+    const parallelCalls: Promise<any>[] = [
+      fetch("/api/ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: allMessages }),
+      }).then(r => r.json()),
+    ];
+    if (!isQ) {
+      parallelCalls.push(
+        fetch("/api/ai/extract", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: content }),
+        }).then(r => r.json())
+      );
+    }
+
+    const [aiData, extractData] = await Promise.all(parallelCalls);
     const assistantMsg: Message = { role: "assistant", content: aiData.text ?? "Error." };
 
     setLoading(false);
     setThread(prev => [...prev, { message: assistantMsg }]);
 
-    // Only extract if not a pure question
-    if (!isQuestion(content)) {
-      setExtracting(true);
-      const extractRes = await fetch("/api/ai/extract", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: content }),
-      });
-      const extractData = await extractRes.json();
+    if (!isQ) {
       setExtracting(false);
 
       const items: ExtractedItem[] = (extractData.items ?? []).map((item: any, i: number) => ({
