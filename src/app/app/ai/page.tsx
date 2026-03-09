@@ -127,7 +127,7 @@ function ExtractionChip({ item, onSave, onDismiss, onEdit }: {
   );
 }
 
-export default function AIPage() {
+function AIPageInner() {
   const router = useRouter();
   const params = useSearchParams();
   const [thread, setThread] = useState<ThreadEntry[]>([]);
@@ -425,5 +425,15 @@ export default function AIPage() {
         <p className="text-[10px] text-[#999] mt-1.5 text-center">Questions get answers · Statements get extracted and saved</p>
       </div>
     </div>
+  );
+}
+
+
+import { Suspense } from "react";
+export default function AIPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-screen"><div className="text-[#737373] text-sm">Loading...</div></div>}>
+      <AIPageInner />
+    </Suspense>
   );
 }
