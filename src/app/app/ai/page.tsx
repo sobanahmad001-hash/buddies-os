@@ -1,34 +1,23 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import {
   Send, Loader2, Sparkles, Check, X, CheckCheck,
   FolderKanban, Scale, ShieldCheck, AlertTriangle,
-  Sun, ChevronDown, History, Plus, Pencil
+  Sun, ChevronDown, History, Plus, Pencil, Paperclip, FileText, Image
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 
-type Message = { role: "user" | "assistant"; content: string };
+type Message = { role: "user" | "assistant"; content: string; filename?: string };
 type ExtractedItem = {
   id: string;
   type: "project_update" | "decision" | "rule" | "blocker" | "daily_check";
-  project?: string;
-  content: string;
-  update_type?: string;
-  next_actions?: string;
-  verdict?: string;
-  probability?: number;
-  rule_text?: string;
-  severity?: number;
-  context?: string;
-  mood?: string;
-  sleep_hours?: number;
-  stress?: number;
-  notes?: string;
+  project?: string; content: string; update_type?: string; next_actions?: string;
+  verdict?: string; probability?: number; rule_text?: string; severity?: number;
+  context?: string; mood?: string; sleep_hours?: number; stress?: number; notes?: string;
   status: "pending" | "saved" | "dismissed";
-  editing?: boolean;
 };
 type ThreadEntry = { message: Message; extractions?: ExtractedItem[] };
 type Session = { id: string; title: string; updated_at: string };
@@ -52,8 +41,8 @@ function isQuestion(text: string) {
   const t = text.trim().toLowerCase();
   return t.endsWith("?") || t.startsWith("what ") || t.startsWith("which ") ||
     t.startsWith("how ") || t.startsWith("when ") || t.startsWith("why ") ||
-    t.startsWith("summarize") || t.startsWith("show ") || t.startsWith("give me") ||
-    t.startsWith("tell me") || t.length < 25;
+    t.startsWith("summarize") || t.startsWith("show ") ||
+    t.startsWith("give me") || t.startsWith("tell me") || t.length < 25;
 }
 
 function timeAgo(d: string) {
@@ -87,13 +76,10 @@ function ExtractionChip({ item, onSave, onDismiss, onEdit }: {
         </div>
         {isEditing ? (
           <div className="flex gap-1 mt-1">
-            <input
-              className="flex-1 text-[12px] border border-[#E5E2DE] rounded px-2 py-1 outline-none focus:border-[#CC785C]"
-              value={editVal}
-              onChange={e => setEditVal(e.target.value)}
+            <input className="flex-1 text-[12px] border border-[#E5E2DE] rounded px-2 py-1 outline-none focus:border-[#CC785C]"
+              value={editVal} onChange={e => setEditVal(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter") { onEdit(editVal); setIsEditing(false); } if (e.key === "Escape") setIsEditing(false); }}
-              autoFocus
-            />
+              autoFocus />
             <button onClick={() => { onEdit(editVal); setIsEditing(false); }}
               className="text-[11px] px-2 py-1 bg-[#1A1A1A] text-white rounded">OK</button>
           </div>
@@ -120,9 +106,7 @@ function ExtractionChip({ item, onSave, onDismiss, onEdit }: {
           </button>
         </div>
       )}
-      {item.status === "saved" && (
-        <span className="text-[10px] text-[#2D6A4F] font-semibold shrink-0 mt-1">Saved ✓</span>
-      )}
+      {item.status === "saved" && <span className="text-[10px] text-[#2D6A4F] font-semibold shrink-0 mt-1">Saved ✓</span>}
     </div>
   );
 }
@@ -134,29 +118,24 @@ function AIPageInner() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [extracting, setExtracting] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const didAutoSend = useRef(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (!data.user) router.push("/login");
-    });
+    supabase.auth.getUser().then(({ data }) => { if (!data.user) router.push("/login"); });
     loadSessions();
   }, []);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [thread, loading, extracting]);
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [thread, loading]);
 
   useEffect(() => {
     const q = params.get("q");
-    if (q && !didAutoSend.current) {
-      didAutoSend.current = true;
-      setTimeout(() => send(q), 200);
-    }
+    if (q && !didAutoSend.current) { didAutoSend.current = true; setTimeout(() => send(q), 200); }
   }, [params]);
 
   async function loadSessions() {
@@ -170,16 +149,14 @@ function AIPageInner() {
     const data = await res.json();
     if (data.session?.messages) {
       setThread(data.session.messages.map((m: Message) => ({ message: m })));
-      setSessionId(id);
-      setShowHistory(false);
+      setSessionId(id); setShowHistory(false);
     }
   }
 
-  async function saveSession(newThread: ThreadEntry[], sid: string | null) {
-    const messages = newThread.map(t => t.message);
+  async function saveSession(t: ThreadEntry[], sid: string | null) {
+    const messages = t.map(e => e.message);
     const res = await fetch("/api/ai/sessions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sessionId: sid, messages, title: messages[0]?.content?.slice(0, 60) }),
     });
     const data = await res.json();
@@ -190,21 +167,17 @@ function AIPageInner() {
     const content = (text ?? input).trim();
     if (!content || loading) return;
     setInput("");
-
     const userMsg: Message = { role: "user", content };
     const newThread: ThreadEntry[] = [...thread, { message: userMsg }];
-    const allMessages = newThread.map(t => t.message);
     setThread(newThread);
     setLoading(true);
 
     const isQ = isQuestion(content);
     const calls: Promise<any>[] = [
-      fetch("/api/ai", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: allMessages }) }).then(r => r.json()),
+      fetch("/api/ai", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: newThread.map(t => t.message) }) }).then(r => r.json()),
     ];
     if (!isQ) {
-      calls.push(
-        fetch("/api/ai/extract", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: content }) }).then(r => r.json())
-      );
+      calls.push(fetch("/api/ai/extract", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: content }) }).then(r => r.json()));
     }
 
     const [aiData, extractData] = await Promise.all(calls);
@@ -215,66 +188,85 @@ function AIPageInner() {
       ...item, id: `${Date.now()}-${i}`, status: "pending" as const,
     }));
 
-    const finalThread: ThreadEntry[] = [
-      ...newThread,
-      { message: assistantMsg },
-      ...(items.length > 0 ? [] : []),
-    ];
+    const withAssistant = [...newThread, { message: assistantMsg }];
+    const final = withAssistant.map((entry, idx) =>
+      idx === newThread.length - 1 && items.length > 0 ? { ...entry, extractions: items } : entry
+    );
 
-    // Attach extractions to the user message
-    const threadWithExtractions = finalThread.map((entry, idx) => {
-      if (idx === newThread.length - 1 && items.length > 0) {
-        return { ...entry, extractions: items };
-      }
-      return entry;
-    });
-
-    setThread(threadWithExtractions);
-    if (!isQ) setExtracting(false);
-
-    // Save session
-    const newSid = await saveSession(threadWithExtractions, sessionId);
+    setThread(final);
+    const newSid = await saveSession(final, sessionId);
     if (!sessionId) setSessionId(newSid);
     loadSessions();
   }, [input, loading, thread, sessionId]);
 
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+
+    const fd = new FormData();
+    fd.append("file", file);
+
+    const res = await fetch("/api/ai/upload", { method: "POST", body: fd });
+    const data = await res.json();
+    setUploading(false);
+
+    if (data.error) { alert(`Upload failed: ${data.error}`); return; }
+
+    // Add file message to thread
+    const fileIcon = file.type.startsWith("image/") ? "🖼️" : "📄";
+    const userMsg: Message = { role: "user", content: `${fileIcon} Uploaded: ${file.name}`, filename: file.name };
+    const summary = data.summary ?? "File processed.";
+    const extracted = data.extracted ?? {};
+
+    // Build AI response from extracted content
+    let aiContent = `**${file.name}**\n\n${summary}`;
+    if (extracted.updates?.length) aiContent += `\n\n**Updates found:**\n${extracted.updates.map((u: string) => `- ${u}`).join("\n")}`;
+    if (extracted.decisions?.length) aiContent += `\n\n**Decisions needed:**\n${extracted.decisions.map((d: string) => `- ${d}`).join("\n")}`;
+    if (extracted.actions?.length) aiContent += `\n\n**Action items:**\n${extracted.actions.map((a: string) => `- ${a}`).join("\n")}`;
+    if (extracted.blockers?.length) aiContent += `\n\n**Blockers:**\n${extracted.blockers.map((b: string) => `- ${b}`).join("\n")}`;
+
+    const assistantMsg: Message = { role: "assistant", content: aiContent };
+
+    // Build extraction chips from file content
+    const items: ExtractedItem[] = [];
+    (extracted.updates ?? []).forEach((u: string, i: number) => items.push({ id: `file-u-${i}`, type: "project_update", project: extracted.project ?? undefined, content: u, status: "pending" }));
+    (extracted.decisions ?? []).forEach((d: string, i: number) => items.push({ id: `file-d-${i}`, type: "decision", content: d, context: d, status: "pending" }));
+    (extracted.actions ?? []).forEach((a: string, i: number) => items.push({ id: `file-a-${i}`, type: "project_update", project: extracted.project ?? undefined, content: a, update_type: "note", status: "pending" }));
+    (extracted.blockers ?? []).forEach((b: string, i: number) => items.push({ id: `file-b-${i}`, type: "blocker", project: extracted.project ?? undefined, content: b, status: "pending" }));
+
+    const newThread = [...thread, { message: userMsg, extractions: items.length > 0 ? items : undefined }, { message: assistantMsg }];
+    setThread(newThread);
+    const newSid = await saveSession(newThread, sessionId);
+    if (!sessionId) setSessionId(newSid);
+    loadSessions();
+    if (fileRef.current) fileRef.current.value = "";
+  }
+
   async function handleSave(msgIdx: number, itemId: string) {
     const item = thread[msgIdx]?.extractions?.find(e => e.id === itemId);
     if (!item) return;
-    setThread(prev => prev.map((t, i) => i !== msgIdx ? t : {
-      ...t, extractions: t.extractions?.map(e => e.id === itemId ? { ...e, status: "saved" as const } : e)
-    }));
+    setThread(prev => prev.map((t, i) => i !== msgIdx ? t : { ...t, extractions: t.extractions?.map(e => e.id === itemId ? { ...e, status: "saved" as const } : e) }));
     await fetch("/api/ai/save", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ item }) });
   }
 
   function handleDismiss(msgIdx: number, itemId: string) {
-    setThread(prev => prev.map((t, i) => i !== msgIdx ? t : {
-      ...t, extractions: t.extractions?.map(e => e.id === itemId ? { ...e, status: "dismissed" as const } : e)
-    }));
+    setThread(prev => prev.map((t, i) => i !== msgIdx ? t : { ...t, extractions: t.extractions?.map(e => e.id === itemId ? { ...e, status: "dismissed" as const } : e) }));
   }
 
   function handleEdit(msgIdx: number, itemId: string, val: string) {
-    setThread(prev => prev.map((t, i) => i !== msgIdx ? t : {
-      ...t, extractions: t.extractions?.map(e => e.id === itemId ? { ...e, content: val, rule_text: e.rule_text ? val : e.rule_text } : e)
-    }));
+    setThread(prev => prev.map((t, i) => i !== msgIdx ? t : { ...t, extractions: t.extractions?.map(e => e.id === itemId ? { ...e, content: val, rule_text: e.rule_text ? val : e.rule_text } : e) }));
   }
 
   async function handleSaveAll() {
     for (let msgIdx = 0; msgIdx < thread.length; msgIdx++) {
-      const pending = thread[msgIdx].extractions?.filter(e => e.status === "pending") ?? [];
-      for (const item of pending) await handleSave(msgIdx, item.id);
+      for (const item of thread[msgIdx].extractions?.filter(e => e.status === "pending") ?? []) {
+        await handleSave(msgIdx, item.id);
+      }
     }
   }
 
-  function startNewSession() {
-    setThread([]);
-    setSessionId(null);
-    setShowHistory(false);
-  }
-
-  const pendingCount = thread.reduce((acc, t) =>
-    acc + (t.extractions?.filter(e => e.status === "pending").length ?? 0), 0
-  );
+  const pendingCount = thread.reduce((acc, t) => acc + (t.extractions?.filter(e => e.status === "pending").length ?? 0), 0);
 
   return (
     <div className="flex flex-col bg-[#FAF9F7]" style={{ height: "100vh" }}>
@@ -284,21 +276,18 @@ function AIPageInner() {
           <div className="flex items-center gap-2">
             <Sparkles size={15} className="text-[#CC785C]" />
             <h1 className="text-[16px] font-semibold text-[#1A1A1A]">AI Assistant</h1>
-            {/* History dropdown */}
             <div className="relative">
               <button onClick={() => setShowHistory(!showHistory)}
-                className="flex items-center gap-1 text-[11px] text-[#737373] hover:text-[#404040] transition-colors ml-2 px-2 py-1 rounded border border-[#E5E2DE] hover:border-[#CC785C]">
+                className="flex items-center gap-1 text-[11px] text-[#737373] hover:text-[#404040] ml-2 px-2 py-1 rounded border border-[#E5E2DE] hover:border-[#CC785C] transition-colors">
                 <History size={11} />
-                <span className="hidden md:inline">History</span>
                 <ChevronDown size={10} />
               </button>
               {showHistory && (
                 <div className="absolute top-8 left-0 w-64 bg-white border border-[#E5E2DE] rounded-xl shadow-lg z-20 overflow-hidden">
-                  <button onClick={startNewSession}
+                  <button onClick={() => { setThread([]); setSessionId(null); setShowHistory(false); }}
                     className="flex items-center gap-2 w-full px-4 py-3 text-[12px] text-[#CC785C] font-semibold hover:bg-[#FAF9F7] border-b border-[#E5E2DE]">
                     <Plus size={13} /> New Session
                   </button>
-                  {sessions.length === 0 && <p className="px-4 py-3 text-[12px] text-[#737373]">No sessions yet</p>}
                   {sessions.map(s => (
                     <button key={s.id} onClick={() => loadSession(s.id)}
                       className={`w-full text-left px-4 py-3 hover:bg-[#FAF9F7] border-b border-[#E5E2DE] last:border-0 ${sessionId === s.id ? "bg-[#FAF9F7]" : ""}`}>
@@ -313,12 +302,11 @@ function AIPageInner() {
           {pendingCount > 0 && (
             <button onClick={handleSaveAll}
               className="flex items-center gap-2 px-3 py-1.5 bg-[#1A1A1A] text-white text-[12px] font-semibold rounded-lg hover:bg-[#333] transition-colors">
-              <CheckCheck size={13} />
-              Save all ({pendingCount})
+              <CheckCheck size={13} />Save all ({pendingCount})
             </button>
           )}
         </div>
-        <p className="text-[11px] text-[#737373] mt-0.5 hidden md:block">Talk naturally. Items extracted from messages appear below for one-tap saving.</p>
+        <p className="text-[11px] text-[#737373] mt-0.5 hidden md:block">Talk naturally · Upload files · Items extracted with one-tap saving</p>
       </div>
 
       {/* Thread */}
@@ -335,10 +323,8 @@ function AIPageInner() {
             </div>
             <div className="bg-[#1A1A1A] rounded-xl p-4">
               <p className="text-[11px] font-semibold text-[#CC785C] uppercase tracking-wide mb-2">Try saying</p>
-              <p className="text-[12px] text-[#AAA] leading-relaxed italic">
-                "Spent morning on Raahbaan, finalized investor deck. Blocked on legal structure — need to choose between LLC and LTD by Friday. Should never rush entity decisions. Slept 5 hours, feeling anxious."
-              </p>
-              <p className="text-[11px] text-[#555] mt-2">→ Extracts: update · blocker · decision · rule · daily check</p>
+              <p className="text-[12px] text-[#AAA] leading-relaxed italic">"Spent morning on Raahbaan, finalized investor deck. Blocked on legal structure — deciding LLC vs LTD by Friday."</p>
+              <p className="text-[11px] text-[#555] mt-2">Or tap 📎 to upload a PDF, doc, or image</p>
             </div>
           </div>
         )}
@@ -348,7 +334,14 @@ function AIPageInner() {
             <div className={`flex ${entry.message.role === "user" ? "justify-end" : "justify-start"}`}>
               {entry.message.role === "user" ? (
                 <div className="bg-[#1A1A1A] text-white rounded-2xl rounded-br-sm px-4 py-3 max-w-[85%] md:max-w-xl">
-                  <p className="text-[13px] leading-relaxed">{entry.message.content}</p>
+                  {entry.message.filename ? (
+                    <div className="flex items-center gap-2">
+                      <FileText size={14} className="text-[#CC785C]" />
+                      <span className="text-[13px]">{entry.message.content}</span>
+                    </div>
+                  ) : (
+                    <p className="text-[13px] leading-relaxed">{entry.message.content}</p>
+                  )}
                 </div>
               ) : (
                 <div className="bg-white border border-[#E5E2DE] rounded-2xl rounded-bl-sm px-4 py-4 max-w-[85%] md:max-w-xl">
@@ -356,29 +349,21 @@ function AIPageInner() {
                     <Sparkles size={11} className="text-[#CC785C]" />
                     <span className="text-[10px] font-semibold text-[#CC785C] uppercase tracking-wide">Buddies AI</span>
                   </div>
-                  <div className="text-[13px] text-[#404040] leading-relaxed prose prose-sm max-w-none
-                    prose-headings:text-[#1A1A1A] prose-headings:font-semibold
-                    prose-strong:text-[#1A1A1A] prose-strong:font-semibold
-                    prose-li:text-[#404040] prose-p:text-[#404040]">
+                  <div className="text-[13px] text-[#404040] leading-relaxed prose prose-sm max-w-none prose-strong:text-[#1A1A1A] prose-strong:font-semibold prose-li:text-[#404040] prose-p:text-[#404040] prose-p:my-1">
                     <ReactMarkdown>{entry.message.content}</ReactMarkdown>
                   </div>
                 </div>
               )}
             </div>
-
             {entry.extractions && entry.extractions.length > 0 && (
               <div className="flex justify-end">
                 <div className="max-w-[85%] md:max-w-xl w-full space-y-1.5">
-                  <p className="text-[10px] text-[#737373] font-semibold uppercase tracking-wide px-1">
-                    Extracted — tap ✎ to edit, ✓ to save
-                  </p>
+                  <p className="text-[10px] text-[#737373] font-semibold uppercase tracking-wide px-1">Extracted — ✎ edit · ✓ save</p>
                   {entry.extractions.map(item => (
-                    <ExtractionChip
-                      key={item.id} item={item}
+                    <ExtractionChip key={item.id} item={item}
                       onSave={() => handleSave(msgIdx, item.id)}
                       onDismiss={() => handleDismiss(msgIdx, item.id)}
-                      onEdit={(val) => handleEdit(msgIdx, item.id, val)}
-                    />
+                      onEdit={(val) => handleEdit(msgIdx, item.id, val)} />
                   ))}
                 </div>
               </div>
@@ -386,19 +371,11 @@ function AIPageInner() {
           </div>
         ))}
 
-        {loading && (
+        {(loading || uploading) && (
           <div className="flex justify-start">
             <div className="bg-white border border-[#E5E2DE] rounded-xl px-4 py-3 flex items-center gap-2">
               <Loader2 size={13} className="animate-spin text-[#CC785C]" />
-              <span className="text-[12px] text-[#737373]">Thinking...</span>
-            </div>
-          </div>
-        )}
-        {extracting && (
-          <div className="flex justify-end">
-            <div className="bg-[#FAF9F7] border border-[#E5E2DE] rounded-xl px-3 py-2 flex items-center gap-2">
-              <Loader2 size={11} className="animate-spin text-[#737373]" />
-              <span className="text-[11px] text-[#737373]">Extracting...</span>
+              <span className="text-[12px] text-[#737373]">{uploading ? "Reading file..." : "Thinking..."}</span>
             </div>
           </div>
         )}
@@ -408,31 +385,33 @@ function AIPageInner() {
       {/* Input */}
       <div className="px-4 md:px-8 pb-4 pt-3 shrink-0 border-t border-[#E5E2DE] bg-[#FAF9F7]">
         <div className="flex items-center gap-2 bg-white border border-[#E5E2DE] rounded-xl px-4 py-3 focus-within:border-[#CC785C]/40 transition-colors">
+          <input ref={fileRef} type="file" className="hidden"
+            accept=".pdf,.txt,.md,.doc,.docx,.jpg,.jpeg,.png,.webp"
+            onChange={handleFileUpload} />
+          <button onClick={() => fileRef.current?.click()} disabled={loading || uploading}
+            className="text-[#737373] hover:text-[#CC785C] transition-colors disabled:opacity-40 shrink-0">
+            <Paperclip size={16} />
+          </button>
           <input
             className="flex-1 bg-transparent outline-none text-[13px] text-[#404040] placeholder:text-[#999]"
-            placeholder="Talk about your work, blockers, decisions..."
-            value={input}
-            onChange={e => setInput(e.target.value)}
+            placeholder="Talk or upload a file..."
+            value={input} onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === "Enter" && !e.shiftKey && send()}
-            disabled={loading}
-            autoFocus
-          />
-          <button onClick={() => send()} disabled={!input.trim() || loading}
+            disabled={loading || uploading} autoFocus />
+          <button onClick={() => send()} disabled={!input.trim() || loading || uploading}
             className="w-8 h-8 rounded-lg bg-[#1A1A1A] flex items-center justify-center hover:bg-[#333] transition-colors disabled:opacity-40 shrink-0">
             {loading ? <Loader2 size={13} className="animate-spin text-white" /> : <Send size={14} className="text-white" />}
           </button>
         </div>
-        <p className="text-[10px] text-[#999] mt-1.5 text-center">Questions get answers · Statements get extracted and saved</p>
+        <p className="text-[10px] text-[#999] mt-1.5 text-center">Questions answered · Statements extracted · Files read automatically</p>
       </div>
     </div>
   );
 }
 
-
-import { Suspense } from "react";
 export default function AIPage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center h-screen"><div className="text-[#737373] text-sm">Loading...</div></div>}>
+    <Suspense fallback={<div className="flex items-center justify-center h-screen text-[#737373] text-sm">Loading...</div>}>
       <AIPageInner />
     </Suspense>
   );
