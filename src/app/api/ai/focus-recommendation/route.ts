@@ -44,8 +44,7 @@ export async function GET() {
     id: p.id,
     updates7d: updateMap[p.id] ?? 0,
     daysSinceUpdate: Math.floor((Date.now() - new Date(p.updated_at).getTime()) / 86400000),
-    memory: p.memory?.split("
-").slice(0,2).join(" ") ?? null,
+    memory: p.memory ? p.memory.split("\n").slice(0, 2).join(" ") : null,
   }));
 
   const latestLog = logs?.[0];
