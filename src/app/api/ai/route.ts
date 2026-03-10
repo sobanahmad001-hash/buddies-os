@@ -99,7 +99,6 @@ ${contextBlock}`;
         ?.filter((c: any) => c.type === "output_text")
         ?.map((c: any) => c.text)
         ?.join("") ?? "";
-      }
 
       return NextResponse.json({ text, provider: "openai" });
     } catch {
