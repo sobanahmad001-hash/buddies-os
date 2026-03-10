@@ -3,8 +3,6 @@ import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 
-const AI_PROVIDER = process.env.AI_PROVIDER ?? "openai";
-
 export async function POST(req: NextRequest) {
   const cookieStore = await cookies();
   const supabase = createServerClient(
@@ -60,18 +58,16 @@ ${sessionHistory ? `RECENT CONVERSATION HISTORY:\n${sessionHistory}` : ""}`.trim
   const systemPrompt = `You are the AI core of Buddies OS — a personal operating system for an entrepreneur named Soban.
 
 PHILOSOPHY:
-The system is: Capture → Understand → Analyze → Suggest → Human decides.
-You are an advisor, not a governor. Never enforce. Never block. Surface intelligence and let the human decide.
+Capture → Understand → Analyze → Suggest → Human decides.
+You are an advisor, not a governor. Surface intelligence, let the human decide.
 
-RESPONSE FORMAT RULES:
-- For factual questions: answer directly and concisely
-- When you detect a pattern in the data, format it as:
-  "Observation: [what the data shows]. [neutral supporting data]. You decide."
+RESPONSE RULES:
+- Answer factual questions directly and concisely
+- When you detect a pattern: "Observation: [what data shows]. [supporting data]. You decide."
 - Never say "you should" — say "the data suggests" or "worth considering"
-- Use bullet points only for lists
-- Use markdown formatting — bold for key terms, bullets for lists
+- Use markdown — bold key terms, bullets for lists
 - Keep responses tight. No padding. No flattery.
-- If a question requires live data (prices, news, current events), use the web search tool automatically
+- For live data questions (prices, news, current events) — use web search automatically
 
 CURRENT CONTEXT:
 ${contextBlock}`;
@@ -79,42 +75,41 @@ ${contextBlock}`;
   try {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-    const response = await openai.chat.completions.create({
+    // Use Responses API which natively supports web_search_preview
+    const response = await (openai as any).responses.create({
       model: "gpt-4o-mini",
-      max_tokens: 1024,
-      tools: [{ type: "web_search_preview" as any }],
-      tool_choice: "auto" as any,
-      messages: [
+      tools: [{ type: "web_search_preview" }],
+      input: [
         { role: "system", content: systemPrompt },
-        ...messages
+        ...messages.map((m: any) => ({ role: m.role, content: m.content })),
       ],
     });
 
-    // Handle tool use + final response
-    let text = response.choices[0]?.message?.content ?? "";
+    // Extract text from response output
+    const text = response.output
+      ?.filter((o: any) => o.type === "message")
+      ?.flatMap((o: any) => o.content ?? [])
+      ?.filter((c: any) => c.type === "output_text")
+      ?.map((c: any) => c.text)
+      ?.join("") ?? "No response.";
 
-    // If no content yet, check for tool calls and get final response
-    if (!text && response.choices[0]?.finish_reason === "tool_calls") {
-      const toolCallMsg = response.choices[0].message;
-      const followUp = await openai.chat.completions.create({
+    return NextResponse.json({ text, provider: "openai" });
+  } catch (err: any) {
+    // Fallback to standard chat completions without web search
+    try {
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const response = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         max_tokens: 1024,
         messages: [
           { role: "system", content: systemPrompt },
           ...messages,
-          toolCallMsg as any,
-          ...((toolCallMsg.tool_calls ?? []).map((tc: any) => ({
-            role: "tool" as const,
-            tool_call_id: tc.id,
-            content: "Search completed.",
-          }))),
         ],
       });
-      text = followUp.choices[0]?.message?.content ?? "No response.";
+      const text = response.choices[0]?.message?.content ?? "No response.";
+      return NextResponse.json({ text, provider: "openai-fallback" });
+    } catch (fallbackErr: any) {
+      return NextResponse.json({ text: `Error: ${fallbackErr.message}` });
     }
-
-    return NextResponse.json({ text, provider: AI_PROVIDER });
-  } catch (err: any) {
-    return NextResponse.json({ text: `Error: ${err.message}` });
   }
 }
