@@ -16,7 +16,7 @@ const navItems = [
   { to: "/app/decisions",   icon: Scale,           label: "Decisions" },
   { to: "/app/rules",       icon: ShieldCheck,     label: "Rules" },
   { to: "/app/daily-check", icon: Sun,             label: "Daily Check" },
-  { to: "/app/search",      icon: Search,          label: "Search" },
+  { to: "/app/workspace",      icon: Search,          label: "Search" },
 ];
 
 function Sidebar({ onClose }: { onClose?: () => void }) {
