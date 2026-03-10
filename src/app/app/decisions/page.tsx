@@ -9,7 +9,7 @@ type Decision = {
   id: string; context: string; verdict: string | null; probability: number | null;
   base_case: string | null; upside_case: string | null; downside_case: string | null;
   risk_flags: string | null; expected_outcome: string | null; actual_outcome: string | null;
-  outcome_rating: string | null; closed_at: string | null;
+  outcome_rating: string | null; closed_at: string | null; prediction_accuracy: number | null;
   review_date: string | null; created_at: string; domain: string | null;
 };
 
@@ -115,6 +115,11 @@ export default function DecisionsPage() {
                   <VerdictBadge verdict={d.verdict} />
                   <OutcomeBadge rating={d.outcome_rating} />
                   {d.probability != null && <span className="text-[10px] text-[#737373]">{d.probability}%</span>}
+                  {d.prediction_accuracy != null && (
+                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${d.prediction_accuracy >= 70 ? "bg-[#DCFCE7] text-[#2D6A4F]" : d.prediction_accuracy >= 40 ? "bg-[#FEF9C3] text-[#92400E]" : "bg-[#FEE2E2] text-[#EF4444]"}`}>
+                      {d.prediction_accuracy}% acc
+                    </span>
+                  )}
                   {expanded === d.id ? <ChevronUp size={14} className="text-[#737373]" /> : <ChevronDown size={14} className="text-[#737373]" />}
                 </div>
               </div>

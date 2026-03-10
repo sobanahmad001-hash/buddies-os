@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
       confidence_score: 0.9,
     });
 
-    return NextResponse.json({ saved: true, projectId });
+    return NextResponse.json({ saved: true, projectId, triggerMemory: !!(projectId && ['project_update','blocker','decision'].includes(item.type)) });
   } catch (err: any) {
     console.error("Save error:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });

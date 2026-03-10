@@ -34,10 +34,20 @@ type Session = { id: string; title: string; updated_at: string };
 
 const STARTERS = [
   "What did I work on this week?",
-  "Add a project for me",
-  "Which project is falling behind?",
-  "What should I focus on today?",
+  "Which project had most progress?",
+  "What decisions did I close as failures?",
+  "What patterns exist in my behavior?",
 ];
+
+// /check shortcut expands to morning check-in
+function expandShortcut(text: string): string {
+  const t = text.trim().toLowerCase();
+  if (t === "/check") return "Morning check-in: log my sleep, mood, stress, confidence, and impulse for today";
+  if (t === "/week") return "Give me a summary of what happened across all projects this week";
+  if (t === "/decisions") return "Show me all open decisions that need review";
+  if (t === "/focus") return "Based on my projects and behavior patterns, what should I focus on today?";
+  return text;
+}
 
 const TYPE_CONFIG: Record<string, { icon: any; label: string; color: string; bg: string }> = {
   project_update: { icon: FolderKanban,  label: "Project Update", color: "text-[#2D6A4F]", bg: "bg-[#DCFCE7]" },
@@ -342,7 +352,8 @@ function AIPageInner() {
   }
 
   const send = useCallback(async (text?: string) => {
-    const content = (text ?? input).trim();
+    const raw = (text ?? input).trim();
+    const content = expandShortcut(raw);
     if (!content || loading) return;
     setInput("");
     const userMsg: Message = { role: "user", content };
@@ -456,7 +467,13 @@ function AIPageInner() {
     const item = thread[msgIdx]?.extractions?.find(e => e.id === itemId);
     if (!item) return;
     setThread(prev => prev.map((t, i) => i !== msgIdx ? t : { ...t, extractions: t.extractions?.map(e => e.id === itemId ? { ...e, status: "saved" as const } : e) }));
-    await fetch("/api/ai/save", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ item }) });
+    const res = await fetch("/api/ai/save", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ item }) });
+    const data = await res.json();
+    // Trigger project memory update in background after save
+    if (data.triggerMemory && data.projectId) {
+      fetch("/api/ai/memory", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ projectId: data.projectId }) }).catch(() => {});
+      loadProjects(); // refresh project list to get updated memory
+    }
   }
 
   function handleDismiss(msgIdx: number, itemId: string) {

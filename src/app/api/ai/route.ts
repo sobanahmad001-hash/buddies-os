@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     { data: projects }, { data: updates }, { data: decisions },
     { data: rules }, { data: logs }, { data: recentSessions }
   ] = await Promise.all([
-    supabase.from("projects").select("id, name, description, status").eq("user_id", user.id).eq("status", "active"),
+    supabase.from("projects").select("id, name, description, status, memory").eq("user_id", user.id).eq("status", "active"),
     supabase.from("project_updates").select("content, next_actions, update_type, created_at, project_id").eq("user_id", user.id).order("created_at", { ascending: false }).limit(20),
     supabase.from("decisions").select("context, verdict, probability, outcome_rating, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(10),
     supabase.from("rules").select("rule_text, severity, active").eq("user_id", user.id).eq("active", true),
@@ -30,7 +30,11 @@ export async function POST(req: NextRequest) {
   ]);
 
   const projectMap: Record<string, string> = {};
-  (projects ?? []).forEach(p => { projectMap[p.id] = p.name; });
+  const projectMemory: Record<string, string> = {};
+  (projects ?? []).forEach(p => {
+    projectMap[(p as any).id] = (p as any).name;
+    if ((p as any).memory) projectMemory[(p as any).name] = (p as any).memory;
+  });
 
   const sessionHistory = (recentSessions ?? [])
     .flatMap((s: any) => (s.messages ?? []).slice(-4))
