@@ -49,6 +49,11 @@ export async function POST(req: NextRequest) {
   const { message } = await req.json();
   if (!message?.trim()) return NextResponse.json({ items: [] });
 
+  // Deterministic pre-classification — never trust LLM for this
+  const lower = message.toLowerCase();
+  const forceTask = /\btask\b/.test(lower);
+  const forceBlocker = !forceTask && /(blocked on|waiting on|stuck on|can't proceed)/.test(lower);
+
   try {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const response = await openai.chat.completions.create({
@@ -60,8 +65,17 @@ export async function POST(req: NextRequest) {
     });
     const text = response.choices[0]?.message?.content ?? "[]";
     const clean = text.replace(/```json|```/g, "").trim();
-    const items = JSON.parse(clean);
-    return NextResponse.json({ items: Array.isArray(items) ? items : [] });
+    const parsed = JSON.parse(clean);
+    const items = Array.isArray(parsed) ? parsed : [];
+
+    // Override: if message contains "task", force type to "task" on any project_update items
+    const corrected = items.map((item: any) => {
+      if (forceTask && item.type !== "task") return { ...item, type: "task" };
+      if (forceBlocker && item.type === "project_update") return { ...item, type: "blocker" };
+      return item;
+    });
+
+    return NextResponse.json({ items: corrected });
   } catch (err: any) {
     return NextResponse.json({ items: [] });
   }
