@@ -55,12 +55,39 @@ function isQuestion(text: string) {
     t.startsWith("give me") || t.startsWith("tell me") || t.length < 25;
 }
 
-function isProjectRequest(text: string) {
-  const t = text.trim().toLowerCase();
-  return t.includes("add project") || t.includes("create project") ||
-    t.includes("add a project") || t.includes("new project") ||
-    t.includes("can you add") || t.includes("set up a project") ||
-    (t.includes("add") && t.includes("for me"));
+function extractProjectName(text: string): string | null {
+  const t = text.trim();
+  const lower = t.toLowerCase();
+
+  // Patterns: "add X for me", "add X as a project", "create project X", "create a project called X"
+  const patterns = [
+    /(?:add|create|set up|setup)\s+(?:a\s+)?(?:project\s+(?:called|named|for)?\s+)?["']?([A-Za-z0-9 _\-]+?)["']?\s+(?:for me|as a project|as new project|project)/i,
+    /(?:add|create)\s+(?:a\s+)?(?:new\s+)?project\s+(?:called|named|for)?\s+["']?([A-Za-z0-9 _\-]+?)["']?(?:\s+for me)?$/i,
+    /(?:can you\s+)?(?:add|create)\s+["']?([A-Za-z0-9 _\-]+?)["']?\s+(?:for me|as a project)$/i,
+    /(?:add|create)\s+["']([^"']+)["']/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = t.match(pattern);
+    if (match && match[1] && match[1].trim().length > 1) {
+      return match[1].trim();
+    }
+  }
+
+  // Fallback: if it's a short "add X for me" just grab X
+  if (lower.includes("for me") && (lower.startsWith("add ") || lower.startsWith("create "))) {
+    const words = t.split(" ");
+    const forIdx = words.findIndex(w => w.toLowerCase() === "for");
+    if (forIdx > 1) {
+      return words.slice(1, forIdx).join(" ").trim();
+    }
+  }
+
+  return null;
+}
+
+function isProjectRequest(text: string): boolean {
+  return extractProjectName(text) !== null;
 }
 
 function timeAgo(d: string) {
@@ -324,10 +351,18 @@ function AIPageInner() {
     setLoading(true);
 
     const isQ = isQuestion(content);
-    const isProjReq = isProjectRequest(content);
+    const detectedProjectName = extractProjectName(content);
+    const isProjReq = detectedProjectName !== null;
 
     const calls: Promise<any>[] = [
-      fetch("/api/ai", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: newThread.map(t => t.message) }) }).then(r => r.json()),
+      fetch("/api/ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: newThread.map(t => t.message),
+          detectedProjectName: isProjReq ? detectedProjectName : undefined,
+        })
+      }).then(r => r.json()),
     ];
     if (!isQ && !isProjReq) {
       calls.push(fetch("/api/ai/extract", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: content }) }).then(r => r.json()));
@@ -336,9 +371,9 @@ function AIPageInner() {
     const [aiData, extractData] = await Promise.all(calls);
     setLoading(false);
 
-    // Check if AI returned an action (project creation)
+    // Handle project creation action
     if (aiData.action?.action === "create_project") {
-      const assistantMsg: Message = { role: "assistant", content: aiData.action.message };
+      const assistantMsg: Message = { role: "assistant", content: `Got it — confirm to create **${aiData.action.name}**:` };
       const final = [...newThread, { message: assistantMsg, action: aiData.action, actionStatus: "pending" as const }];
       setThread(final);
       const newSid = await saveSession(final, sessionId);
