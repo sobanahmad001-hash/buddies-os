@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Sparkles, AlertTriangle, Info, AlertCircle, TrendingUp, Scale, Brain, Activity } from "lucide-react";
+import { Loader2, Sparkles, AlertTriangle, Info, AlertCircle, TrendingUp, Scale, Brain, Activity, CheckSquare, Users, FolderKanban } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import ReactMarkdown from "react-markdown";
 
 type Project = { id: string; name: string; status: string; updated_at: string; updateCount?: number; };
+type Task = { id: string; title: string; status: string; priority: number | null; due_date: string | null; project_id: string; };
+type ActivityItem = { id: string; kind: "update" | "task"; content: string; update_type: string | null; project: string | null; project_id: string | null; created_at: string; is_own: boolean; author: string; };
 type Decision = { id: string; context: string; verdict: string | null; probability: number | null; created_at: string; closed_at: string | null; review_date: string | null; };
 type Insight = { summary: string; insight_type: string; domain: string; recommended_focus: string | null; strength?: string; confidence_score?: number; supporting_records?: number; time_window?: string; };
 type Alert = { type: string; message: string; severity: "info" | "warn" | "alert" };
@@ -46,6 +48,9 @@ export default function DashboardPage() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
   const [alertsLoading, setAlertsLoading] = useState(true);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [teamActivity, setTeamActivity] = useState<ActivityItem[]>([]);
+  const [workspaceName, setWorkspaceName] = useState<string | null>(null);
   const [commandInput, setCommandInput] = useState("");
   const [summary, setSummary] = useState("");
   const [summaryLoading, setSummaryLoading] = useState(false);
@@ -85,6 +90,10 @@ export default function DashboardPage() {
         setAlerts(data.insights ?? []);
         setAlertsLoading(false);
       }).catch(() => setAlertsLoading(false));
+
+      // Load open tasks and team activity in parallel
+      fetch("/api/projects/tasks").then(r => r.json()).then(d => setTasks((d.tasks ?? []).filter((t: Task) => t.status !== "done")));
+      fetch("/api/workspace/activity").then(r => r.json()).then(d => { setTeamActivity(d.updates ?? []); if (d.workspaceName) setWorkspaceName(d.workspaceName); });
 
       // Generate fresh insights if we have behavior data
       if (behavLogs && behavLogs.length >= 3 && ins && ins.length === 0) {
@@ -127,6 +136,16 @@ export default function DashboardPage() {
   const avgStress = logs.length ? Math.round(logs.reduce((a, l) => a + (l.stress ?? 0), 0) / logs.length * 10) / 10 : null;
   const avgSleep = logs.length ? Math.round(logs.reduce((a, l) => a + (Number(l.sleep_hours) ?? 0), 0) / logs.length * 10) / 10 : null;
   const recentMoods = logs.slice(0, 3).map(l => l.mood_tag).filter(Boolean);
+
+  // Group open tasks by project
+  const tasksByProject: Record<string, { projectName: string; items: Task[] }> = {};
+  tasks.forEach(t => {
+    const proj = projects.find(p => p.id === t.project_id);
+    const key = t.project_id ?? "unassigned";
+    if (!tasksByProject[key]) tasksByProject[key] = { projectName: proj?.name ?? "Unassigned", items: [] };
+    tasksByProject[key].items.push(t);
+  });
+  const taskGroups = Object.values(tasksByProject).sort((a, b) => b.items.length - a.items.length);
 
   return (
     <div className="flex-1 overflow-auto">
@@ -350,6 +369,84 @@ export default function DashboardPage() {
                 </div>
             }
           </div>
+        </div>
+
+        {/* ── PENDING TASKS BY PROJECT ───────────────────────────── */}
+        {taskGroups.length > 0 && (
+          <div className="mt-4 bg-white border border-[#E5E2DE] rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <CheckSquare size={13} className="text-[#E8521A]" />
+              <h2 className="text-[12px] font-semibold text-[#1A1A1A] uppercase tracking-wide">Pending Tasks</h2>
+              <span className="text-[10px] text-[#737373] ml-auto">{tasks.length} open</span>
+            </div>
+            <div className="space-y-4">
+              {taskGroups.map(group => (
+                <div key={group.projectName}>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <FolderKanban size={11} className="text-[#737373]" />
+                    <span className="text-[11px] font-semibold text-[#404040]">{group.projectName}</span>
+                    <span className="text-[10px] text-[#737373] bg-[#F7F5F2] px-1.5 py-0.5 rounded-full">{group.items.length}</span>
+                  </div>
+                  <div className="space-y-1 pl-4">
+                    {group.items.map(t => (
+                      <div key={t.id} className="flex items-center gap-2.5 py-1.5 border-b border-[#F7F5F2] last:border-0">
+                        <div className={`w-2 h-2 rounded-full shrink-0 ${t.status === "in_progress" ? "bg-[#EAB308]" : "bg-[#D4D4D4]"}`} />
+                        <p className="text-[12px] text-[#404040] flex-1">{t.title}</p>
+                        {t.due_date && (
+                          <span className={`text-[10px] font-medium shrink-0 ${new Date(t.due_date) < new Date() ? "text-[#EF4444]" : "text-[#737373]"}`}>
+                            {new Date(t.due_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                          </span>
+                        )}
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ${
+                          t.status === "in_progress" ? "bg-[#FEF9C3] text-[#92400E]" : "bg-[#F3F4F6] text-[#737373]"
+                        } capitalize`}>{t.status === "in_progress" ? "In Progress" : "To Do"}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── TEAM / AGENT ACTIVITY FEED ─────────────────────────── */}
+        <div className="mt-4 bg-white border border-[#E5E2DE] rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Users size={13} className="text-[#2C5F8A]" />
+            <h2 className="text-[12px] font-semibold text-[#1A1A1A] uppercase tracking-wide">
+              {workspaceName ? `${workspaceName} Activity` : "Recent Activity"}
+            </h2>
+            <span className="text-[10px] text-[#737373] ml-auto">updates · tasks</span>
+          </div>
+          {teamActivity.length === 0 ? (
+            <p className="text-[12px] text-[#737373]">No activity yet. Start logging updates or tasks from the AI Assistant.</p>
+          ) : (
+            <div className="space-y-0">
+              {teamActivity.slice(0, 15).map(item => (
+                <div key={item.id} className="flex items-start gap-3 py-2.5 border-b border-[#F7F5F2] last:border-0">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 ${item.is_own ? "bg-[#E8521A] text-white" : "bg-[#DBEAFE] text-[#2C5F8A]"}`}>
+                    {item.author[0].toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[11px] font-semibold text-[#1A1A1A]">{item.is_own ? "You" : item.author}</span>
+                      <span className="text-[11px] text-[#737373]">
+                        {item.kind === "task" ? "added task" : `logged ${item.update_type ?? "update"}`}
+                      </span>
+                      {item.project && (
+                        <>
+                          <span className="text-[11px] text-[#737373]">in</span>
+                          <span className="text-[11px] font-medium text-[#404040]">{item.project}</span>
+                        </>
+                      )}
+                    </div>
+                    <p className="text-[12px] text-[#404040] truncate mt-0.5">{item.content}</p>
+                  </div>
+                  <span className="text-[10px] text-[#737373] shrink-0 mt-0.5">{timeAgo(item.created_at)}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Quick Command */}
