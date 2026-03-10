@@ -8,12 +8,13 @@ Extract ALL actionable items from the entrepreneur's message.
 Return ONLY a valid JSON array. Empty array [] if nothing to extract.
 
 STEP 1 — CLASSIFY TYPE (check in this exact order, stop at first match):
-1. Contains "add task" / "create task" / "task to" / "task:" / "todo:" / "to-do" → "task"
-2. Contains "blocked on" / "waiting on" / "stuck on" / "can't proceed" → "blocker"
-3. Contains "need to decide" / "deciding between" / "should I" + options → "decision"
-4. Contains "I should always/never" / "rule:" / "from now on" → "rule"
-5. Contains "slept" / "feeling" / "mood is" / "stress level" → "daily_check"
-6. Anything else about work or projects → "project_update"
+1. The word "task" appears ANYWHERE in the message → "task"
+2. Contains "todo:" / "to-do" / "remind me" → "task"
+3. Contains "blocked on" / "waiting on" / "stuck on" / "can't proceed" → "blocker"
+4. Contains "need to decide" / "deciding between" / "should I" + options → "decision"
+5. Contains "I should always/never" / "rule:" / "from now on" → "rule"
+6. Contains "slept" / "feeling" / "mood is" / "stress level" → "daily_check"
+7. Anything else about work or projects → "project_update"
 
 STEP 2 — BUILD JSON using the matching shape:
 
@@ -25,7 +26,10 @@ rule: {"type":"rule","content":"the rule text","domain":"trading or business or 
 daily_check: {"type":"daily_check","mood":"calm|focused|rushed|bored|anxious|fearful|angry|frustrated|overconfident|exhausted","stress":5,"sleep_hours":7,"confidence":7,"impulse":3}
 
 RULES:
-- A message saying "add task to X" → type is ALWAYS "task"
+- If the word "task" appears anywhere → type is ALWAYS "task", never "project_update"
+- Extract due_date from phrases like "8 am 11 march" → "2026-03-11", "tomorrow" → next day, "friday" → next friday
+- Extract exact time mentions into due_date as full ISO date (e.g. "8 am 11 march" → "2026-03-11T08:00:00")
+- Extract project name from "in X" / "for X" / "on X project"
 - A message about adding/creating/setting up a project → type is "new_project" with content as name
 - For daily_check mood use ONLY the exact values listed above
 - Return ONLY valid JSON array, nothing else
