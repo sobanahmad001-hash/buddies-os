@@ -6,7 +6,7 @@ import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import {
   LayoutDashboard, Sparkles, FolderKanban,
-  Scale, ShieldCheck, Sun, Search, LogOut, Menu, X
+  Scale, ShieldCheck, Sun, Search, LogOut, Menu, X, Users
 } from "lucide-react";
 
 const navItems = [
@@ -16,7 +16,8 @@ const navItems = [
   { to: "/app/decisions",   icon: Scale,           label: "Decisions" },
   { to: "/app/rules",       icon: ShieldCheck,     label: "Rules" },
   { to: "/app/daily-check", icon: Sun,             label: "Daily Check" },
-  { to: "/app/workspace",      icon: Search,          label: "Search" },
+  { to: "/app/workspace",   icon: Users,           label: "Workspace" },
+  { to: "/app/search",      icon: Search,          label: "Search" },
 ];
 
 function Sidebar({ onClose }: { onClose?: () => void }) {
