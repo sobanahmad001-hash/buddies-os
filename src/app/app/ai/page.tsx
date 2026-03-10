@@ -69,23 +69,26 @@ function extractProjectName(text: string): string | null {
   const t = text.trim();
   const lower = t.toLowerCase();
 
-  // Patterns: "add X for me", "add X as a project", "create project X", "create a project called X"
+  // Only trigger if message is PRIMARILY about creating a project
+  // If message also contains "add updates" or "add decisions", don't intercept
+  const hasUpdates = lower.includes("add update") || lower.includes("add these") || lower.includes("add decision") || lower.includes("add pending") || lower.includes("updates in") || lower.includes("and add");
+  
   const patterns = [
-    /(?:add|create|set up|setup)\s+(?:a\s+)?(?:project\s+(?:called|named|for)?\s+)?["']?([A-Za-z0-9 _\-]+?)["']?\s+(?:for me|as a project|as new project|project)/i,
-    /(?:add|create)\s+(?:a\s+)?(?:new\s+)?project\s+(?:called|named|for)?\s+["']?([A-Za-z0-9 _\-]+?)["']?(?:\s+for me)?$/i,
-    /(?:can you\s+)?(?:add|create)\s+["']?([A-Za-z0-9 _\-]+?)["']?\s+(?:for me|as a project)$/i,
-    /(?:add|create)\s+["']([^"']+)["']/i,
+    /(?:add|create|set up|setup)\s+["']?([A-Za-z0-9 _\-]+?)["']?\s+as\s+(?:a\s+)?(?:new\s+)?project/i,
+    /(?:add|create)\s+(?:a\s+)?(?:new\s+)?project\s+(?:called|named|for)?\s+["']?([A-Za-z0-9 _\-]+?)["']?\s*$/i,
+    /(?:can you\s+)?(?:add|create)\s+["']?([A-Za-z0-9 _\-]+?)["']?\s+(?:as a project|as new project)\s*$/i,
+    /(?:add|create)\s+["']([^"']+)["']\s+(?:as a project|project)\s*$/i,
   ];
 
   for (const pattern of patterns) {
     const match = t.match(pattern);
-    if (match && match[1] && match[1].trim().length > 1) {
+    if (match && match[1] && match[1].trim().length > 1 && !hasUpdates) {
       return match[1].trim();
     }
   }
 
-  // Fallback: if it's a short "add X for me" just grab X
-  if (lower.includes("for me") && (lower.startsWith("add ") || lower.startsWith("create "))) {
+  // Simple "add X for me" only if no update context
+  if (!hasUpdates && lower.includes("for me") && (lower.startsWith("add ") || lower.startsWith("create ")) && t.split(" ").length <= 6) {
     const words = t.split(" ");
     const forIdx = words.findIndex(w => w.toLowerCase() === "for");
     if (forIdx > 1) {
@@ -375,7 +378,8 @@ function AIPageInner() {
         })
       }).then(r => r.json()),
     ];
-    if (!isQ && !isProjReq) {
+    // Always run extraction unless it's a pure question — even with project requests if message has content
+    if (!isQ) {
       calls.push(fetch("/api/ai/extract", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: content }) }).then(r => r.json()));
     }
 
