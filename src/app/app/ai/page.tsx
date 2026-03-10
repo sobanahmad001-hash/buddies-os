@@ -372,6 +372,11 @@ function AIPageInner() {
     const detectedProjectName = extractProjectName(content);
     const isProjReq = detectedProjectName !== null;
 
+    // Rule check runs in parallel — non-blocking
+    const ruleCheckCall = !isQ
+      ? fetch("/api/ai/check-rules", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: content }) }).then(r => r.json()).catch(() => ({ violations: [] }))
+      : Promise.resolve({ violations: [] });
+
     const aiCall = fetch("/api/ai", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -389,7 +394,7 @@ function AIPageInner() {
       ? fetch("/api/ai/extract-decision", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: content }) }).then(r => r.json()).catch(() => ({ decision_detected: false }))
       : Promise.resolve({ decision_detected: false });
 
-    const [aiData, extractDataRaw, decisionData] = await Promise.all([aiCall, extractCall, decisionCall]);
+    const [aiData, extractDataRaw, decisionData, ruleData] = await Promise.all([aiCall, extractCall, decisionCall, ruleCheckCall]);
     let extractData: any = extractDataRaw;
     setLoading(false);
 
