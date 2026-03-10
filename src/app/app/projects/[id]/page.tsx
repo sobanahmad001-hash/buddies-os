@@ -36,7 +36,8 @@ export default function ProjectDetailPage() {
     setUpdates(u ?? []);
   }
 
-  useEffect(() => { load(); }, [id]);
+  useEffect(() => {
+    loadTasks(); load(); }, [id]);
 
   async function handleArchive() {
     await supabase.from("projects").update({ status: "archived" }).eq("id", id);
@@ -44,6 +45,29 @@ export default function ProjectDetailPage() {
   }
 
   if (!project) return <div className="flex-1 flex items-center justify-center"><p className="text-[14px] text-[#737373]">Loading...</p></div>;
+
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [addingTask, setAddingTask] = useState(false);
+
+  async function loadTasks() {
+    const res = await fetch(`/api/projects/tasks?projectId=${params.id}`);
+    if (res.ok) { const d = await res.json(); setTasks(d.tasks ?? []); }
+  }
+
+  async function addTask() {
+    if (!newTaskTitle.trim()) return;
+    setAddingTask(true);
+    await fetch("/api/projects/tasks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ project_id: params.id, title: newTaskTitle.trim() }) });
+    setNewTaskTitle("");
+    setAddingTask(false);
+    loadTasks();
+  }
+
+  async function updateTaskStatus(id: string, status: string) {
+    await fetch("/api/projects/tasks", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status }) });
+    loadTasks();
+  }
 
   return (
     <div className="flex-1 overflow-auto">
@@ -118,6 +142,44 @@ export default function ProjectDetailPage() {
               ))}
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Tasks */}
+      <div className="bg-white rounded-xl border border-[#E5E7EB] p-5 mt-4">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-bold text-[#1A1A1A] uppercase tracking-wide">Tasks</h2>
+          <span className="text-xs text-[#737373]">{tasks.filter(t => t.status !== "done").length} open</span>
+        </div>
+        <div className="flex gap-2 mb-4">
+          <input
+            value={newTaskTitle}
+            onChange={e => setNewTaskTitle(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && addTask()}
+            placeholder="Add a task and press Enter..."
+            className="flex-1 text-sm px-3 py-2 border border-[#E5E7EB] rounded-lg focus:outline-none focus:border-[#E8521A]"
+          />
+          <button onClick={addTask} disabled={addingTask} className="px-3 py-2 bg-[#E8521A] text-white text-xs rounded-lg font-semibold hover:bg-[#c94415] disabled:opacity-50">
+            {addingTask ? "..." : "+ Add"}
+          </button>
+        </div>
+        <div className="space-y-1">
+          {tasks.length === 0 && <p className="text-xs text-[#737373] text-center py-4">No tasks yet — add one above or ask AI to create tasks for this project</p>}
+          {tasks.map(task => (
+            <div key={task.id} className={`flex items-center gap-3 p-2.5 rounded-lg border transition-colors ${task.status === "done" ? "border-[#E5E7EB] opacity-50" : "border-[#E5E7EB] hover:border-[#E8521A]"}`}>
+              <button
+                onClick={() => updateTaskStatus(task.id, task.status === "done" ? "todo" : task.status === "todo" ? "in_progress" : "done")}
+                className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 text-[9px] font-bold transition-colors ${task.status === "done" ? "bg-[#2D6A4F] border-[#2D6A4F] text-white" : task.status === "in_progress" ? "bg-[#F59E0B] border-[#F59E0B] text-white" : "border-[#D1D5DB] text-transparent"}`}>
+                {task.status === "done" ? "✓" : task.status === "in_progress" ? "→" : ""}
+              </button>
+              <span className={`text-sm flex-1 ${task.status === "done" ? "line-through text-[#737373]" : "text-[#1A1A1A]"}`}>{task.title}</span>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${task.status === "todo" ? "bg-[#F3F4F6] text-[#737373]" : task.status === "in_progress" ? "bg-[#FEF9C3] text-[#92400E]" : "bg-[#DCFCE7] text-[#2D6A4F]"}`}>
+                {task.status.replace("_", " ")}
+              </span>
+              {task.priority === 1 && <span className="text-[10px] px-1.5 py-0.5 bg-[#FEE2E2] text-[#EF4444] rounded-full font-semibold">urgent</span>}
+              {task.due_date && <span className="text-[10px] text-[#737373]">{task.due_date}</span>}
+            </div>
+          ))}
         </div>
       </div>
     </div>
