@@ -1,9 +1,9 @@
 "use client";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
-export default function JoinPage() {
+function JoinContent() {
   const router = useRouter();
   const params = useSearchParams();
   const token = params.get("token");
@@ -58,5 +58,20 @@ export default function JoinPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function JoinPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center">
+        <div className="bg-white rounded-2xl border border-[#E5E2DE] p-8 max-w-sm w-full text-center">
+          <div className="text-2xl mb-4">⏳</div>
+          <h1 className="text-lg font-semibold text-[#1A1A1A]">Loading...</h1>
+        </div>
+      </div>
+    }>
+      <JoinContent />
+    </Suspense>
   );
 }
