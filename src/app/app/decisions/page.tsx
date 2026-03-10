@@ -11,6 +11,10 @@ type Decision = {
   risk_flags: string | null; expected_outcome: string | null; actual_outcome: string | null;
   outcome_rating: string | null; closed_at: string | null; prediction_accuracy: number | null;
   review_date: string | null; created_at: string; domain: string | null;
+  actual_outcome_bool: boolean | null;
+  sleep_at_decision: number | null; stress_at_decision: number | null;
+  confidence_at_decision: number | null; impulse_at_decision: number | null;
+  cognitive_score_at_decision: number | null;
 };
 
 function timeAgo(d: string) { const diff = Date.now() - new Date(d).getTime(); const h = Math.floor(diff/60000/60); if (h < 24) return `${h}h ago`; return `${Math.floor(h/24)}d ago`; }

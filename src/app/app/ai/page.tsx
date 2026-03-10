@@ -33,9 +33,9 @@ type ThreadEntry = {
 type Session = { id: string; title: string; updated_at: string };
 
 const STARTERS = [
-  "What did I work on this week?",
-  "Which project had most progress?",
-  "What decisions did I close as failures?",
+  "/report",
+  "/state",
+  "Should I make a big decision today?",
   "What patterns exist in my behavior?",
 ];
 
@@ -46,6 +46,8 @@ function expandShortcut(text: string): string {
   if (t === "/week") return "Give me a summary of what happened across all projects this week";
   if (t === "/decisions") return "Show me all open decisions that need review";
   if (t === "/focus") return "Based on my projects and behavior patterns, what should I focus on today?";
+  if (t === "/report") return "Generate my weekly intelligence report: decisions made, success rate, best operating state, risk patterns, and what to focus on this week";
+  if (t === "/state") return "What is my current cognitive state and should I be making important decisions right now?";
   return text;
 }
 
