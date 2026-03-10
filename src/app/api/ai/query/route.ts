@@ -97,14 +97,12 @@ export async function POST(req: NextRequest) {
   const sql = TEMPLATES[templateKey](user.id);
 
   let queryResult: any[] = [];
-  let rpcError: any = null;
   try {
-    const { data: rows, error } = await supabase.rpc("run_query", { sql_query: sql }).select();
-    rpcError = error;
-    queryResult = rows ?? [];
-  } catch { rpcError = "rpc failed"; }
+    const { data, error } = await supabase.rpc("run_query", { sql_query: sql }).select();
+    if (!error && data) queryResult = data;
+  } catch { queryResult = []; }
 
-  if (rpcError || queryResult.length === 0) {
+  if (queryResult.length === 0) {
     const fallbackMap: Record<string, any> = {
       project_progress: () => supabase.from("project_updates").select("project_id, update_type, created_at").eq("user_id", user.id).gte("created_at", new Date(Date.now() - 7*86400000).toISOString()),
       behavior_patterns: () => supabase.from("behavior_logs").select("mood_tag, stress, sleep_hours, confidence, impulse, cognitive_score, timestamp").eq("user_id", user.id).order("timestamp", { ascending: false }).limit(20),
