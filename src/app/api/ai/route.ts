@@ -66,14 +66,7 @@ ${sessionHistory ? `RECENT CONVERSATION HISTORY:\n${sessionHistory}` : ""}`.trim
 PHILOSOPHY: Capture → Understand → Analyze → Suggest → Human decides.
 You are an advisor, not a governor. Surface intelligence, let the human decide.
 
-CRITICAL — PROJECT CREATION DETECTION:
-If the user explicitly asks you to add, create, or set up a project (e.g. "add Anka Diversify", "create a project called X", "can you add X for me"), your ENTIRE response must be ONLY this single line with no other text:
-INTERNAL_ACTION:create_project|name:PROJECTNAME|description:DESCRIPTION|message:YOURMESSAGE
-
-Replace PROJECTNAME with the actual name, DESCRIPTION with a brief description or null, YOURMESSAGE with a friendly 1-sentence confirmation.
-Do not include any other text, explanation, next steps, or markdown when creating a project.
-
-For all other messages, respond normally in markdown.
+Respond naturally in markdown. Never output JSON or structured data.
 
 RESPONSE RULES:
 - Factual questions: answer directly
@@ -106,24 +99,6 @@ ${contextBlock}`;
         ?.filter((c: any) => c.type === "output_text")
         ?.map((c: any) => c.text)
         ?.join("") ?? "";
-
-      // Check if response is a project creation action
-      const trimmed = text.trim();
-      if (trimmed.startsWith("INTERNAL_ACTION:create_project")) {
-        try {
-          const parts: Record<string, string> = {};
-          trimmed.replace("INTERNAL_ACTION:create_project|", "").split("|").forEach((p: string) => {
-            const i = p.indexOf(":");
-            if (i > -1) parts[p.slice(0,i).trim()] = p.slice(i+1).trim();
-          });
-          return NextResponse.json({
-            text: parts.message ?? "Project created.",
-            action: "create_project",
-            projectName: parts.name ?? "",
-            projectDescription: parts.description && parts.description !== "null" ? parts.description : null,
-            provider: "openai"
-          });
-        } catch {}
       }
 
       return NextResponse.json({ text, provider: "openai" });
