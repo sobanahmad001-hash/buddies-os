@@ -8,7 +8,7 @@ import ReactMarkdown from "react-markdown";
 
 type Project = { id: string; name: string; status: string; updated_at: string; updateCount?: number; };
 type Decision = { id: string; context: string; verdict: string | null; probability: number | null; created_at: string; closed_at: string | null; review_date: string | null; };
-type Insight = { summary: string; insight_type: string; domain: string; recommended_focus: string | null; };
+type Insight = { summary: string; insight_type: string; domain: string; recommended_focus: string | null; strength?: string; confidence_score?: number; supporting_records?: number; time_window?: string; };
 type Alert = { type: string; message: string; severity: "info" | "warn" | "alert" };
 
 function timeAgo(d: string) { const diff = Date.now() - new Date(d).getTime(); const m = Math.floor(diff/60000); if (m < 60) return `${m}m ago`; const h = Math.floor(m/60); if (h < 24) return `${h}h ago`; return `${Math.floor(h/24)}d ago`; }
@@ -40,6 +40,8 @@ export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [decisions, setDecisions] = useState<Decision[]>([]);
   const [insights, setInsights] = useState<Insight[]>([]);
+  const [predictions, setPredictions] = useState<any[]>([]);
+  const [cognitiveData, setCognitiveData] = useState<{ score: number; trend: string; avgAccuracy: number | null } | null>(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
   const [alertsLoading, setAlertsLoading] = useState(true);
@@ -90,8 +92,26 @@ export default function DashboardPage() {
         });
       }
     }
-    load();
-  }, []);
+    load();    loadCognitive();  }, []);
+
+  async function loadCognitive() {
+    const predRes = await fetch("/api/ai/predictions");
+    const predData = await predRes.json();
+    setPredictions(predData.predictions ?? []);
+
+    const logRes = await fetch("/api/daily-check?limit=5");
+    if (logRes.ok) {
+      const logData = await logRes.json();
+      const recentLogs = logData.logs ?? [];
+      if (recentLogs.length > 0) {
+        const latest = recentLogs[0];
+        const trend = recentLogs.length > 1
+          ? (recentLogs[0].cognitive_score > recentLogs[1].cognitive_score ? "up" : "down")
+          : "stable";
+        setCognitiveData({ score: latest.cognitive_score ?? 0, trend, avgAccuracy: null });
+      }
+    }
+  }
 
   async function generateSummary() {
     setSummaryLoading(true); setShowSummary(true);
@@ -233,6 +253,59 @@ export default function DashboardPage() {
             <button onClick={() => router.push("/app/daily-check")} className="mt-3 text-[11px] text-[#CC785C] hover:underline">Log today →</button>
           </div>
 
+          {/* Cognitive State */}
+          <div className="bg-white border border-[#E5E2DE] rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Brain size={13} className="text-[#7C3AED]" />
+              <h2 className="text-[12px] font-semibold text-[#1A1A1A] uppercase tracking-wide">Cognitive State</h2>
+            </div>
+            {cognitiveData ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-[28px] font-bold text-[#1A1A1A] leading-none">{cognitiveData.score}<span className="text-[11px] text-[#737373] ml-1">/100</span></div>
+                    <div className="text-[10px] text-[#737373] mt-0.5">Current cognitive score</div>
+                  </div>
+                  <div className={`text-[10px] font-semibold px-2 py-1 rounded-full ${
+                    cognitiveData.score >= 70 ? "bg-[#DCFCE7] text-[#2D6A4F]" :
+                    cognitiveData.score >= 45 ? "bg-[#FEF9C3] text-[#92400E]" :
+                    "bg-[#FEE2E2] text-[#EF4444]"
+                  }`}>
+                    {cognitiveData.score >= 70 ? "Sharp" : cognitiveData.score >= 45 ? "Moderate" : "Low"}
+                  </div>
+                </div>
+                <div className="h-1.5 bg-[#F3F4F6] rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${
+                      cognitiveData.score >= 70 ? "bg-[#2D6A4F]" :
+                      cognitiveData.score >= 45 ? "bg-[#F59E0B]" :
+                      "bg-[#EF4444]"
+                    }`}
+                    style={{ width: `${cognitiveData.score}%` }}
+                  />
+                </div>
+                {predictions.length > 0 ? (
+                  <div className="space-y-1.5">
+                    <p className="text-[10px] text-[#737373] uppercase tracking-wide font-semibold">Active Alerts</p>
+                    {predictions.map((p: any, i: number) => (
+                      <div key={i} className="flex items-start gap-2 px-2.5 py-2 bg-[#FEFCE8] border border-[#FDE68A] rounded-lg">
+                        <span className="text-[#F59E0B] mt-0.5 text-[11px]">⚡</span>
+                        <div className="flex-1">
+                          <p className="text-[11px] text-[#92400E] leading-snug">{p.predicted_outcome}</p>
+                          <p className="text-[10px] text-[#B45309] mt-0.5">{Math.round(p.confidence * 100)}% confidence · {p.based_on_records} records</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-[#737373] text-center py-1">No active alerts — all signals clear</p>
+                )}
+              </div>
+            ) : (
+              <p className="text-[12px] text-[#737373]">Log a daily check-in to activate cognitive tracking.</p>
+            )}
+          </div>
+
           {/* PILLAR 4: AI Insights */}
           <div className="bg-white border border-[#E5E2DE] rounded-xl p-4">
             <div className="flex items-center gap-2 mb-3">
@@ -255,7 +328,20 @@ export default function DashboardPage() {
               : <div className="space-y-2">
                   {insights.map((ins, i) => (
                     <div key={i} className="px-3 py-2.5 bg-[#FAF9F7] border border-[#E5E2DE] rounded-lg">
-                      <p className="text-[10px] font-semibold text-[#CC785C] uppercase tracking-wide mb-1">{ins.domain} · {ins.insight_type}</p>
+                      <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                        <p className="text-[10px] font-semibold text-[#CC785C] uppercase tracking-wide">{ins.domain} · {ins.insight_type}</p>
+                        {ins.strength && (
+                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                            ins.strength === "strong" ? "bg-[#DCFCE7] text-[#2D6A4F]" :
+                            ins.strength === "moderate" ? "bg-[#FEF9C3] text-[#92400E]" :
+                            "bg-[#F3F4F6] text-[#737373]"
+                          }`}>{ins.strength}</span>
+                        )}
+                        {ins.confidence_score != null && (
+                          <span className="text-[10px] text-[#737373]">{Math.round(ins.confidence_score * 100)}% conf · {ins.supporting_records ?? "?"} records</span>
+                        )}
+                        {ins.time_window && <span className="text-[10px] text-[#737373]">{ins.time_window}</span>}
+                      </div>
                       <p className="text-[12px] text-[#404040] leading-snug">{ins.summary}</p>
                       {ins.recommended_focus && <p className="text-[11px] text-[#737373] mt-1 italic">→ {ins.recommended_focus}</p>}
                     </div>
