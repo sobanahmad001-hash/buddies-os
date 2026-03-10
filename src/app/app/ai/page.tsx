@@ -598,7 +598,6 @@ function AIPageInner() {
   );
 }
 
-import { History } from "lucide-react";
 
 export default function AIPage() {
   return (
