@@ -372,24 +372,25 @@ function AIPageInner() {
     const detectedProjectName = extractProjectName(content);
     const isProjReq = detectedProjectName !== null;
 
-    const calls: Promise<any>[] = [
-      fetch("/api/ai", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: newThread.map(t => t.message),
-          detectedProjectName: isProjReq ? detectedProjectName : undefined,
-        })
-      }).then(r => r.json()),
-    ];
-    // Always run extraction unless it's a pure question
-    if (!isQ) {
-      calls.push(fetch("/api/ai/extract", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: content }) }).then(r => r.json()));
-      // Decision detection runs in parallel
-      calls.push(fetch("/api/ai/extract-decision", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: content }) }).then(r => r.json()).catch(() => ({ decision_detected: false })));
-    }
+    const aiCall = fetch("/api/ai", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messages: newThread.map(t => t.message),
+        detectedProjectName: isProjReq ? detectedProjectName : undefined,
+      })
+    }).then(r => r.json());
 
-    const [aiData, extractData, decisionData] = await Promise.all(calls);
+    const extractCall = !isQ
+      ? fetch("/api/ai/extract", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: content }) }).then(r => r.json())
+      : Promise.resolve(null);
+
+    const decisionCall = !isQ
+      ? fetch("/api/ai/extract-decision", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: content }) }).then(r => r.json()).catch(() => ({ decision_detected: false }))
+      : Promise.resolve({ decision_detected: false });
+
+    const [aiData, extractDataRaw, decisionData] = await Promise.all([aiCall, extractCall, decisionCall]);
+    let extractData: any = extractDataRaw;
     setLoading(false);
 
     // Handle project creation action
