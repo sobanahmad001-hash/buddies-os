@@ -46,6 +46,8 @@ function expandShortcut(text: string): string {
   if (t === "/week") return "Give me a summary of what happened across all projects this week";
   if (t === "/decisions") return "Show me all open decisions that need review";
   if (t === "/focus") return "Based on my projects and behavior patterns, what should I focus on today?";
+  if (t === "/insights") return "Run the insight generation engine and tell me the strongest patterns you find in my data";
+  if (t === "/embed") return "Generate embeddings for my existing decisions and lessons so semantic search works";
   if (t === "/report") return "Generate my weekly intelligence report: decisions made, success rate, best operating state, risk patterns, and what to focus on this week";
   if (t === "/state") return "What is my current cognitive state and should I be making important decisions right now?";
   return text;
@@ -380,12 +382,14 @@ function AIPageInner() {
         })
       }).then(r => r.json()),
     ];
-    // Always run extraction unless it's a pure question — even with project requests if message has content
+    // Always run extraction unless it's a pure question
     if (!isQ) {
       calls.push(fetch("/api/ai/extract", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: content }) }).then(r => r.json()));
+      // Decision detection runs in parallel
+      calls.push(fetch("/api/ai/extract-decision", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: content }) }).then(r => r.json()).catch(() => ({ decision_detected: false })));
     }
 
-    const [aiData, extractData] = await Promise.all(calls);
+    const [aiData, extractData, decisionData] = await Promise.all(calls);
     setLoading(false);
 
     // Handle project creation action

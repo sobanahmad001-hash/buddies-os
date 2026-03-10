@@ -41,6 +41,7 @@ export default function DashboardPage() {
   const [decisions, setDecisions] = useState<Decision[]>([]);
   const [insights, setInsights] = useState<Insight[]>([]);
   const [predictions, setPredictions] = useState<any[]>([]);
+  const [focusRecs, setFocusRecs] = useState<any[]>([]);
   const [cognitiveData, setCognitiveData] = useState<{ score: number; trend: string; avgAccuracy: number | null } | null>(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
