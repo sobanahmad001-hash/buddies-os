@@ -15,6 +15,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const { messages } = await req.json();
+  const lastMessage = messages[messages.length - 1]?.content ?? "";
 
   const [
     { data: projects }, { data: updates }, { data: decisions },
@@ -37,12 +38,13 @@ export async function POST(req: NextRequest) {
     .map((m: any) => `[${m.role}]: ${m.content}`)
     .join("\n");
 
+  const projectNames = (projects ?? []).map(p => p.name);
+
   const contextBlock = `
-ACTIVE PROJECTS:
-${(projects ?? []).map(p => `- ${p.name}: ${p.description ?? "no description"}`).join("\n")}
+ACTIVE PROJECTS: ${projectNames.join(", ") || "none"}
 
 RECENT UPDATES:
-${(updates ?? []).map(u => `- [${projectMap[u.project_id] ?? "unknown"}] ${u.update_type}: ${u.content}${u.next_actions ? ` → next: ${u.next_actions}` : ""}`).join("\n")}
+${(updates ?? []).map(u => `- [${projectMap[u.project_id] ?? "unknown"}] ${u.update_type}: ${u.content}`).join("\n")}
 
 DECISIONS:
 ${(decisions ?? []).map(d => `- ${d.verdict?.toUpperCase() ?? "?"} (${d.probability ?? "?"}%) [outcome: ${d.outcome_rating ?? "open"}]: ${d.context}`).join("\n")}
@@ -57,17 +59,22 @@ ${sessionHistory ? `RECENT CONVERSATION HISTORY:\n${sessionHistory}` : ""}`.trim
 
   const systemPrompt = `You are the AI core of Buddies OS — a personal operating system for an entrepreneur named Soban.
 
-PHILOSOPHY:
-Capture → Understand → Analyze → Suggest → Human decides.
+PHILOSOPHY: Capture → Understand → Analyze → Suggest → Human decides.
 You are an advisor, not a governor. Surface intelligence, let the human decide.
 
+CRITICAL — PROJECT CREATION DETECTION:
+If the user explicitly asks you to add, create, or set up a project (e.g. "add Anka Diversify", "create a project called X", "can you add X for me"), you MUST respond in this exact JSON format and nothing else:
+{"action":"create_project","name":"<exact project name>","description":"<brief description if mentioned, otherwise null>","message":"<your confirmation message>"}
+
+For everything else, respond normally in markdown.
+
 RESPONSE RULES:
-- Answer factual questions directly and concisely
-- When you detect a pattern: "Observation: [what data shows]. [supporting data]. You decide."
+- Factual questions: answer directly
+- Patterns detected: "Observation: [what data shows]. [supporting data]. You decide."
 - Never say "you should" — say "the data suggests" or "worth considering"
 - Use markdown — bold key terms, bullets for lists
-- Keep responses tight. No padding. No flattery.
-- For live data questions (prices, news, current events) — use web search automatically
+- Tight responses. No padding. No flattery.
+- For live data (prices, news, events) — use web search
 
 CURRENT CONTEXT:
 ${contextBlock}`;
@@ -75,41 +82,54 @@ ${contextBlock}`;
   try {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-    // Use Responses API which natively supports web_search_preview
-    const response = await (openai as any).responses.create({
-      model: "gpt-4o-mini",
-      tools: [{ type: "web_search_preview" }],
-      input: [
-        { role: "system", content: systemPrompt },
-        ...messages.map((m: any) => ({ role: m.role, content: m.content })),
-      ],
-    });
-
-    // Extract text from response output
-    const text = response.output
-      ?.filter((o: any) => o.type === "message")
-      ?.flatMap((o: any) => o.content ?? [])
-      ?.filter((c: any) => c.type === "output_text")
-      ?.map((c: any) => c.text)
-      ?.join("") ?? "No response.";
-
-    return NextResponse.json({ text, provider: "openai" });
-  } catch (err: any) {
-    // Fallback to standard chat completions without web search
+    // Try Responses API with web search first
     try {
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const response = await (openai as any).responses.create({
+        model: "gpt-4o-mini",
+        tools: [{ type: "web_search_preview" }],
+        input: [
+          { role: "system", content: systemPrompt },
+          ...messages.map((m: any) => ({ role: m.role, content: m.content })),
+        ],
+      });
+
+      const text = response.output
+        ?.filter((o: any) => o.type === "message")
+        ?.flatMap((o: any) => o.content ?? [])
+        ?.filter((c: any) => c.type === "output_text")
+        ?.map((c: any) => c.text)
+        ?.join("") ?? "";
+
+      // Check if response is a project creation action
+      const trimmed = text.trim();
+      if (trimmed.startsWith("{") && trimmed.includes('"action":"create_project"')) {
+        try {
+          const action = JSON.parse(trimmed);
+          return NextResponse.json({ action, provider: "openai" });
+        } catch {}
+      }
+
+      return NextResponse.json({ text, provider: "openai" });
+    } catch {
+      // Fallback to chat completions
       const response = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         max_tokens: 1024,
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...messages,
-        ],
+        messages: [{ role: "system", content: systemPrompt }, ...messages],
       });
       const text = response.choices[0]?.message?.content ?? "No response.";
+
+      const trimmed = text.trim();
+      if (trimmed.startsWith("{") && trimmed.includes('"action":"create_project"')) {
+        try {
+          const action = JSON.parse(trimmed);
+          return NextResponse.json({ action, provider: "openai-fallback" });
+        } catch {}
+      }
+
       return NextResponse.json({ text, provider: "openai-fallback" });
-    } catch (fallbackErr: any) {
-      return NextResponse.json({ text: `Error: ${fallbackErr.message}` });
     }
+  } catch (err: any) {
+    return NextResponse.json({ text: `Error: ${err.message}` });
   }
 }

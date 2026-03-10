@@ -6,27 +6,37 @@ import ReactMarkdown from "react-markdown";
 import {
   Send, Loader2, Sparkles, Check, X, CheckCheck,
   FolderKanban, Scale, ShieldCheck, AlertTriangle,
-  Sun, ChevronDown, History, Plus, Pencil, Paperclip, FileText, Image
+  Sun, ChevronDown, History, Plus, Pencil, Paperclip,
+  FileText, FolderPlus, Folder
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 
+type Project = { id: string; name: string; status: string };
 type Message = { role: "user" | "assistant"; content: string; filename?: string };
+type ActionData = { action: string; name: string; description?: string; message: string };
 type ExtractedItem = {
   id: string;
   type: "project_update" | "decision" | "rule" | "blocker" | "daily_check";
-  project?: string; content: string; update_type?: string; next_actions?: string;
+  project?: string; assignedProjectId?: string | null;
+  content: string; update_type?: string; next_actions?: string;
   verdict?: string; probability?: number; rule_text?: string; severity?: number;
   context?: string; mood?: string; sleep_hours?: number; stress?: number; notes?: string;
   status: "pending" | "saved" | "dismissed";
 };
-type ThreadEntry = { message: Message; extractions?: ExtractedItem[] };
+type ThreadEntry = {
+  message: Message;
+  extractions?: ExtractedItem[];
+  newProjects?: string[];
+  action?: ActionData;
+  actionStatus?: "pending" | "created" | "dismissed";
+};
 type Session = { id: string; title: string; updated_at: string };
 
 const STARTERS = [
   "What did I work on this week?",
+  "Add a project for me",
   "Which project is falling behind?",
   "What should I focus on today?",
-  "Summarize my recent decisions",
 ];
 
 const TYPE_CONFIG: Record<string, { icon: any; label: string; color: string; bg: string }> = {
@@ -45,6 +55,14 @@ function isQuestion(text: string) {
     t.startsWith("give me") || t.startsWith("tell me") || t.length < 25;
 }
 
+function isProjectRequest(text: string) {
+  const t = text.trim().toLowerCase();
+  return t.includes("add project") || t.includes("create project") ||
+    t.includes("add a project") || t.includes("new project") ||
+    t.includes("can you add") || t.includes("set up a project") ||
+    (t.includes("add") && t.includes("for me"));
+}
+
 function timeAgo(d: string) {
   const diff = Date.now() - new Date(d).getTime();
   const h = Math.floor(diff / 3600000);
@@ -52,13 +70,85 @@ function timeAgo(d: string) {
   return `${Math.floor(h / 24)}d ago`;
 }
 
-function ExtractionChip({ item, onSave, onDismiss, onEdit }: {
-  item: ExtractedItem; onSave: () => void; onDismiss: () => void; onEdit: (val: string) => void;
+// Project selector dropdown
+function ProjectSelector({ item, projects, onChange }: {
+  item: ExtractedItem; projects: Project[];
+  onChange: (id: string | null, name: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const matched = projects.find(p => p.id === item.assignedProjectId);
+  const label = matched?.name ?? item.project ?? "No project";
+
+  async function createAndAssign() {
+    if (!newName.trim()) return;
+    const res = await fetch("/api/projects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newName }) });
+    const data = await res.json();
+    if (data.project) { onChange(data.project.id, data.project.name); setOpen(false); setCreating(false); setNewName(""); }
+  }
+
+  return (
+    <div className="relative" ref={ref}>
+      <button onClick={() => setOpen(!open)}
+        className="flex items-center gap-1 text-[10px] text-[#737373] hover:text-[#CC785C] border border-[#E5E2DE] rounded-md px-1.5 py-0.5 hover:border-[#CC785C] transition-colors">
+        <Folder size={9} /><span className="max-w-[80px] truncate">{label}</span><ChevronDown size={8} />
+      </button>
+      {open && (
+        <div className="absolute top-6 left-0 w-52 bg-white border border-[#E5E2DE] rounded-xl shadow-lg z-30 overflow-hidden">
+          <div className="px-3 py-2 border-b border-[#F7F5F2]">
+            <p className="text-[10px] font-semibold text-[#737373] uppercase tracking-wide">Assign to project</p>
+          </div>
+          <div className="max-h-40 overflow-y-auto">
+            <button onClick={() => { onChange(null, null); setOpen(false); }}
+              className="w-full text-left px-3 py-2 text-[12px] text-[#737373] hover:bg-[#FAF9F7]">No project</button>
+            {projects.map(p => (
+              <button key={p.id} onClick={() => { onChange(p.id, p.name); setOpen(false); }}
+                className={`w-full text-left px-3 py-2 text-[12px] hover:bg-[#FAF9F7] flex items-center justify-between ${item.assignedProjectId === p.id ? "text-[#CC785C] font-semibold" : "text-[#404040]"}`}>
+                {p.name}{item.assignedProjectId === p.id && <Check size={11} className="text-[#CC785C]" />}
+              </button>
+            ))}
+          </div>
+          <div className="border-t border-[#F7F5F2] p-2">
+            {creating ? (
+              <div className="flex gap-1">
+                <input className="flex-1 text-[11px] border border-[#E5E2DE] rounded px-2 py-1 outline-none focus:border-[#CC785C]"
+                  placeholder="Project name" value={newName} onChange={e => setNewName(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && createAndAssign()} autoFocus />
+                <button onClick={createAndAssign} className="text-[11px] px-2 bg-[#1A1A1A] text-white rounded">+</button>
+              </div>
+            ) : (
+              <button onClick={() => setCreating(true)}
+                className="flex items-center gap-1.5 w-full text-[11px] text-[#CC785C] font-semibold px-1 py-1 hover:bg-[#FAF9F7] rounded">
+                <FolderPlus size={11} /> Create new project
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ExtractionChip({ item, projects, onSave, onDismiss, onEdit, onProjectChange }: {
+  item: ExtractedItem; projects: Project[];
+  onSave: () => void; onDismiss: () => void;
+  onEdit: (val: string) => void;
+  onProjectChange: (id: string | null, name: string | null) => void;
 }) {
   const config = TYPE_CONFIG[item.type] ?? TYPE_CONFIG.project_update;
   const Icon = config.icon;
   const [editVal, setEditVal] = useState(item.rule_text ?? item.content);
   const [isEditing, setIsEditing] = useState(false);
+  const needsProject = ["project_update", "blocker"].includes(item.type);
 
   return (
     <div className={`flex items-start gap-3 px-3 py-2.5 rounded-xl border transition-all ${
@@ -70,9 +160,12 @@ function ExtractionChip({ item, onSave, onDismiss, onEdit }: {
         <Icon size={11} className={config.color} />
       </div>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-0.5">
+        <div className="flex items-center gap-2 mb-0.5 flex-wrap">
           <span className={`text-[10px] font-bold uppercase tracking-wide ${config.color}`}>{config.label}</span>
-          {item.project && <span className="text-[10px] text-[#737373]">→ {item.project}</span>}
+          {needsProject && item.status === "pending" && (
+            <ProjectSelector item={item} projects={projects} onChange={onProjectChange} />
+          )}
+          {!needsProject && item.project && <span className="text-[10px] text-[#737373]">→ {item.project}</span>}
         </div>
         {isEditing ? (
           <div className="flex gap-1 mt-1">
@@ -80,8 +173,7 @@ function ExtractionChip({ item, onSave, onDismiss, onEdit }: {
               value={editVal} onChange={e => setEditVal(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter") { onEdit(editVal); setIsEditing(false); } if (e.key === "Escape") setIsEditing(false); }}
               autoFocus />
-            <button onClick={() => { onEdit(editVal); setIsEditing(false); }}
-              className="text-[11px] px-2 py-1 bg-[#1A1A1A] text-white rounded">OK</button>
+            <button onClick={() => { onEdit(editVal); setIsEditing(false); }} className="text-[11px] px-2 py-1 bg-[#1A1A1A] text-white rounded">OK</button>
           </div>
         ) : (
           <p className="text-[12px] text-[#404040] leading-snug">{item.rule_text ?? item.content}</p>
@@ -96,17 +188,69 @@ function ExtractionChip({ item, onSave, onDismiss, onEdit }: {
             className="w-7 h-7 rounded-lg border border-[#E5E2DE] flex items-center justify-center hover:border-[#CC785C] transition-colors text-[#737373]">
             <Pencil size={11} />
           </button>
-          <button onClick={onSave}
-            className="w-7 h-7 rounded-lg bg-[#1A1A1A] flex items-center justify-center hover:bg-[#333] transition-colors">
+          <button onClick={onSave} className="w-7 h-7 rounded-lg bg-[#1A1A1A] flex items-center justify-center hover:bg-[#333] transition-colors">
             <Check size={12} className="text-white" />
           </button>
-          <button onClick={onDismiss}
-            className="w-7 h-7 rounded-lg border border-[#E5E2DE] flex items-center justify-center hover:border-[#EF4444] hover:text-[#EF4444] transition-colors text-[#999]">
+          <button onClick={onDismiss} className="w-7 h-7 rounded-lg border border-[#E5E2DE] flex items-center justify-center hover:border-[#EF4444] hover:text-[#EF4444] transition-colors text-[#999]">
             <X size={12} />
           </button>
         </div>
       )}
       {item.status === "saved" && <span className="text-[10px] text-[#2D6A4F] font-semibold shrink-0 mt-1">Saved ✓</span>}
+    </div>
+  );
+}
+
+// Action card for project creation
+function ActionCard({ entry, onConfirm, onDismiss }: {
+  entry: ThreadEntry;
+  onConfirm: (name: string, description?: string) => Promise<void>;
+  onDismiss: () => void;
+}) {
+  const action = entry.action!;
+  const [loading, setLoading] = useState(false);
+  const [name, setName] = useState(action.name);
+  const [desc, setDesc] = useState(action.description ?? "");
+
+  if (entry.actionStatus === "created") {
+    return (
+      <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-[#BBF7D0] bg-[#F0FDF4]">
+        <FolderKanban size={13} className="text-[#2D6A4F]" />
+        <p className="text-[12px] text-[#2D6A4F] font-semibold">"{name}" created successfully ✓</p>
+      </div>
+    );
+  }
+
+  if (entry.actionStatus === "dismissed") return null;
+
+  return (
+    <div className="border border-[#DBEAFE] bg-[#EFF6FF] rounded-xl p-3 space-y-2">
+      <div className="flex items-center gap-2">
+        <FolderPlus size={13} className="text-[#2C5F8A]" />
+        <p className="text-[11px] font-semibold text-[#2C5F8A] uppercase tracking-wide">Create Project</p>
+      </div>
+      <div className="space-y-1.5">
+        <input
+          className="w-full text-[13px] border border-[#BFDBFE] rounded-lg px-3 py-2 outline-none focus:border-[#2C5F8A] bg-white"
+          value={name} onChange={e => setName(e.target.value)}
+          placeholder="Project name" />
+        <input
+          className="w-full text-[12px] border border-[#BFDBFE] rounded-lg px-3 py-1.5 outline-none focus:border-[#2C5F8A] bg-white text-[#737373]"
+          value={desc} onChange={e => setDesc(e.target.value)}
+          placeholder="Description (optional)" />
+      </div>
+      <div className="flex gap-2 pt-0.5">
+        <button onClick={async () => { setLoading(true); await onConfirm(name, desc || undefined); setLoading(false); }}
+          disabled={!name.trim() || loading}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1A1A1A] text-white text-[12px] font-semibold rounded-lg hover:bg-[#333] transition-colors disabled:opacity-50">
+          {loading ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
+          Create project
+        </button>
+        <button onClick={onDismiss}
+          className="px-3 py-1.5 border border-[#BFDBFE] text-[#737373] text-[12px] rounded-lg hover:border-[#999] transition-colors">
+          Cancel
+        </button>
+      </div>
     </div>
   );
 }
@@ -117,10 +261,10 @@ function AIPageInner() {
   const [thread, setThread] = useState<ThreadEntry[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [extracting, setExtracting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -129,6 +273,7 @@ function AIPageInner() {
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => { if (!data.user) router.push("/login"); });
     loadSessions();
+    loadProjects();
   }, []);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [thread, loading]);
@@ -137,6 +282,12 @@ function AIPageInner() {
     const q = params.get("q");
     if (q && !didAutoSend.current) { didAutoSend.current = true; setTimeout(() => send(q), 200); }
   }, [params]);
+
+  async function loadProjects() {
+    const res = await fetch("/api/projects");
+    const data = await res.json();
+    setProjects(data.projects ?? []);
+  }
 
   async function loadSessions() {
     const res = await fetch("/api/ai/sessions");
@@ -173,20 +324,34 @@ function AIPageInner() {
     setLoading(true);
 
     const isQ = isQuestion(content);
+    const isProjReq = isProjectRequest(content);
+
     const calls: Promise<any>[] = [
       fetch("/api/ai", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: newThread.map(t => t.message) }) }).then(r => r.json()),
     ];
-    if (!isQ) {
+    if (!isQ && !isProjReq) {
       calls.push(fetch("/api/ai/extract", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: content }) }).then(r => r.json()));
     }
 
     const [aiData, extractData] = await Promise.all(calls);
-    const assistantMsg: Message = { role: "assistant", content: aiData.text ?? "Error." };
     setLoading(false);
 
-    const items: ExtractedItem[] = (!isQ ? (extractData?.items ?? []) : []).map((item: any, i: number) => ({
-      ...item, id: `${Date.now()}-${i}`, status: "pending" as const,
-    }));
+    // Check if AI returned an action (project creation)
+    if (aiData.action?.action === "create_project") {
+      const assistantMsg: Message = { role: "assistant", content: aiData.action.message };
+      const final = [...newThread, { message: assistantMsg, action: aiData.action, actionStatus: "pending" as const }];
+      setThread(final);
+      const newSid = await saveSession(final, sessionId);
+      if (!sessionId) setSessionId(newSid);
+      loadSessions();
+      return;
+    }
+
+    const assistantMsg: Message = { role: "assistant", content: aiData.text ?? "Error." };
+    const items: ExtractedItem[] = (!isQ && !isProjReq ? (extractData?.items ?? []) : []).map((item: any, i: number) => {
+      const matched = projects.find(p => p.name.toLowerCase() === (item.project ?? "").toLowerCase());
+      return { ...item, id: `${Date.now()}-${i}`, status: "pending" as const, assignedProjectId: matched?.id ?? null };
+    });
 
     const withAssistant = [...newThread, { message: assistantMsg }];
     const final = withAssistant.map((entry, idx) =>
@@ -197,45 +362,54 @@ function AIPageInner() {
     const newSid = await saveSession(final, sessionId);
     if (!sessionId) setSessionId(newSid);
     loadSessions();
-  }, [input, loading, thread, sessionId]);
+  }, [input, loading, thread, sessionId, projects]);
+
+  async function handleCreateProject(msgIdx: number, name: string, description?: string) {
+    const res = await fetch("/api/projects", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, description }),
+    });
+    const data = await res.json();
+    if (data.project) {
+      setProjects(prev => [data.project, ...prev]);
+      setThread(prev => prev.map((t, i) => i !== msgIdx ? t : { ...t, actionStatus: "created" as const }));
+    }
+  }
+
+  function handleDismissAction(msgIdx: number) {
+    setThread(prev => prev.map((t, i) => i !== msgIdx ? t : { ...t, actionStatus: "dismissed" as const }));
+  }
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
-
     const fd = new FormData();
     fd.append("file", file);
-
     const res = await fetch("/api/ai/upload", { method: "POST", body: fd });
     const data = await res.json();
     setUploading(false);
-
     if (data.error) { alert(`Upload failed: ${data.error}`); return; }
 
-    // Add file message to thread
-    const fileIcon = file.type.startsWith("image/") ? "🖼️" : "📄";
-    const userMsg: Message = { role: "user", content: `${fileIcon} Uploaded: ${file.name}`, filename: file.name };
-    const summary = data.summary ?? "File processed.";
+    const userMsg: Message = { role: "user", content: `📄 Uploaded: ${file.name}`, filename: file.name };
     const extracted = data.extracted ?? {};
-
-    // Build AI response from extracted content
-    let aiContent = `**${file.name}**\n\n${summary}`;
-    if (extracted.updates?.length) aiContent += `\n\n**Updates found:**\n${extracted.updates.map((u: string) => `- ${u}`).join("\n")}`;
+    let aiContent = `**${file.name}**\n\n${data.summary ?? "File processed."}`;
+    if (extracted.updates?.length) aiContent += `\n\n**Updates:**\n${extracted.updates.map((u: string) => `- ${u}`).join("\n")}`;
     if (extracted.decisions?.length) aiContent += `\n\n**Decisions needed:**\n${extracted.decisions.map((d: string) => `- ${d}`).join("\n")}`;
-    if (extracted.actions?.length) aiContent += `\n\n**Action items:**\n${extracted.actions.map((a: string) => `- ${a}`).join("\n")}`;
+    if (extracted.actions?.length) aiContent += `\n\n**Actions:**\n${extracted.actions.map((a: string) => `- ${a}`).join("\n")}`;
     if (extracted.blockers?.length) aiContent += `\n\n**Blockers:**\n${extracted.blockers.map((b: string) => `- ${b}`).join("\n")}`;
 
     const assistantMsg: Message = { role: "assistant", content: aiContent };
+    const items: ExtractedItem[] = [
+      ...(extracted.updates ?? []).map((u: string, i: number) => ({ id: `fu-${i}`, type: "project_update" as const, project: extracted.project, assignedProjectId: null, content: u, status: "pending" as const })),
+      ...(extracted.decisions ?? []).map((d: string, i: number) => ({ id: `fd-${i}`, type: "decision" as const, content: d, context: d, status: "pending" as const })),
+      ...(extracted.blockers ?? []).map((b: string, i: number) => ({ id: `fb-${i}`, type: "blocker" as const, project: extracted.project, assignedProjectId: null, content: b, status: "pending" as const })),
+    ];
 
-    // Build extraction chips from file content
-    const items: ExtractedItem[] = [];
-    (extracted.updates ?? []).forEach((u: string, i: number) => items.push({ id: `file-u-${i}`, type: "project_update", project: extracted.project ?? undefined, content: u, status: "pending" }));
-    (extracted.decisions ?? []).forEach((d: string, i: number) => items.push({ id: `file-d-${i}`, type: "decision", content: d, context: d, status: "pending" }));
-    (extracted.actions ?? []).forEach((a: string, i: number) => items.push({ id: `file-a-${i}`, type: "project_update", project: extracted.project ?? undefined, content: a, update_type: "note", status: "pending" }));
-    (extracted.blockers ?? []).forEach((b: string, i: number) => items.push({ id: `file-b-${i}`, type: "blocker", project: extracted.project ?? undefined, content: b, status: "pending" }));
-
-    const newThread = [...thread, { message: userMsg, extractions: items.length > 0 ? items : undefined }, { message: assistantMsg }];
+    const newThread = [...thread,
+      { message: userMsg, extractions: items.length > 0 ? items : undefined },
+      { message: assistantMsg }
+    ];
     setThread(newThread);
     const newSid = await saveSession(newThread, sessionId);
     if (!sessionId) setSessionId(newSid);
@@ -256,6 +430,10 @@ function AIPageInner() {
 
   function handleEdit(msgIdx: number, itemId: string, val: string) {
     setThread(prev => prev.map((t, i) => i !== msgIdx ? t : { ...t, extractions: t.extractions?.map(e => e.id === itemId ? { ...e, content: val, rule_text: e.rule_text ? val : e.rule_text } : e) }));
+  }
+
+  function handleProjectChange(msgIdx: number, itemId: string, projectId: string | null, projectName: string | null) {
+    setThread(prev => prev.map((t, i) => i !== msgIdx ? t : { ...t, extractions: t.extractions?.map(e => e.id === itemId ? { ...e, assignedProjectId: projectId, project: projectName ?? e.project } : e) }));
   }
 
   async function handleSaveAll() {
@@ -279,8 +457,7 @@ function AIPageInner() {
             <div className="relative">
               <button onClick={() => setShowHistory(!showHistory)}
                 className="flex items-center gap-1 text-[11px] text-[#737373] hover:text-[#404040] ml-2 px-2 py-1 rounded border border-[#E5E2DE] hover:border-[#CC785C] transition-colors">
-                <History size={11} />
-                <ChevronDown size={10} />
+                <History size={11} /><ChevronDown size={10} />
               </button>
               {showHistory && (
                 <div className="absolute top-8 left-0 w-64 bg-white border border-[#E5E2DE] rounded-xl shadow-lg z-20 overflow-hidden">
@@ -306,7 +483,7 @@ function AIPageInner() {
             </button>
           )}
         </div>
-        <p className="text-[11px] text-[#737373] mt-0.5 hidden md:block">Talk naturally · Upload files · Items extracted with one-tap saving</p>
+        <p className="text-[11px] text-[#737373] mt-0.5 hidden md:block">Talk naturally · Upload files · "Add Anka Diversify for me" works too</p>
       </div>
 
       {/* Thread */}
@@ -323,8 +500,8 @@ function AIPageInner() {
             </div>
             <div className="bg-[#1A1A1A] rounded-xl p-4">
               <p className="text-[11px] font-semibold text-[#CC785C] uppercase tracking-wide mb-2">Try saying</p>
-              <p className="text-[12px] text-[#AAA] leading-relaxed italic">"Spent morning on Raahbaan, finalized investor deck. Blocked on legal structure — deciding LLC vs LTD by Friday."</p>
-              <p className="text-[11px] text-[#555] mt-2">Or tap 📎 to upload a PDF, doc, or image</p>
+              <p className="text-[12px] text-[#AAA] leading-relaxed italic">"Can you add Anka Diversify for me?" or "Create a project called Loophaul"</p>
+              <p className="text-[11px] text-[#555] mt-1.5">Or: "Worked on Raahbaan today, blocked on legal structure" → extracts + saves</p>
             </div>
           </div>
         )}
@@ -334,14 +511,10 @@ function AIPageInner() {
             <div className={`flex ${entry.message.role === "user" ? "justify-end" : "justify-start"}`}>
               {entry.message.role === "user" ? (
                 <div className="bg-[#1A1A1A] text-white rounded-2xl rounded-br-sm px-4 py-3 max-w-[85%] md:max-w-xl">
-                  {entry.message.filename ? (
-                    <div className="flex items-center gap-2">
-                      <FileText size={14} className="text-[#CC785C]" />
-                      <span className="text-[13px]">{entry.message.content}</span>
-                    </div>
-                  ) : (
-                    <p className="text-[13px] leading-relaxed">{entry.message.content}</p>
-                  )}
+                  {entry.message.filename
+                    ? <div className="flex items-center gap-2"><FileText size={14} className="text-[#CC785C]" /><span className="text-[13px]">{entry.message.content}</span></div>
+                    : <p className="text-[13px] leading-relaxed">{entry.message.content}</p>
+                  }
                 </div>
               ) : (
                 <div className="bg-white border border-[#E5E2DE] rounded-2xl rounded-bl-sm px-4 py-4 max-w-[85%] md:max-w-xl">
@@ -355,15 +528,31 @@ function AIPageInner() {
                 </div>
               )}
             </div>
+
+            {/* Action card — project creation */}
+            {entry.action && (
+              <div className="flex justify-end">
+                <div className="max-w-[85%] md:max-w-xl w-full">
+                  <ActionCard
+                    entry={entry}
+                    onConfirm={async (name, desc) => await handleCreateProject(msgIdx, name, desc)}
+                    onDismiss={() => handleDismissAction(msgIdx)}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Extraction chips */}
             {entry.extractions && entry.extractions.length > 0 && (
               <div className="flex justify-end">
                 <div className="max-w-[85%] md:max-w-xl w-full space-y-1.5">
-                  <p className="text-[10px] text-[#737373] font-semibold uppercase tracking-wide px-1">Extracted — ✎ edit · ✓ save</p>
+                  <p className="text-[10px] text-[#737373] font-semibold uppercase tracking-wide px-1">Extracted — ✎ edit · assign project · ✓ save</p>
                   {entry.extractions.map(item => (
-                    <ExtractionChip key={item.id} item={item}
+                    <ExtractionChip key={item.id} item={item} projects={projects}
                       onSave={() => handleSave(msgIdx, item.id)}
                       onDismiss={() => handleDismiss(msgIdx, item.id)}
-                      onEdit={(val) => handleEdit(msgIdx, item.id, val)} />
+                      onEdit={val => handleEdit(msgIdx, item.id, val)}
+                      onProjectChange={(id, name) => handleProjectChange(msgIdx, item.id, id, name)} />
                   ))}
                 </div>
               </div>
@@ -394,7 +583,7 @@ function AIPageInner() {
           </button>
           <input
             className="flex-1 bg-transparent outline-none text-[13px] text-[#404040] placeholder:text-[#999]"
-            placeholder="Talk or upload a file..."
+            placeholder='Talk, upload a file, or say "add Anka Diversify for me"...'
             value={input} onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === "Enter" && !e.shiftKey && send()}
             disabled={loading || uploading} autoFocus />
@@ -403,11 +592,13 @@ function AIPageInner() {
             {loading ? <Loader2 size={13} className="animate-spin text-white" /> : <Send size={14} className="text-white" />}
           </button>
         </div>
-        <p className="text-[10px] text-[#999] mt-1.5 text-center">Questions answered · Statements extracted · Files read automatically</p>
+        <p className="text-[10px] text-[#999] mt-1.5 text-center">Questions answered · Statements extracted · Projects created on request</p>
       </div>
     </div>
   );
 }
+
+import { History } from "lucide-react";
 
 export default function AIPage() {
   return (
