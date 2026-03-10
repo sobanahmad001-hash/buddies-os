@@ -377,11 +377,6 @@ function AIPageInner() {
       ? fetch("/api/ai/check-rules", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: content }) }).then(r => r.json()).catch(() => ({ violations: [] }))
       : Promise.resolve({ violations: [] });
 
-    // Rule check runs in parallel — non-blocking
-    const ruleCheckCall = !isQ
-      ? fetch("/api/ai/check-rules", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: content }) }).then(r => r.json()).catch(() => ({ violations: [] }))
-      : Promise.resolve({ violations: [] });
-
     const aiCall = fetch("/api/ai", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
