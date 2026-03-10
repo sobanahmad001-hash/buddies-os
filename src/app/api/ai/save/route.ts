@@ -30,7 +30,23 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    if (item.type === "project_update" || item.type === "blocker") {
+    if (item.type === "task") {
+      if (!projectId) return NextResponse.json({ error: "project_id required for task" }, { status: 400 });
+      const { error } = await supabase.from("project_tasks").insert({
+        user_id: user.id,
+        project_id: projectId,
+        title: item.content,
+        description: item.description ?? null,
+        priority: item.priority ?? 2,
+        due_date: item.due_date ?? null,
+        status: "todo",
+        source_message_id: msgId,
+      });
+      if (error) throw error;
+      if (projectId) {
+        await supabase.from("projects").update({ updated_at: new Date().toISOString() }).eq("id", projectId);
+      }
+    } else if (item.type === "project_update" || item.type === "blocker") {
       const { error } = await supabase.from("project_updates").insert({
         user_id: user.id,
         project_id: projectId,
@@ -93,7 +109,7 @@ export async function POST(req: NextRequest) {
       confidence_score: 0.9,
     });
 
-    return NextResponse.json({ saved: true, projectId, triggerMemory: !!(projectId && ['project_update','blocker','decision'].includes(item.type)) });
+    return NextResponse.json({ saved: true, projectId, triggerMemory: !!(projectId && ['task','project_update','blocker','decision'].includes(item.type)) });
   } catch (err: any) {
     console.error("Save error:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });

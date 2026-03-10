@@ -7,7 +7,7 @@ import {
   Send, Loader2, Sparkles, Check, X, CheckCheck,
   FolderKanban, Scale, ShieldCheck, AlertTriangle,
   Sun, ChevronDown, History, Plus, Pencil, Paperclip,
-  FileText, FolderPlus, Folder
+  FileText, FolderPlus, Folder, CheckSquare
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -16,11 +16,12 @@ type Message = { role: "user" | "assistant"; content: string; filename?: string 
 type ActionData = { action: string; name: string; description?: string; message: string };
 type ExtractedItem = {
   id: string;
-  type: "project_update" | "decision" | "rule" | "blocker" | "daily_check";
+  type: "task" | "project_update" | "decision" | "rule" | "blocker" | "daily_check";
   project?: string; assignedProjectId?: string | null;
   content: string; update_type?: string; next_actions?: string;
   verdict?: string; probability?: number; rule_text?: string; severity?: number;
   context?: string; mood?: string; sleep_hours?: number; stress?: number; notes?: string;
+  priority?: number; due_date?: string; description?: string;
   status: "pending" | "saved" | "dismissed";
 };
 type ThreadEntry = {
@@ -54,6 +55,7 @@ function expandShortcut(text: string): string {
 }
 
 const TYPE_CONFIG: Record<string, { icon: any; label: string; color: string; bg: string }> = {
+  task:           { icon: CheckSquare,   label: "Task",           color: "text-[#E8521A]", bg: "bg-[#FFF0EB]" },
   project_update: { icon: FolderKanban,  label: "Project Update", color: "text-[#2D6A4F]", bg: "bg-[#DCFCE7]" },
   blocker:        { icon: AlertTriangle, label: "Blocker",        color: "text-[#EF4444]", bg: "bg-[#FEE2E2]" },
   decision:       { icon: Scale,         label: "Decision",       color: "text-[#2C5F8A]", bg: "bg-[#DBEAFE]" },
@@ -192,7 +194,7 @@ function ExtractionChip({ item, projects, onSave, onDismiss, onEdit, onProjectCh
   const Icon = config.icon;
   const [editVal, setEditVal] = useState(item.rule_text ?? item.content);
   const [isEditing, setIsEditing] = useState(false);
-  const needsProject = ["project_update", "blocker"].includes(item.type);
+  const needsProject = ["task", "project_update", "blocker"].includes(item.type);
 
   return (
     <div className={`flex items-start gap-3 px-3 py-2.5 rounded-xl border transition-all ${
