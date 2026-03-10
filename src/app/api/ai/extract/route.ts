@@ -20,6 +20,7 @@ IMPORTANT TYPE RULES:
 Shapes:
 
 {"type":"project_update","project":"name","content":"what was done","update_type":"progress","next_actions":"next steps or null"}
+{"type":"task","project":"project name or null","content":"task title","due_date":"YYYY-MM-DD or null","priority":2}
 {"type":"blocker","project":"name","content":"what is blocked","next_actions":"null"}
 {"type":"decision","project":"name or null","content":"decision summary","context":"full context","verdict":null,"probability":null}
 {"type":"rule","content":"rule statement","rule_text":"rule as imperative statement","severity":2}
