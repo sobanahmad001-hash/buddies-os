@@ -5,8 +5,9 @@ import { useRouter, useParams } from "next/navigation";
 import { ArrowLeft, ChevronRight, Plus } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 
-type Project = { id: string; name: string; description: string | null; status: string; priority: string | null; tags: string[] | null; updated_at: string; };
+type Project = { id: string; name: string; description: string | null; status: string; priority: string | null; tags: string[] | null; updated_at: string; memory: string | null; };
 type Update = { id: string; update_type: string; content: string; outcomes: string | null; next_actions: string | null; created_at: string; };
+type Task = { id: string; title: string; status: string; priority: number | null; due_date: string | null; };
 
 function timeAgo(d: string) { const diff = Date.now() - new Date(d).getTime(); const m = Math.floor(diff/60000); if (m < 60) return `${m}m ago`; const h = Math.floor(m/60); if (h < 24) return `${h}h ago`; return `${Math.floor(h/24)}d ago`; }
 
@@ -24,54 +25,61 @@ export default function ProjectDetailPage() {
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
+
+  // ALL hooks must be declared before any return
   const [project, setProject] = useState<Project | null>(null);
   const [updates, setUpdates] = useState<Update[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [addingTask, setAddingTask] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  async function load() {
+  async function loadProject() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.push("/login"); return; }
     const { data: p } = await supabase.from("projects").select("*").eq("id", id).eq("user_id", user.id).single();
     setProject(p);
     const { data: u } = await supabase.from("project_updates").select("*").eq("project_id", id).order("created_at", { ascending: false });
     setUpdates(u ?? []);
+    setLoading(false);
   }
-
-  useEffect(() => {
-    loadTasks(); load(); }, [id]);
-
-  async function handleArchive() {
-    await supabase.from("projects").update({ status: "archived" }).eq("id", id);
-    router.push("/app/projects");
-  }
-
-  if (!project) return <div className="flex-1 flex items-center justify-center"><p className="text-[14px] text-[#737373]">Loading...</p></div>;
-
-  const [tasks, setTasks] = useState<any[]>([]);
-  const [newTaskTitle, setNewTaskTitle] = useState("");
-  const [addingTask, setAddingTask] = useState(false);
 
   async function loadTasks() {
-    const res = await fetch(`/api/projects/tasks?projectId=${params.id}`);
+    const res = await fetch(`/api/projects/tasks?projectId=${id}`);
     if (res.ok) { const d = await res.json(); setTasks(d.tasks ?? []); }
   }
 
   async function addTask() {
     if (!newTaskTitle.trim()) return;
     setAddingTask(true);
-    await fetch("/api/projects/tasks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ project_id: params.id, title: newTaskTitle.trim() }) });
+    await fetch("/api/projects/tasks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ project_id: id, title: newTaskTitle.trim() }) });
     setNewTaskTitle("");
     setAddingTask(false);
     loadTasks();
   }
 
-  async function updateTaskStatus(id: string, status: string) {
-    await fetch("/api/projects/tasks", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status }) });
+  async function updateTaskStatus(taskId: string, status: string) {
+    await fetch("/api/projects/tasks", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: taskId, status }) });
     loadTasks();
   }
+
+  async function handleArchive() {
+    await supabase.from("projects").update({ status: "archived" }).eq("id", id);
+    router.push("/app/projects");
+  }
+
+  useEffect(() => {
+    loadProject();
+    loadTasks();
+  }, [id]);
+
+  if (loading) return <div className="flex-1 flex items-center justify-center"><p className="text-[14px] text-[#737373]">Loading...</p></div>;
+  if (!project) return <div className="flex-1 flex items-center justify-center"><p className="text-[14px] text-[#737373]">Project not found.</p></div>;
 
   return (
     <div className="flex-1 overflow-auto">
       <div className="p-8 max-w-[900px]">
+        {/* Breadcrumb */}
         <div className="flex items-center gap-2 mb-6 text-[13px]">
           <button onClick={() => router.push("/app/projects")} className="text-[#CC785C] hover:text-[#b5684e] flex items-center gap-1">
             <ArrowLeft size={14} /> Projects
@@ -80,13 +88,19 @@ export default function ProjectDetailPage() {
           <span className="text-[#404040] font-semibold">{project.name}</span>
         </div>
 
+        {/* Header */}
         <div className="flex items-start justify-between mb-6">
           <div>
             <h1 className="text-[20px] font-semibold text-[#1A1A1A] mb-1">{project.name}</h1>
             {project.description && <p className="text-[14px] text-[#737373]">{project.description}</p>}
+            {project.memory && (
+              <p className="text-[12px] text-[#737373] mt-2 italic">
+                {project.memory.split("\n").find(l => l.startsWith("Current focus:"))?.replace("Current focus:", "→ ") ?? ""}
+              </p>
+            )}
           </div>
           <div className="flex gap-2">
-            <button onClick={() => router.push(`/app/project-update?project=${id}`)}
+            <button onClick={() => router.push(`/app/command`)}
               className="flex items-center gap-2 px-4 py-2 bg-[#1A1A1A] text-white text-[13px] font-semibold rounded-lg hover:bg-[#333] transition-colors">
               <Plus size={14} /> Update
             </button>
@@ -97,9 +111,11 @@ export default function ProjectDetailPage() {
           </div>
         </div>
 
+        {/* Stats */}
         <div className="flex gap-6 mb-8 pb-6 border-b border-[#E5E2DE]">
           <div><span className="text-[11px] text-[#737373] uppercase tracking-wide">Status</span><div className="mt-1"><StatusBadge status={project.status} /></div></div>
           <div><span className="text-[11px] text-[#737373] uppercase tracking-wide">Updates</span><p className="text-[14px] font-semibold text-[#1A1A1A] mt-1">{updates.length}</p></div>
+          <div><span className="text-[11px] text-[#737373] uppercase tracking-wide">Tasks</span><p className="text-[14px] font-semibold text-[#1A1A1A] mt-1">{tasks.filter(t => t.status !== "done").length} open</p></div>
           <div><span className="text-[11px] text-[#737373] uppercase tracking-wide">Priority</span><p className="text-[14px] font-semibold text-[#1A1A1A] mt-1 capitalize">{project.priority ?? "—"}</p></div>
           {project.tags && project.tags.length > 0 && (
             <div><span className="text-[11px] text-[#737373] uppercase tracking-wide">Tags</span>
@@ -108,9 +124,56 @@ export default function ProjectDetailPage() {
           )}
         </div>
 
+        {/* Tasks */}
+        <div className="bg-white rounded-xl border border-[#E5E2DE] p-5 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-[14px] font-semibold text-[#1A1A1A]">Tasks <span className="text-[12px] text-[#737373] font-normal ml-1">{tasks.filter(t => t.status !== "done").length} open</span></h2>
+          </div>
+          <div className="flex gap-2 mb-4">
+            <input
+              value={newTaskTitle}
+              onChange={e => setNewTaskTitle(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && addTask()}
+              placeholder="Add a task and press Enter..."
+              className="flex-1 text-sm px-3 py-2 border border-[#E5E2DE] rounded-lg focus:outline-none focus:border-[#E8521A]"
+            />
+            <button onClick={addTask} disabled={addingTask}
+              className="px-3 py-2 bg-[#E8521A] text-white text-xs rounded-lg font-semibold hover:bg-[#c94415] disabled:opacity-50">
+              {addingTask ? "..." : "+ Add"}
+            </button>
+          </div>
+          <div className="space-y-1.5">
+            {tasks.length === 0 && (
+              <p className="text-xs text-[#737373] text-center py-4">No tasks yet — add one above or tell AI to create tasks for this project</p>
+            )}
+            {tasks.map(task => (
+              <div key={task.id} className={`flex items-center gap-3 p-2.5 rounded-lg border transition-colors ${task.status === "done" ? "border-[#E5E2DE] opacity-50" : "border-[#E5E2DE] hover:border-[#E8521A]"}`}>
+                <button
+                  onClick={() => updateTaskStatus(task.id, task.status === "done" ? "todo" : task.status === "todo" ? "in_progress" : "done")}
+                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 text-[9px] font-bold transition-colors
+                    ${task.status === "done" ? "bg-[#2D6A4F] border-[#2D6A4F] text-white" :
+                      task.status === "in_progress" ? "bg-[#F59E0B] border-[#F59E0B] text-white" :
+                      "border-[#D1D5DB]"}`}>
+                  {task.status === "done" ? "✓" : task.status === "in_progress" ? "→" : ""}
+                </button>
+                <span className={`text-sm flex-1 ${task.status === "done" ? "line-through text-[#737373]" : "text-[#1A1A1A]"}`}>{task.title}</span>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium
+                  ${task.status === "todo" ? "bg-[#F3F4F6] text-[#737373]" :
+                    task.status === "in_progress" ? "bg-[#FEF9C3] text-[#92400E]" :
+                    "bg-[#DCFCE7] text-[#2D6A4F]"}`}>
+                  {task.status.replace("_", " ")}
+                </span>
+                {task.priority === 1 && <span className="text-[10px] px-1.5 py-0.5 bg-[#FEE2E2] text-[#EF4444] rounded-full font-semibold">urgent</span>}
+                {task.due_date && <span className="text-[10px] text-[#737373]">{task.due_date}</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Updates */}
         <div>
           <h2 className="text-[14px] font-semibold text-[#1A1A1A] mb-4">
-            Updates Timeline <span className="text-[12px] text-[#737373] font-normal ml-2">{updates.length} updates</span>
+            Updates <span className="text-[12px] text-[#737373] font-normal ml-1">{updates.length}</span>
           </h2>
           {updates.length === 0 ? (
             <div className="border-2 border-dashed border-[#E5E2DE] rounded-xl py-12 px-6 text-center">
@@ -142,44 +205,6 @@ export default function ProjectDetailPage() {
               ))}
             </div>
           )}
-        </div>
-      </div>
-
-      {/* Tasks */}
-      <div className="bg-white rounded-xl border border-[#E5E7EB] p-5 mt-4">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-bold text-[#1A1A1A] uppercase tracking-wide">Tasks</h2>
-          <span className="text-xs text-[#737373]">{tasks.filter(t => t.status !== "done").length} open</span>
-        </div>
-        <div className="flex gap-2 mb-4">
-          <input
-            value={newTaskTitle}
-            onChange={e => setNewTaskTitle(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && addTask()}
-            placeholder="Add a task and press Enter..."
-            className="flex-1 text-sm px-3 py-2 border border-[#E5E7EB] rounded-lg focus:outline-none focus:border-[#E8521A]"
-          />
-          <button onClick={addTask} disabled={addingTask} className="px-3 py-2 bg-[#E8521A] text-white text-xs rounded-lg font-semibold hover:bg-[#c94415] disabled:opacity-50">
-            {addingTask ? "..." : "+ Add"}
-          </button>
-        </div>
-        <div className="space-y-1">
-          {tasks.length === 0 && <p className="text-xs text-[#737373] text-center py-4">No tasks yet — add one above or ask AI to create tasks for this project</p>}
-          {tasks.map(task => (
-            <div key={task.id} className={`flex items-center gap-3 p-2.5 rounded-lg border transition-colors ${task.status === "done" ? "border-[#E5E7EB] opacity-50" : "border-[#E5E7EB] hover:border-[#E8521A]"}`}>
-              <button
-                onClick={() => updateTaskStatus(task.id, task.status === "done" ? "todo" : task.status === "todo" ? "in_progress" : "done")}
-                className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 text-[9px] font-bold transition-colors ${task.status === "done" ? "bg-[#2D6A4F] border-[#2D6A4F] text-white" : task.status === "in_progress" ? "bg-[#F59E0B] border-[#F59E0B] text-white" : "border-[#D1D5DB] text-transparent"}`}>
-                {task.status === "done" ? "✓" : task.status === "in_progress" ? "→" : ""}
-              </button>
-              <span className={`text-sm flex-1 ${task.status === "done" ? "line-through text-[#737373]" : "text-[#1A1A1A]"}`}>{task.title}</span>
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${task.status === "todo" ? "bg-[#F3F4F6] text-[#737373]" : task.status === "in_progress" ? "bg-[#FEF9C3] text-[#92400E]" : "bg-[#DCFCE7] text-[#2D6A4F]"}`}>
-                {task.status.replace("_", " ")}
-              </span>
-              {task.priority === 1 && <span className="text-[10px] px-1.5 py-0.5 bg-[#FEE2E2] text-[#EF4444] rounded-full font-semibold">urgent</span>}
-              {task.due_date && <span className="text-[10px] text-[#737373]">{task.due_date}</span>}
-            </div>
-          ))}
         </div>
       </div>
     </div>

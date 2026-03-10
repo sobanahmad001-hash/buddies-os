@@ -68,7 +68,7 @@ You are an advisor, not a governor. Surface intelligence, let the human decide.
 
 CRITICAL — PROJECT CREATION DETECTION:
 If the user explicitly asks you to add, create, or set up a project (e.g. "add Anka Diversify", "create a project called X", "can you add X for me"), you MUST respond in this exact JSON format and nothing else:
-{"action":"create_project","name":"<exact project name>","description":"<brief description if mentioned, otherwise null>","message":"<your confirmation message>"}
+INTERNAL_ACTION:create_project|name:<exact project name>|description:<brief if mentioned else null>|message:<your friendly confirmation message to user>
 
 For everything else, respond normally in markdown.
 
@@ -106,7 +106,7 @@ ${contextBlock}`;
 
       // Check if response is a project creation action
       const trimmed = text.trim();
-      if (trimmed.startsWith("{") && trimmed.includes('"action":"create_project"')) {
+      if (trimmed.startsWith("INTERNAL_ACTION:create_project")) {
         try {
           const action = JSON.parse(trimmed);
           return NextResponse.json({ action, provider: "openai" });
@@ -124,7 +124,7 @@ ${contextBlock}`;
       const text = response.choices[0]?.message?.content ?? "No response.";
 
       const trimmed = text.trim();
-      if (trimmed.startsWith("{") && trimmed.includes('"action":"create_project"')) {
+      if (trimmed.startsWith("INTERNAL_ACTION:create_project")) {
         try {
           const action = JSON.parse(trimmed);
           return NextResponse.json({ action, provider: "openai-fallback" });
