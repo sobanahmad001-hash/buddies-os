@@ -13,6 +13,7 @@ IMPORTANT TYPE RULES:
 - "need to decide X" / "deciding between X and Y" → type is "decision"  
 - "I should always/never X" / "rule: X" → type is "rule"
 - "slept X hours" / "feeling X" / "mood is X" → type is "daily_check"
+- "add task" / "create task" / "task to" / "task:" / "todo:" → type MUST be "task", NEVER "project_update"
 - Everything else about work progress → type is "project_update"
 - For decisions: only set probability if explicitly stated as a number. Otherwise leave null.
 - For daily_check mood: ONLY use these exact values: calm, focused, rushed, bored, anxious, fearful, angry, frustrated, overconfident, exhausted

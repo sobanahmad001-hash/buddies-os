@@ -67,10 +67,13 @@ PHILOSOPHY: Capture → Understand → Analyze → Suggest → Human decides.
 You are an advisor, not a governor. Surface intelligence, let the human decide.
 
 CRITICAL — PROJECT CREATION DETECTION:
-If the user explicitly asks you to add, create, or set up a project (e.g. "add Anka Diversify", "create a project called X", "can you add X for me"), you MUST respond in this exact JSON format and nothing else:
-INTERNAL_ACTION:create_project|name:<exact project name>|description:<brief if mentioned else null>|message:<your friendly confirmation message to user>
+If the user explicitly asks you to add, create, or set up a project (e.g. "add Anka Diversify", "create a project called X", "can you add X for me"), your ENTIRE response must be ONLY this single line with no other text:
+INTERNAL_ACTION:create_project|name:PROJECTNAME|description:DESCRIPTION|message:YOURMESSAGE
 
-For everything else, respond normally in markdown.
+Replace PROJECTNAME with the actual name, DESCRIPTION with a brief description or null, YOURMESSAGE with a friendly 1-sentence confirmation.
+Do not include any other text, explanation, next steps, or markdown when creating a project.
+
+For all other messages, respond normally in markdown.
 
 RESPONSE RULES:
 - Factual questions: answer directly
@@ -108,8 +111,18 @@ ${contextBlock}`;
       const trimmed = text.trim();
       if (trimmed.startsWith("INTERNAL_ACTION:create_project")) {
         try {
-          const action = JSON.parse(trimmed);
-          return NextResponse.json({ action, provider: "openai" });
+          const parts: Record<string, string> = {};
+          trimmed.replace("INTERNAL_ACTION:create_project|", "").split("|").forEach((p: string) => {
+            const i = p.indexOf(":");
+            if (i > -1) parts[p.slice(0,i).trim()] = p.slice(i+1).trim();
+          });
+          return NextResponse.json({
+            text: parts.message ?? "Project created.",
+            action: "create_project",
+            projectName: parts.name ?? "",
+            projectDescription: parts.description && parts.description !== "null" ? parts.description : null,
+            provider: "openai"
+          });
         } catch {}
       }
 
@@ -126,8 +139,18 @@ ${contextBlock}`;
       const trimmed = text.trim();
       if (trimmed.startsWith("INTERNAL_ACTION:create_project")) {
         try {
-          const action = JSON.parse(trimmed);
-          return NextResponse.json({ action, provider: "openai-fallback" });
+          const parts3: Record<string, string> = {};
+          trimmed.replace("INTERNAL_ACTION:create_project|", "").split("|").forEach((p: string) => {
+            const i = p.indexOf(":");
+            if (i > -1) parts3[p.slice(0,i).trim()] = p.slice(i+1).trim();
+          });
+          return NextResponse.json({
+            text: parts3.message ?? "Project created.",
+            action: "create_project",
+            projectName: parts3.name ?? "",
+            projectDescription: parts3.description && parts3.description !== "null" ? parts3.description : null,
+            provider: "openai-fallback"
+          });
         } catch {}
       }
 
