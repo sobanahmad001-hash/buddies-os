@@ -398,10 +398,11 @@ function AIPageInner() {
     let extractData: any = extractDataRaw;
     setLoading(false);
 
-    // Handle project creation action
-    if (aiData.action?.action === "create_project") {
-      const assistantMsg: Message = { role: "assistant", content: `Got it — confirm to create **${aiData.action.name}**:` };
-      const final = [...newThread, { message: assistantMsg, action: aiData.action, actionStatus: "pending" as const }];
+    // Handle project creation — detected client-side (AI no longer returns action field)
+    if (isProjReq && detectedProjectName) {
+      const assistantMsg: Message = { role: "assistant", content: aiData.text ?? `Got it — confirm to create **${detectedProjectName}**:` };
+      const action = { action: "create_project", name: detectedProjectName, description: null as string | null };
+      const final = [...newThread, { message: assistantMsg, action, actionStatus: "pending" as const }];
       setThread(final);
       const newSid = await saveSession(final, sessionId);
       if (!sessionId) setSessionId(newSid);
@@ -410,7 +411,9 @@ function AIPageInner() {
     }
 
     const assistantMsg: Message = { role: "assistant", content: aiData.text ?? "Error." };
-    const items: ExtractedItem[] = (!isQ && !isProjReq ? (extractData?.items ?? []) : []).map((item: any, i: number) => {
+    const items: ExtractedItem[] = (!isQ && !isProjReq ? (extractData?.items ?? []) : [])
+      .filter((item: any) => item.type !== "new_project")
+      .map((item: any, i: number) => {
       const matched = projects.find(p => p.name.toLowerCase() === (item.project ?? "").toLowerCase());
       return { ...item, id: `${Date.now()}-${i}`, status: "pending" as const, assignedProjectId: matched?.id ?? null };
     });

@@ -110,24 +110,6 @@ ${contextBlock}`;
       });
       const text = response.choices[0]?.message?.content ?? "No response.";
 
-      const trimmed = text.trim();
-      if (trimmed.startsWith("INTERNAL_ACTION:create_project")) {
-        try {
-          const parts3: Record<string, string> = {};
-          trimmed.replace("INTERNAL_ACTION:create_project|", "").split("|").forEach((p: string) => {
-            const i = p.indexOf(":");
-            if (i > -1) parts3[p.slice(0,i).trim()] = p.slice(i+1).trim();
-          });
-          return NextResponse.json({
-            text: parts3.message ?? "Project created.",
-            action: "create_project",
-            projectName: parts3.name ?? "",
-            projectDescription: parts3.description && parts3.description !== "null" ? parts3.description : null,
-            provider: "openai-fallback"
-          });
-        } catch {}
-      }
-
       return NextResponse.json({ text, provider: "openai-fallback" });
     }
   } catch (err: any) {
