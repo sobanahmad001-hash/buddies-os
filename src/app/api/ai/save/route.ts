@@ -16,8 +16,10 @@ export async function POST(req: NextRequest) {
   const { item, source_message_id } = await req.json();
   const msgId = source_message_id ?? `msg_${Date.now()}`;
 
-  let projectId: string | null = null;
-  if (item.project) {
+  // Use assignedProjectId first (from selector), fall back to fuzzy name match
+  let projectId: string | null = item.assignedProjectId ?? null;
+
+  if (!projectId && item.project) {
     const { data: proj } = await supabase
       .from("projects")
       .select("id")
@@ -25,12 +27,11 @@ export async function POST(req: NextRequest) {
       .ilike("name", `%${item.project}%`)
       .limit(1);
     projectId = proj?.[0]?.id ?? null;
-    // NO auto-create — if project not found, save without project_id
   }
 
   try {
     if (item.type === "project_update" || item.type === "blocker") {
-      await supabase.from("project_updates").insert({
+      const { error } = await supabase.from("project_updates").insert({
         user_id: user.id,
         project_id: projectId,
         content: item.content,
@@ -38,8 +39,14 @@ export async function POST(req: NextRequest) {
         next_actions: item.next_actions ?? null,
         source_message_id: msgId,
       });
+      if (error) throw error;
+
+      // Update project updated_at so momentum tracking stays fresh
+      if (projectId) {
+        await supabase.from("projects").update({ updated_at: new Date().toISOString() }).eq("id", projectId);
+      }
     } else if (item.type === "decision") {
-      await supabase.from("decisions").insert({
+      const { error } = await supabase.from("decisions").insert({
         user_id: user.id,
         project_id: projectId,
         context: item.context ?? item.content,
@@ -48,8 +55,9 @@ export async function POST(req: NextRequest) {
         domain: "general",
         source_message_id: msgId,
       });
+      if (error) throw error;
     } else if (item.type === "rule") {
-      await supabase.from("rules").insert({
+      const { error } = await supabase.from("rules").insert({
         user_id: user.id,
         project_id: projectId,
         rule_text: item.rule_text ?? item.content,
@@ -58,9 +66,10 @@ export async function POST(req: NextRequest) {
         domain: "general",
         source_message_id: msgId,
       });
+      if (error) throw error;
     } else if (item.type === "daily_check") {
       const validMoods = ["calm","focused","rushed","bored","anxious","fearful","angry","frustrated","overconfident","exhausted"];
-      await supabase.from("behavior_logs").insert({
+      const { error } = await supabase.from("behavior_logs").insert({
         user_id: user.id,
         mood_tag: validMoods.includes(item.mood ?? "") ? item.mood : null,
         sleep_hours: item.sleep_hours ?? null,
@@ -69,6 +78,7 @@ export async function POST(req: NextRequest) {
         timestamp: new Date().toISOString(),
         source_message_id: msgId,
       });
+      if (error) throw error;
     }
 
     // Log to training_logs
@@ -77,14 +87,15 @@ export async function POST(req: NextRequest) {
       raw_input: item.content,
       parsed_output: item,
       was_confirmed: true,
-      final_output: item,
+      final_output: { ...item, resolvedProjectId: projectId },
       source: "gpt4o",
       intent_detected: item.type,
       confidence_score: 0.9,
     });
 
-    return NextResponse.json({ saved: true });
+    return NextResponse.json({ saved: true, projectId });
   } catch (err: any) {
+    console.error("Save error:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
