@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
+import Anthropic from "@anthropic-ai/sdk";
 
 export async function POST(req: NextRequest) {
   const cookieStore = await cookies();
@@ -80,6 +81,24 @@ CURRENT CONTEXT:
 ${contextBlock}`;
 
   try {
+    // ── PRIMARY: Claude ──────────────────────────────────────────
+    if (process.env.ANTHROPIC_API_KEY) {
+      try {
+        const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+        const response = await anthropic.messages.create({
+          model: "claude-sonnet-4-5",
+          max_tokens: 1024,
+          system: systemPrompt,
+          messages: messages.map((m: any) => ({ role: m.role, content: m.content })),
+        });
+        const text = response.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("") || "No response.";
+        return NextResponse.json({ text, provider: "claude" });
+      } catch (claudeErr: any) {
+        console.error("Claude error, falling back to OpenAI:", claudeErr.message);
+      }
+    }
+
+    // ── FALLBACK: OpenAI ─────────────────────────────────────────
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     // Try Responses API with web search first
@@ -109,7 +128,6 @@ ${contextBlock}`;
         messages: [{ role: "system", content: systemPrompt }, ...messages],
       });
       const text = response.choices[0]?.message?.content ?? "No response.";
-
       return NextResponse.json({ text, provider: "openai-fallback" });
     }
   } catch (err: any) {
