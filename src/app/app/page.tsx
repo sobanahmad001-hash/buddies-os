@@ -2,42 +2,35 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Sparkles, AlertTriangle, Info, AlertCircle } from "lucide-react";
+import { Loader2, Sparkles, AlertTriangle, Info, AlertCircle, TrendingUp, Scale, Brain, Activity } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
+import ReactMarkdown from "react-markdown";
 
-type Project = { id: string; name: string; description: string | null; status: string; tags: string[] | null; updated_at: string; latestUpdate?: string | null; };
-type Decision = { id: string; context: string; verdict: string | null; probability: number | null; created_at: string; };
-type Rule = { id: string; rule_text: string; severity: number; active: boolean; };
-type Insight = { type: string; message: string; severity: "info" | "warn" | "alert" };
+type Project = { id: string; name: string; status: string; updated_at: string; updateCount?: number; };
+type Decision = { id: string; context: string; verdict: string | null; probability: number | null; created_at: string; closed_at: string | null; review_date: string | null; };
+type Insight = { summary: string; insight_type: string; domain: string; recommended_focus: string | null; };
+type Alert = { type: string; message: string; severity: "info" | "warn" | "alert" };
 
 function timeAgo(d: string) { const diff = Date.now() - new Date(d).getTime(); const m = Math.floor(diff/60000); if (m < 60) return `${m}m ago`; const h = Math.floor(m/60); if (h < 24) return `${h}h ago`; return `${Math.floor(h/24)}d ago`; }
+function daysSince(d: string) { return Math.floor((Date.now() - new Date(d).getTime()) / 86400000); }
 
-function VerdictBadge({ verdict }: { verdict: string | null }) {
-  const map: Record<string, { label: string; cls: string }> = { enter: { label: "Enter", cls: "bg-[#DCFCE7] text-[#2D6A4F]" }, wait: { label: "Wait", cls: "bg-[#FEF9C3] text-[#92400E]" }, do_not_enter: { label: "Do Not Enter", cls: "bg-[#FEE2E2] text-[#EF4444]" } };
-  const v = map[verdict ?? ""] ?? { label: verdict ?? "—", cls: "bg-[#F7F5F2] text-[#737373]" };
-  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${v.cls}`}>{v.label}</span>;
-}
-function SeverityBadge({ severity }: { severity: number }) {
-  const map: Record<number, { label: string; cls: string }> = { 1: { label: "Low", cls: "bg-[#F7F5F2] text-[#737373]" }, 2: { label: "Med", cls: "bg-[#FEF9C3] text-[#92400E]" }, 3: { label: "High", cls: "bg-[#FEE2E2] text-[#EF4444]" } };
-  const s = map[severity] ?? map[1];
-  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0 ${s.cls}`}>{s.label}</span>;
-}
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, string> = { active: "bg-[#DCFCE7] text-[#2D6A4F]", paused: "bg-[#FEF9C3] text-[#92400E]", archived: "bg-[#F7F5F2] text-[#737373]" };
-  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize ${map[status] ?? map.archived}`}>{status}</span>;
-}
-
-function InsightCard({ insight }: { insight: Insight }) {
-  const cfg = {
-    alert: { icon: AlertCircle, cls: "border-[#FEE2E2] bg-[#FEF2F2]", iconCls: "text-[#EF4444]" },
-    warn:  { icon: AlertTriangle, cls: "border-[#FEF9C3] bg-[#FEFCE8]", iconCls: "text-[#EAB308]" },
-    info:  { icon: Info, cls: "border-[#DBEAFE] bg-[#EFF6FF]", iconCls: "text-[#2C5F8A]" },
-  }[insight.severity];
+function AlertCard({ alert }: { alert: Alert }) {
+  const cfg = { alert: { icon: AlertCircle, cls: "border-[#FEE2E2] bg-[#FEF2F2]", iconCls: "text-[#EF4444]" }, warn: { icon: AlertTriangle, cls: "border-[#FEF9C3] bg-[#FEFCE8]", iconCls: "text-[#EAB308]" }, info: { icon: Info, cls: "border-[#DBEAFE] bg-[#EFF6FF]", iconCls: "text-[#2C5F8A]" } }[alert.severity];
   const Icon = cfg.icon;
   return (
     <div className={`flex items-start gap-2.5 px-3 py-2.5 rounded-xl border ${cfg.cls}`}>
       <Icon size={13} className={`${cfg.iconCls} shrink-0 mt-0.5`} />
-      <p className="text-[12px] text-[#404040] leading-snug">{insight.message}</p>
+      <p className="text-[12px] text-[#404040] leading-snug">{alert.message}</p>
+    </div>
+  );
+}
+
+function MomentumBar({ value, max }: { value: number; max: number }) {
+  const pct = Math.min(100, Math.round((value / Math.max(max, 1)) * 100));
+  const color = pct > 60 ? "#2D6A4F" : pct > 30 ? "#EAB308" : "#EF4444";
+  return (
+    <div className="w-full bg-[#F7F5F2] rounded-full h-1.5">
+      <div className="h-1.5 rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
     </div>
   );
 }
@@ -46,37 +39,56 @@ export default function DashboardPage() {
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [decisions, setDecisions] = useState<Decision[]>([]);
-  const [rules, setRules] = useState<Rule[]>([]);
   const [insights, setInsights] = useState<Insight[]>([]);
-  const [insightsLoading, setInsightsLoading] = useState(true);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [logs, setLogs] = useState<any[]>([]);
+  const [alertsLoading, setAlertsLoading] = useState(true);
   const [commandInput, setCommandInput] = useState("");
   const [summary, setSummary] = useState("");
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
+  const [maxUpdates, setMaxUpdates] = useState(1);
 
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
 
-      const { data: proj } = await supabase.from("projects").select("*").eq("user_id", user.id).eq("status", "active").order("updated_at", { ascending: false });
-      if (proj) {
-        const withUpdates = await Promise.all(proj.map(async (p) => {
-          const { data: u } = await supabase.from("project_updates").select("content").eq("project_id", p.id).order("created_at", { ascending: false }).limit(1);
-          return { ...p, latestUpdate: u?.[0]?.content ?? null };
-        }));
-        setProjects(withUpdates);
-      }
-      const { data: dec } = await supabase.from("decisions").select("id, context, verdict, probability, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(3);
-      setDecisions(dec ?? []);
-      const { data: rul } = await supabase.from("rules").select("id, rule_text, severity, active").eq("user_id", user.id).eq("active", true).order("severity", { ascending: false }).limit(4);
-      setRules(rul ?? []);
+      const [{ data: proj }, { data: dec }, { data: ins }, { data: behavLogs }] = await Promise.all([
+        supabase.from("projects").select("id, name, status, updated_at").eq("user_id", user.id).eq("status", "active").order("updated_at", { ascending: false }),
+        supabase.from("decisions").select("id, context, verdict, probability, created_at, closed_at, review_date").eq("user_id", user.id).order("created_at", { ascending: false }).limit(5),
+        supabase.from("insights").select("summary, insight_type, domain, recommended_focus").eq("user_id", user.id).order("generated_on", { ascending: false }).limit(4),
+        supabase.from("behavior_logs").select("mood_tag, stress, sleep_hours, timestamp").eq("user_id", user.id).order("timestamp", { ascending: false }).limit(7),
+      ]);
 
-      // Load proactive insights
+      // Get update counts per project for momentum
+      if (proj) {
+        const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+        const withCounts = await Promise.all(proj.map(async p => {
+          const { count } = await supabase.from("project_updates").select("*", { count: "exact", head: true }).eq("project_id", p.id).gte("created_at", sevenDaysAgo);
+          return { ...p, updateCount: count ?? 0 };
+        }));
+        const max = Math.max(...withCounts.map(p => p.updateCount ?? 0), 1);
+        setMaxUpdates(max);
+        setProjects(withCounts);
+      }
+
+      setDecisions(dec ?? []);
+      setInsights(ins ?? []);
+      setLogs(behavLogs ?? []);
+
+      // Load alerts
       fetch("/api/ai/proactive").then(r => r.json()).then(data => {
-        setInsights(data.insights ?? []);
-        setInsightsLoading(false);
-      }).catch(() => setInsightsLoading(false));
+        setAlerts(data.insights ?? []);
+        setAlertsLoading(false);
+      }).catch(() => setAlertsLoading(false));
+
+      // Generate fresh insights if we have behavior data
+      if (behavLogs && behavLogs.length >= 3 && ins && ins.length === 0) {
+        fetch("/api/ai/insights", { method: "POST" }).then(r => r.json()).then(() => {
+          supabase.from("insights").select("summary, insight_type, domain, recommended_focus").eq("user_id", user.id).order("generated_on", { ascending: false }).limit(4).then(({ data }) => setInsights(data ?? []));
+        });
+      }
     }
     load();
   }, []);
@@ -89,152 +101,180 @@ export default function DashboardPage() {
     setSummaryLoading(false);
   }
 
+  const today = new Date().toISOString().split("T")[0];
+  const reviewDue = decisions.filter(d => d.review_date && d.review_date <= today && !d.closed_at);
+  const avgStress = logs.length ? Math.round(logs.reduce((a, l) => a + (l.stress ?? 0), 0) / logs.length * 10) / 10 : null;
+  const avgSleep = logs.length ? Math.round(logs.reduce((a, l) => a + (Number(l.sleep_hours) ?? 0), 0) / logs.length * 10) / 10 : null;
+  const recentMoods = logs.slice(0, 3).map(l => l.mood_tag).filter(Boolean);
+
   return (
     <div className="flex-1 overflow-auto">
-      <div className="p-4 md:p-8 max-w-[1200px]">
+      <div className="p-4 md:p-8 max-w-[1100px]">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-5">
           <div>
-            <h1 className="text-[18px] md:text-[20px] font-semibold text-[#1A1A1A]">Dashboard</h1>
-            <p className="text-[12px] text-[#737373] mt-0.5 hidden md:block">What's happening across all your work</p>
+            <h1 className="text-[18px] font-semibold text-[#1A1A1A]">Dashboard</h1>
+            <p className="text-[12px] text-[#737373] mt-0.5 hidden md:block">Capture → Understand → Analyze → Suggest → You decide</p>
           </div>
           <button onClick={generateSummary} disabled={summaryLoading}
             className="flex items-center gap-2 px-3 py-1.5 border border-[#E5E2DE] text-[#737373] text-[12px] rounded-lg hover:border-[#CC785C] hover:text-[#CC785C] transition-colors disabled:opacity-50">
             {summaryLoading ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-            <span className="hidden md:inline">Weekly Summary</span>
-            <span className="md:hidden">Summary</span>
+            <span>Weekly Digest</span>
           </button>
         </div>
 
-        {/* Weekly Summary Panel */}
+        {/* Weekly summary */}
         {showSummary && (
           <div className="bg-[#1A1A1A] rounded-xl p-5 mb-5">
             <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Sparkles size={12} className="text-[#CC785C]" />
-                <span className="text-[10px] font-semibold text-[#CC785C] uppercase tracking-wide">Weekly Digest</span>
-              </div>
+              <div className="flex items-center gap-2"><Sparkles size={12} className="text-[#CC785C]" /><span className="text-[10px] font-semibold text-[#CC785C] uppercase tracking-wide">Weekly Digest</span></div>
               <button onClick={() => setShowSummary(false)} className="text-[11px] text-[#555] hover:text-[#999]">Close</button>
             </div>
             {summaryLoading
               ? <div className="flex items-center gap-2"><Loader2 size={12} className="animate-spin text-[#CC785C]" /><span className="text-[12px] text-[#999]">Generating...</span></div>
-              : <p className="text-[12px] text-[#CCC] leading-relaxed whitespace-pre-wrap">{summary}</p>
+              : <div className="text-[12px] text-[#CCC] leading-relaxed prose prose-sm prose-invert max-w-none"><ReactMarkdown>{summary}</ReactMarkdown></div>
             }
           </div>
         )}
 
-        {/* Proactive Intelligence */}
-        {(insightsLoading || insights.length > 0) && (
-          <div className="mb-5">
-            {insightsLoading ? (
-              <div className="flex items-center gap-2 px-1">
-                <Loader2 size={11} className="animate-spin text-[#737373]" />
-                <span className="text-[11px] text-[#737373]">Checking for alerts...</span>
-              </div>
-            ) : (
-              <div className="space-y-1.5">
-                {insights.map((ins, i) => <InsightCard key={i} insight={ins} />)}
-              </div>
-            )}
+        {/* Alerts */}
+        {(alertsLoading || alerts.length > 0) && (
+          <div className="mb-5 space-y-1.5">
+            {alertsLoading
+              ? <div className="flex items-center gap-2 px-1"><Loader2 size={11} className="animate-spin text-[#737373]" /><span className="text-[11px] text-[#737373]">Checking signals...</span></div>
+              : alerts.map((a, i) => <AlertCard key={i} alert={a} />)
+            }
           </div>
         )}
 
-        {/* Main grid — responsive */}
-        <div className="flex flex-col lg:flex-row gap-5">
-          {/* Left — Projects */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-[13px] font-semibold text-[#1A1A1A]">Active Projects</h2>
-              <span className="text-[11px] text-[#737373]">{projects.length} active</span>
+        {/* 4 Pillars Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+          {/* PILLAR 1: Project Momentum */}
+          <div className="bg-white border border-[#E5E2DE] rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <TrendingUp size={13} className="text-[#CC785C]" />
+              <h2 className="text-[12px] font-semibold text-[#1A1A1A] uppercase tracking-wide">Project Momentum</h2>
+              <span className="text-[10px] text-[#737373] ml-auto">7-day activity</span>
             </div>
-            {projects.length === 0 ? (
-              <div className="border-2 border-dashed border-[#E5E2DE] rounded-xl p-8 text-center">
-                <p className="text-[13px] text-[#737373]">No active projects.</p>
-                <button onClick={() => router.push("/app/projects")} className="mt-2 text-[12px] text-[#CC785C]">Create one →</button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {projects.map(p => (
-                  <div key={p.id} onClick={() => router.push(`/app/projects/${p.id}`)}
-                    className="bg-white border border-[#E5E2DE] rounded-xl p-4 cursor-pointer hover:border-[#CC785C]/40 hover:shadow-sm transition-all">
-                    <div className="flex items-start justify-between gap-2 mb-1.5">
-                      <span className="text-[13px] font-semibold text-[#1A1A1A] leading-tight">{p.name}</span>
-                      <StatusBadge status={p.status} />
+            {projects.length === 0
+              ? <p className="text-[12px] text-[#737373]">No active projects.</p>
+              : <div className="space-y-3">
+                  {projects.map(p => (
+                    <div key={p.id} onClick={() => router.push(`/app/projects/${p.id}`)} className="cursor-pointer group">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[12px] text-[#404040] group-hover:text-[#CC785C] transition-colors">{p.name}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-[#737373]">{p.updateCount ?? 0} updates</span>
+                          <span className="text-[10px] text-[#737373]">{timeAgo(p.updated_at)}</span>
+                        </div>
+                      </div>
+                      <MomentumBar value={p.updateCount ?? 0} max={maxUpdates} />
                     </div>
-                    {p.description && <p className="text-[11px] text-[#737373] mb-1.5 line-clamp-1">{p.description}</p>}
-                    {p.latestUpdate && <p className="text-[12px] text-[#404040] line-clamp-2 mb-2">{p.latestUpdate}</p>}
-                    <div className="flex items-center justify-between">
-                      {p.tags && p.tags.length > 0 && (
-                        <div className="flex gap-1">{p.tags.slice(0,2).map(t => <span key={t} className="text-[10px] bg-[#F7F5F2] text-[#737373] px-1.5 py-0.5 rounded-full">{t}</span>)}</div>
-                      )}
-                      <span className="text-[10px] text-[#737373] ml-auto">{timeAgo(p.updated_at)}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+            }
+            <button onClick={() => router.push("/app/projects")} className="mt-3 text-[11px] text-[#CC785C] hover:underline">All projects →</button>
           </div>
 
-          {/* Right — Decisions + Rules */}
-          <div className="w-full lg:w-[300px] shrink-0 space-y-5">
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-[13px] font-semibold text-[#1A1A1A]">Recent Decisions</h2>
-                <button onClick={() => router.push("/app/decisions")} className="text-[11px] text-[#CC785C]">View all</button>
-              </div>
-              {decisions.length === 0
-                ? <p className="text-[12px] text-[#737373]">No decisions logged yet.</p>
-                : <div className="space-y-2">
-                    {decisions.map(d => (
-                      <div key={d.id} onClick={() => router.push("/app/decisions")}
-                        className="bg-white border border-[#E5E2DE] rounded-xl p-3 cursor-pointer hover:border-[#CC785C]/40 transition-colors">
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <VerdictBadge verdict={d.verdict} />
-                          {d.probability != null && <span className="text-[10px] text-[#737373]">{d.probability}%</span>}
-                          <span className="text-[10px] text-[#737373] ml-auto">{timeAgo(d.created_at)}</span>
-                        </div>
-                        <p className="text-[12px] text-[#404040] line-clamp-2">{d.context}</p>
-                      </div>
-                    ))}
-                  </div>
-              }
+          {/* PILLAR 2: Decision Review */}
+          <div className="bg-white border border-[#E5E2DE] rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Scale size={13} className="text-[#2C5F8A]" />
+              <h2 className="text-[12px] font-semibold text-[#1A1A1A] uppercase tracking-wide">Decision Review</h2>
+              {reviewDue.length > 0 && <span className="ml-auto text-[10px] font-semibold text-[#EF4444]">{reviewDue.length} overdue</span>}
             </div>
+            {decisions.length === 0
+              ? <p className="text-[12px] text-[#737373]">No decisions logged yet.</p>
+              : <div className="space-y-2">
+                  {decisions.slice(0, 4).map(d => (
+                    <div key={d.id} onClick={() => router.push("/app/decisions")}
+                      className="flex items-center gap-2 cursor-pointer hover:bg-[#FAF9F7] rounded-lg px-2 py-1.5 -mx-2 transition-colors">
+                      <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${d.closed_at ? "bg-[#2D6A4F]" : d.review_date && d.review_date <= today ? "bg-[#EF4444]" : "bg-[#EAB308]"}`} />
+                      <p className="text-[12px] text-[#404040] flex-1 truncate">{d.context}</p>
+                      <span className="text-[10px] text-[#737373] shrink-0">{timeAgo(d.created_at)}</span>
+                    </div>
+                  ))}
+                </div>
+            }
+            <button onClick={() => router.push("/app/decisions")} className="mt-3 text-[11px] text-[#CC785C] hover:underline">Review all →</button>
+          </div>
 
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-[13px] font-semibold text-[#1A1A1A]">Active Rules</h2>
-                <button onClick={() => router.push("/app/rules")} className="text-[11px] text-[#CC785C]">View all</button>
-              </div>
-              {rules.length === 0
-                ? <p className="text-[12px] text-[#737373]">No active rules yet.</p>
-                : <div className="space-y-1.5">
-                    {rules.map(r => (
-                      <div key={r.id} onClick={() => router.push("/app/rules")}
-                        className="flex items-center gap-2 bg-white border border-[#E5E2DE] rounded-lg px-3 py-2 cursor-pointer hover:border-[#CC785C]/40 transition-colors">
-                        <p className="text-[12px] text-[#404040] flex-1 truncate">{r.rule_text}</p>
-                        <SeverityBadge severity={r.severity} />
+          {/* PILLAR 3: Behavioral Trends */}
+          <div className="bg-white border border-[#E5E2DE] rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Activity size={13} className="text-[#7C3AED]" />
+              <h2 className="text-[12px] font-semibold text-[#1A1A1A] uppercase tracking-wide">Behavioral Trends</h2>
+              <span className="text-[10px] text-[#737373] ml-auto">last 7 logs</span>
+            </div>
+            {logs.length === 0
+              ? <div><p className="text-[12px] text-[#737373] mb-2">No behavior data yet.</p><button onClick={() => router.push("/app/daily-check")} className="text-[11px] text-[#CC785C] hover:underline">Log today →</button></div>
+              : <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-[#F7F5F2] rounded-lg p-3 text-center">
+                      <p className="text-[18px] font-bold text-[#1A1A1A]">{avgSleep ?? "—"}h</p>
+                      <p className="text-[10px] text-[#737373] mt-0.5">avg sleep</p>
+                    </div>
+                    <div className="bg-[#F7F5F2] rounded-lg p-3 text-center">
+                      <p className={`text-[18px] font-bold ${(avgStress ?? 0) >= 7 ? "text-[#EF4444]" : (avgStress ?? 0) >= 5 ? "text-[#EAB308]" : "text-[#2D6A4F]"}`}>{avgStress ?? "—"}/10</p>
+                      <p className="text-[10px] text-[#737373] mt-0.5">avg stress</p>
+                    </div>
+                  </div>
+                  {recentMoods.length > 0 && (
+                    <div>
+                      <p className="text-[10px] text-[#737373] mb-1">Recent moods</p>
+                      <div className="flex gap-1 flex-wrap">
+                        {recentMoods.map((m, i) => <span key={i} className="text-[11px] bg-[#EDE9FE] text-[#7C3AED] px-2 py-0.5 rounded-full capitalize">{m}</span>)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+            }
+            <button onClick={() => router.push("/app/daily-check")} className="mt-3 text-[11px] text-[#CC785C] hover:underline">Log today →</button>
+          </div>
+
+          {/* PILLAR 4: AI Insights */}
+          <div className="bg-white border border-[#E5E2DE] rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Brain size={13} className="text-[#CC785C]" />
+              <h2 className="text-[12px] font-semibold text-[#1A1A1A] uppercase tracking-wide">AI Insights</h2>
+              <span className="text-[10px] text-[#737373] ml-auto">pattern analysis</span>
+            </div>
+            {insights.length === 0
+              ? <div>
+                  <p className="text-[12px] text-[#737373] mb-2">Log 3+ daily check-ins to unlock pattern analysis.</p>
+                  <div className="space-y-1.5">
+                    {["sleep vs decision quality", "stress vs project momentum", "mood vs update frequency"].map(p => (
+                      <div key={p} className="flex items-center gap-2 px-3 py-2 bg-[#F7F5F2] rounded-lg">
+                        <div className="w-1.5 h-1.5 rounded-full bg-[#E5E2DE]" />
+                        <p className="text-[11px] text-[#737373] italic">{p}</p>
                       </div>
                     ))}
                   </div>
-              }
-            </div>
+                </div>
+              : <div className="space-y-2">
+                  {insights.map((ins, i) => (
+                    <div key={i} className="px-3 py-2.5 bg-[#FAF9F7] border border-[#E5E2DE] rounded-lg">
+                      <p className="text-[10px] font-semibold text-[#CC785C] uppercase tracking-wide mb-1">{ins.domain} · {ins.insight_type}</p>
+                      <p className="text-[12px] text-[#404040] leading-snug">{ins.summary}</p>
+                      {ins.recommended_focus && <p className="text-[11px] text-[#737373] mt-1 italic">→ {ins.recommended_focus}</p>}
+                    </div>
+                  ))}
+                </div>
+            }
           </div>
         </div>
 
         {/* Quick Command */}
-        <div className="mt-6 pt-4 border-t border-[#E5E2DE]">
-          <span className="text-[10px] text-[#737373] uppercase tracking-wide mb-2 block">Quick Command</span>
+        <div className="mt-5 pt-4 border-t border-[#E5E2DE]">
+          <span className="text-[10px] text-[#737373] uppercase tracking-wide mb-2 block">Quick Entry</span>
           <div className="flex gap-2">
-            <input
-              className="flex-1 border border-[#E5E2DE] rounded-xl px-4 py-2.5 text-[13px] bg-white focus:outline-none focus:border-[#CC785C]/50 placeholder:text-[#999]"
-              placeholder="Type anything..."
+            <input className="flex-1 border border-[#E5E2DE] rounded-xl px-4 py-2.5 text-[13px] bg-white focus:outline-none focus:border-[#CC785C]/50 placeholder:text-[#999]"
+              placeholder="Log anything — sent to AI Assistant..."
               value={commandInput} onChange={e => setCommandInput(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter" && commandInput.trim()) router.push(`/app/ai?q=${encodeURIComponent(commandInput)}`); }}
-            />
+              onKeyDown={e => { if (e.key === "Enter" && commandInput.trim()) router.push(`/app/ai?q=${encodeURIComponent(commandInput)}`); }} />
             <button onClick={() => commandInput.trim() && router.push(`/app/ai?q=${encodeURIComponent(commandInput)}`)}
-              className="bg-[#1A1A1A] text-white text-[13px] px-4 py-2.5 rounded-xl hover:bg-[#333] transition-colors">
-              Send
-            </button>
+              className="bg-[#1A1A1A] text-white text-[13px] px-4 py-2.5 rounded-xl hover:bg-[#333] transition-colors">→</button>
           </div>
         </div>
       </div>

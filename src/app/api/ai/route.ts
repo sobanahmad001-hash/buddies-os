@@ -1,29 +1,9 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
+import OpenAI from "openai";
 
 const AI_PROVIDER = process.env.AI_PROVIDER ?? "openai";
-
-async function callAI(systemPrompt: string, messages: {role: string; content: string}[]) {
-  if (AI_PROVIDER === "anthropic") {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": process.env.ANTHROPIC_API_KEY!, "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 1024, system: systemPrompt, messages }),
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error?.message ?? "Anthropic error");
-    return data.content?.[0]?.text ?? "No response.";
-  } else {
-    const { default: OpenAI } = await import("openai");
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini", max_tokens: 1024,
-      messages: [{ role: "system", content: systemPrompt }, ...messages] as any,
-    });
-    return response.choices[0]?.message?.content ?? "No response.";
-  }
-}
 
 export async function POST(req: NextRequest) {
   const cookieStore = await cookies();
@@ -44,7 +24,7 @@ export async function POST(req: NextRequest) {
   ] = await Promise.all([
     supabase.from("projects").select("id, name, description, status").eq("user_id", user.id).eq("status", "active"),
     supabase.from("project_updates").select("content, next_actions, update_type, created_at, project_id").eq("user_id", user.id).order("created_at", { ascending: false }).limit(20),
-    supabase.from("decisions").select("context, verdict, probability, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(10),
+    supabase.from("decisions").select("context, verdict, probability, outcome_rating, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(10),
     supabase.from("rules").select("rule_text, severity, active").eq("user_id", user.id).eq("active", true),
     supabase.from("behavior_logs").select("mood_tag, stress, sleep_hours, notes, timestamp").eq("user_id", user.id).order("timestamp", { ascending: false }).limit(7),
     supabase.from("ai_sessions").select("messages, updated_at").eq("user_id", user.id).order("updated_at", { ascending: false }).limit(3),
@@ -53,7 +33,6 @@ export async function POST(req: NextRequest) {
   const projectMap: Record<string, string> = {};
   (projects ?? []).forEach(p => { projectMap[p.id] = p.name; });
 
-  // Build recent conversation history from past sessions
   const sessionHistory = (recentSessions ?? [])
     .flatMap((s: any) => (s.messages ?? []).slice(-4))
     .slice(-12)
@@ -68,7 +47,7 @@ RECENT UPDATES:
 ${(updates ?? []).map(u => `- [${projectMap[u.project_id] ?? "unknown"}] ${u.update_type}: ${u.content}${u.next_actions ? ` → next: ${u.next_actions}` : ""}`).join("\n")}
 
 DECISIONS:
-${(decisions ?? []).map(d => `- ${d.verdict?.toUpperCase() ?? "?"} (${d.probability ?? "?"}%): ${d.context}`).join("\n")}
+${(decisions ?? []).map(d => `- ${d.verdict?.toUpperCase() ?? "?"} (${d.probability ?? "?"}%) [outcome: ${d.outcome_rating ?? "open"}]: ${d.context}`).join("\n")}
 
 ACTIVE RULES:
 ${(rules ?? []).map(r => `- [severity ${r.severity}] ${r.rule_text}`).join("\n")}
@@ -76,20 +55,64 @@ ${(rules ?? []).map(r => `- [severity ${r.severity}] ${r.rule_text}`).join("\n")
 BEHAVIOR (last 7 days):
 ${(logs ?? []).map(l => `- mood: ${l.mood_tag ?? "?"}, stress: ${l.stress ?? "?"}/10, sleep: ${l.sleep_hours ?? "?"}h`).join("\n")}
 
-${sessionHistory ? `RECENT CONVERSATION HISTORY (from past sessions):\n${sessionHistory}` : ""}
-`.trim();
+${sessionHistory ? `RECENT CONVERSATION HISTORY:\n${sessionHistory}` : ""}`.trim();
 
   const systemPrompt = `You are the AI core of Buddies OS — a personal operating system for an entrepreneur named Soban.
-You have full context of his work, decisions, rules, and behavior patterns across sessions.
-Be direct, blunt, systems-thinking. No pleasantries. No flattery. Push back when warranted.
-Answer questions about work, identify patterns, flag risks, surface what he's missing.
-Keep answers concise. Use bullet points only for lists. Format responses in clean markdown.
+
+PHILOSOPHY:
+The system is: Capture → Understand → Analyze → Suggest → Human decides.
+You are an advisor, not a governor. Never enforce. Never block. Surface intelligence and let the human decide.
+
+RESPONSE FORMAT RULES:
+- For factual questions: answer directly and concisely
+- When you detect a pattern in the data, format it as:
+  "Observation: [what the data shows]. [neutral supporting data]. You decide."
+- Never say "you should" — say "the data suggests" or "worth considering"
+- Use bullet points only for lists
+- Use markdown formatting — bold for key terms, bullets for lists
+- Keep responses tight. No padding. No flattery.
+- If a question requires live data (prices, news, current events), use the web search tool automatically
 
 CURRENT CONTEXT:
 ${contextBlock}`;
 
   try {
-    const text = await callAI(systemPrompt, messages);
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      max_tokens: 1024,
+      tools: [{ type: "web_search_preview" as any }],
+      tool_choice: "auto" as any,
+      messages: [
+        { role: "system", content: systemPrompt },
+        ...messages
+      ],
+    });
+
+    // Handle tool use + final response
+    let text = response.choices[0]?.message?.content ?? "";
+
+    // If no content yet, check for tool calls and get final response
+    if (!text && response.choices[0]?.finish_reason === "tool_calls") {
+      const toolCallMsg = response.choices[0].message;
+      const followUp = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        max_tokens: 1024,
+        messages: [
+          { role: "system", content: systemPrompt },
+          ...messages,
+          toolCallMsg as any,
+          ...((toolCallMsg.tool_calls ?? []).map((tc: any) => ({
+            role: "tool" as const,
+            tool_call_id: tc.id,
+            content: "Search completed.",
+          }))),
+        ],
+      });
+      text = followUp.choices[0]?.message?.content ?? "No response.";
+    }
+
     return NextResponse.json({ text, provider: AI_PROVIDER });
   } catch (err: any) {
     return NextResponse.json({ text: `Error: ${err.message}` });
