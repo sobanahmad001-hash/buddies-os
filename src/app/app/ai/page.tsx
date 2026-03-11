@@ -2,8 +2,8 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import {
-  Plus, Send, Copy, RotateCcw, Trash2, ChevronDown,
-  MessageSquare, Check, PanelLeftClose, PanelLeftOpen
+  Plus, Send, Copy, RotateCcw, Trash2,
+  MessageSquare, Check
 } from "lucide-react";
 
 // ── Markdown renderer ─────────────────────────────────────────────────────────
@@ -366,8 +366,11 @@ export default function AIPage() {
         {/* Header */}
         <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-[#E5E2DE] shrink-0">
           <button onClick={() => setSidebarOpen(v => !v)}
-            className="text-[#B0ADA9] hover:text-[#1A1A1A] transition-colors p-1 rounded-lg hover:bg-[#F0EDE9]">
-            {sidebarOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
+            className="flex flex-col justify-center items-center w-8 h-8 gap-1.5 text-[#737373] hover:text-[#1A1A1A] transition-colors rounded-lg hover:bg-[#F0EDE9]"
+            title={sidebarOpen ? "Hide sessions" : "Show sessions"}>
+            <span className="w-4 h-0.5 bg-current rounded-full transition-all" />
+            <span className="w-4 h-0.5 bg-current rounded-full transition-all" />
+            <span className="w-4 h-0.5 bg-current rounded-full transition-all" />
           </button>
           <div className="flex-1">
             <div className="text-sm font-semibold text-[#1A1A1A]">

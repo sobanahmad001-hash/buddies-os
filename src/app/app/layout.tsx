@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import {
   LayoutDashboard, Bot, FolderKanban, Scale, ShieldCheck,
   SunMedium, Users, Search, LogOut, FlaskConical,
-  ChevronLeft, ChevronRight, Menu, X, Briefcase
+  ChevronLeft, ChevronRight, X, Briefcase
 } from "lucide-react";
 
 const navItems = [
@@ -56,8 +56,10 @@ function NavContent({
         )}
         {/* Desktop collapse toggle */}
         <button onClick={() => setCollapsed(!collapsed)}
-          className="hidden md:flex text-[#525252] hover:text-white p-1 rounded-lg hover:bg-[#1E1E1E] transition-colors">
-          {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+          className="hidden md:flex flex-col justify-center items-center w-7 h-7 gap-1 text-[#525252] hover:text-white rounded-lg hover:bg-[#1E1E1E] transition-colors shrink-0">
+          <span className="w-3.5 h-0.5 bg-current rounded-full transition-all" />
+          <span className={`h-0.5 bg-current rounded-full transition-all ${collapsed ? "w-3.5" : "w-2.5"}`} />
+          <span className="w-3.5 h-0.5 bg-current rounded-full transition-all" />
         </button>
         {/* Mobile close button */}
         <button onClick={() => setMobileOpen(false)}
@@ -147,8 +149,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         {/* Mobile top bar */}
         <div className="md:hidden flex items-center gap-3 px-4 py-3 bg-[#0F0F0F] border-b border-[#1E1E1E] shrink-0">
           <button onClick={() => setMobileOpen(true)}
-            className="text-[#8A8A8A] hover:text-white p-1 rounded-lg hover:bg-[#1E1E1E] transition-colors">
-            <Menu size={20} />
+            className="flex flex-col justify-center items-center w-8 h-8 gap-1.5 text-[#8A8A8A] hover:text-white rounded-lg hover:bg-[#1E1E1E] transition-colors">
+            <span className="w-5 h-0.5 bg-current rounded-full" />
+            <span className="w-5 h-0.5 bg-current rounded-full" />
+            <span className="w-5 h-0.5 bg-current rounded-full" />
           </button>
           <span className="text-[14px] font-bold tracking-tight">
             <span className="text-white">BUDDIES</span>
