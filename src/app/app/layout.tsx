@@ -16,6 +16,7 @@ const navItems = [
   { to: "/app/decisions",   icon: Scale,           label: "Decisions" },
   { to: "/app/rules",       icon: ShieldCheck,     label: "Rules" },
   { to: "/app/daily-check", icon: Sun,             label: "Daily Check" },
+  { to: "/app/research",   icon: Search,          label: "Research" },
   { to: "/app/workspace",   icon: Users,           label: "Workspace" },
   { to: "/app/search",      icon: Search,          label: "Search" },
 ];
