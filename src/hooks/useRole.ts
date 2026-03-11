@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
-export type UserRole = "owner" | "admin" | "developer" | "agent" | "viewer" | null;
+export type UserRole = "owner" | "dept_head" | "executive" | "intern" | null;
 
 export function useRole() {
   const [role, setRole] = useState<UserRole>(null);
@@ -14,9 +14,12 @@ export function useRole() {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setLoading(false); return; }
-      const { data: mem } = await supabase.from("memberships")
+      const { data: mem } = await supabase
+        .from("memberships")
         .select("role, department_id, departments(slug)")
-        .eq("user_id", user.id).eq("status", "active").maybeSingle();
+        .eq("user_id", user.id)
+        .eq("status", "active")
+        .maybeSingle();
       if (mem) {
         setRole(mem.role as UserRole);
         setDepartmentId(mem.department_id ?? null);
@@ -27,8 +30,21 @@ export function useRole() {
     load();
   }, []);
 
-  const isOwner = role === "owner";
+  const isOwner      = role === "owner";
+  const isDeptHead   = role === "dept_head";
+  const isExecutive  = role === "executive";
+  const isIntern     = role === "intern";
   const isTeamMember = role !== null && role !== "owner";
 
-  return { role, departmentId, departmentSlug, loading, isOwner, isTeamMember };
+  // What they can see
+  const canSeeAllDeptTasks     = isOwner || isDeptHead;
+  const canSeeAllDeptProjects  = isOwner || isDeptHead || isExecutive;
+  const canSeeActivityFeed     = isOwner || isDeptHead || isExecutive;
+  const canAssignTasks         = isOwner || isDeptHead;
+
+  return {
+    role, departmentId, departmentSlug, loading,
+    isOwner, isDeptHead, isExecutive, isIntern, isTeamMember,
+    canSeeAllDeptTasks, canSeeAllDeptProjects, canSeeActivityFeed, canAssignTasks
+  };
 }

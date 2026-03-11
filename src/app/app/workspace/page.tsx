@@ -229,7 +229,11 @@ export default function WorkspacePage() {
                   className="flex-1 text-sm px-3 py-2 border border-[#E5E2DE] rounded-lg focus:outline-none focus:border-[#E8521A]" />
                 <select value={inviteRole} onChange={e => setInviteRole(e.target.value)}
                   className="text-sm px-3 py-2 border border-[#E5E2DE] rounded-lg focus:outline-none bg-white">
-                  {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                  {ROLES.map(r => (
+                            <option key={r} value={r}>
+                              {r === "dept_head" ? "Dept Head" : r === "executive" ? "Executive" : "Intern"}
+                            </option>
+                          ))}
                 </select>
                 <button onClick={sendInvite} disabled={inviting || !inviteEmail.trim()}
                   className="px-4 py-2 bg-[#1A1A1A] text-white text-sm font-semibold rounded-lg hover:bg-[#333] disabled:opacity-40">
@@ -272,7 +276,11 @@ export default function WorkspacePage() {
                           <select value={m.role}
                             onChange={e => updateMember(m.id, { role: e.target.value })}
                             className="text-xs px-2 py-1 border border-[#E5E2DE] rounded-lg bg-white focus:outline-none">
-                            {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                            {ROLES.map(r => (
+                            <option key={r} value={r}>
+                              {r === "dept_head" ? "Dept Head" : r === "executive" ? "Executive" : "Intern"}
+                            </option>
+                          ))}
                           </select>
                           <select value={m.department_id ?? ""}
                             onChange={e => assignDepartment(m.id, e.target.value)}
