@@ -470,8 +470,8 @@ export default function AIPage() {
                 <div className="bg-white border border-[#E5E2DE] rounded-2xl rounded-tl-sm px-4 py-3">
                   <div className="flex gap-1 items-center h-5">
                     {[0,1,2].map(i => (
-                      <div key={i} className="w-1.5 h-1.5 rounded-full bg-[#B0ADA9]"
-                        style={{ animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite` }} />
+                      <div key={i} className="w-1.5 h-1.5 rounded-full bg-[#B0ADA9] animate-bounce"
+                        style={{ animationDelay: `${i * 0.15}s` }} />
                     ))}
                   </div>
                 </div>
@@ -507,12 +507,6 @@ export default function AIPage() {
         </div>
       </div>
 
-      <style jsx>{`
-        @keyframes bounce {
-          0%, 60%, 100% { transform: translateY(0); }
-          30% { transform: translateY(-6px); }
-        }
-      `}</style>
     </div>
   );
 }
