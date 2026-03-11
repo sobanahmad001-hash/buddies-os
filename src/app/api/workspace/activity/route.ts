@@ -88,7 +88,7 @@ export async function GET() {
       created_at: u.created_at,
       user_id: u.user_id,
       is_own: u.user_id === user.id,
-      author: profileMap[u.user_id]?.full_name ?? (u.user_id === user.id ? "You" : "Team"),
+      author: profileMap[u.user_id]?.full_name || (u.user_id === user.id ? "You" : "Team"),
     })),
     ...(tasks ?? []).map((t: any) => ({
       id: `t-${t.id}`,
@@ -100,7 +100,7 @@ export async function GET() {
       created_at: t.created_at,
       user_id: t.user_id,
       is_own: t.user_id === user.id,
-      author: profileMap[t.user_id]?.full_name ?? (t.user_id === user.id ? "You" : "Team"),
+      author: profileMap[t.user_id]?.full_name || (t.user_id === user.id ? "You" : "Team"),
     })),
   ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 25);
 

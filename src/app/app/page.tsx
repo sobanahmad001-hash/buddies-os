@@ -459,7 +459,7 @@ const [projects, setProjects] = useState<Project[]>([]);
               {teamActivity.slice(0, 15).map(item => (
                 <div key={item.id} className="flex items-start gap-3 py-2.5 border-b border-[#F7F5F2] last:border-0">
                   <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 ${item.is_own ? "bg-[#E8521A] text-white" : "bg-[#DBEAFE] text-[#2C5F8A]"}`}>
-                    {item.author[0].toUpperCase()}
+                    {(item.author || "?")[0].toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
