@@ -1,7 +1,7 @@
 'use client';
 
 import { useWorkspace } from '@/context/WorkspaceContext';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@/lib/supabase/client';
 import { useEffect, useState } from 'react';
 import { Briefcase, Plus, Search, Building2 } from 'lucide-react';
 import Link from 'next/link';
@@ -25,7 +25,7 @@ export default function WorkspaceClientsPage() {
   const [showForm, setShowForm] = useState(false);
   const [newName, setNewName] = useState('');
   const [newIndustry, setNewIndustry] = useState('');
-  const supabase = createClientComponentClient();
+  const supabase = createClient();
 
   useEffect(() => {
     if (!activeWorkspace) return;
@@ -38,10 +38,10 @@ export default function WorkspaceClientsPage() {
 
     const { data, error } = await supabase
       .from('clients')
-      .select(\`
+      .select(`
         id, name, industry, status, workspace_id, created_at,
         client_stages(id, status)
-      \`)
+      `)
       .eq('workspace_id', activeWorkspace.id)
       .order('created_at', { ascending: false });
 
@@ -164,13 +164,15 @@ export default function WorkspaceClientsPage() {
       ) : (
         <div className="space-y-2">
           {filtered.map(client => {
-            const pct = client.stages_total > 0
-              ? Math.round((client.stages_completed / client.stages_total) * 100)
+            const total = client.stages_total ?? 0;
+            const completed = client.stages_completed ?? 0;
+            const pct = total > 0
+              ? Math.round((completed / total) * 100)
               : 0;
             return (
               <Link
                 key={client.id}
-                href={\`/app/clients/\${client.id}\`}
+                href={`/app/clients/${client.id}`}
                 className="block p-4 bg-white/5 hover:bg-white/8 border border-white/10 rounded-lg transition-colors"
               >
                 <div className="flex items-center justify-between">
@@ -181,25 +183,25 @@ export default function WorkspaceClientsPage() {
                     )}
                   </div>
                   <div className="text-right">
-                    <span className={\`text-xs px-2 py-0.5 rounded-full \${
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${
                       client.status === 'active' ? 'bg-green-500/20 text-green-400' :
                       client.status === 'onboarding' ? 'bg-yellow-500/20 text-yellow-400' :
                       'bg-white/10 text-white/40'
-                    }\`}>
+                    }`}>
                       {client.status}
                     </span>
                   </div>
                 </div>
-                {client.stages_total > 0 && (
+                {total > 0 && (
                   <div className="mt-2">
                     <div className="flex justify-between text-xs text-white/40 mb-1">
                       <span>Pipeline</span>
-                      <span>{client.stages_completed}/{client.stages_total} ({pct}%)</span>
+                      <span>{completed}/{total} ({pct}%)</span>
                     </div>
                     <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
                       <div
                         className="h-full bg-blue-500 rounded-full transition-all"
-                        style={{ width: \`\${pct}%\` }}
+                        style={{ width: `${pct}%` }}
                       />
                     </div>
                   </div>

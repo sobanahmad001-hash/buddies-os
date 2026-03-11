@@ -35,7 +35,7 @@ export default function WorkspaceSwitcher() {
           <div className="text-xs text-white/40 uppercase tracking-wider font-medium">Workspace</div>
           <div className="text-sm font-semibold text-white truncate">{activeWorkspace.name}</div>
         </div>
-        <ChevronDown className={\`w-4 h-4 text-white/40 transition-transform \${open ? 'rotate-180' : ''}\`} />
+        <ChevronDown className={`w-4 h-4 text-white/40 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
       {open && workspaces.length > 1 && (
@@ -44,11 +44,11 @@ export default function WorkspaceSwitcher() {
             <button
               key={ws.id}
               onClick={() => { setActiveWorkspace(ws); setOpen(false); }}
-              className={\`w-full text-left px-3 py-2.5 text-sm transition-colors \${
+              className={`w-full text-left px-3 py-2.5 text-sm transition-colors ${
                 ws.id === activeWorkspace.id
                   ? 'bg-white/10 text-white font-medium'
                   : 'text-white/60 hover:bg-white/5 hover:text-white'
-              }\`}
+              }`}
             >
               {ws.name}
             </button>
