@@ -122,9 +122,9 @@ export async function POST(req: NextRequest) {
       };
       await supabase.from("workspace_activity").insert({
         workspace_id: wsId, user_id: user.id,
-        action_type: actionMap[type] ?? "project_update",
-        summary: `logged a ${type.replace("_", " ")}`,
-        metadata: { detail: content?.slice?.(0, 100) }
+        action_type: actionMap[item.type] ?? "project_update",
+        summary: `logged a ${item.type.replace("_", " ")}`,
+        metadata: { detail: item.content?.slice?.(0, 100) }
       });
     }
   } catch {}

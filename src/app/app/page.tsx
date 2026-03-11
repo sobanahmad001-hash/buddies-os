@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Sparkles, AlertTriangle, Info, AlertCircle, TrendingUp, Scale, Brain, Activity, CheckSquare, Users, FolderKanban } from "lucide-react";
+import Link from "next/link";
+import { Loader2, Sparkles, AlertTriangle, Info, AlertCircle, TrendingUp, Scale, Brain, Activity, CheckSquare, Users, FolderKanban, ChevronRight } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import ReactMarkdown from "react-markdown";
 
