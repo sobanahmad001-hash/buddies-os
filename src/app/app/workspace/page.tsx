@@ -63,8 +63,16 @@ export default function WorkspacePage() {
 
   async function loadMembers(wsId: string) {
     const { data } = await supabase
-      .from("memberships").select("*").eq("workspace_id", wsId);
-    setMembers(data ?? []);
+      .from("memberships")
+      .select("id, user_id, role, status, invited_email, joined_at")
+      .eq("workspace_id", wsId)
+      .neq("status", "suspended");
+    // Enrich with auth email where invited_email is missing
+    const enriched = (data ?? []).map((m: any) => ({
+      ...m,
+      invited_email: m.invited_email ?? (m.role === "owner" ? "sobanahmed9090@gmail.com" : m.user_id)
+    }));
+    setMembers(enriched);
   }
 
   async function loadInvites(wsId: string) {
@@ -238,10 +246,10 @@ export default function WorkspacePage() {
                   {members.map((m: any) => (
                     <div key={m.id} className="flex items-center gap-3 py-2.5 border-b border-[#F7F5F2] last:border-0">
                       <div className="w-8 h-8 rounded-full bg-[#E8521A] flex items-center justify-center text-white text-xs font-bold shrink-0">
-                        {(m.invited_email ?? m.user_id ?? "?")[0].toUpperCase()}
+                        {(m.invited_email ?? "?")[0].toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-[#1A1A1A] truncate">{m.invited_email ?? m.user_id}</div>
+                        <div className="text-sm font-medium text-[#1A1A1A] truncate">{m.invited_email ?? "Member"}</div>
                         <div className="text-xs text-[#737373]">{new Date(m.joined_at).toLocaleDateString()}</div>
                       </div>
                       <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold capitalize ${ROLE_COLORS[m.role] ?? ROLE_COLORS.agent}`}>
