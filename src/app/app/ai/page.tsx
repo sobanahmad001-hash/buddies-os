@@ -102,13 +102,16 @@ export default function AIPage() {
   }, [messages, loading]);
 
   async function loadSession(uid: string) {
-    const { data } = await supabase.from("ai_sessions").select("id, messages")
+    const { data, error } = await supabase.from("ai_sessions").select("id, messages")
       .eq("user_id", uid).order("updated_at", { ascending: false }).limit(1).single();
-    if (data) {
-      setSessionId(data.id);
-      const msgs = (data.messages ?? []).map((m: any) => ({ ...m, timestamp: m.timestamp ? new Date(m.timestamp) : new Date() }));
-      setMessages(msgs);
-    }
+    if (error || !data) return;
+    setSessionId(data.id);
+    const msgs = (data.messages ?? []).map((m: any) => ({
+      role: m.role,
+      content: m.content,
+      timestamp: m.timestamp ? new Date(m.timestamp) : undefined
+    }));
+    if (msgs.length > 0) setMessages(msgs);
   }
 
   async function saveSession(msgs: Message[]) {
