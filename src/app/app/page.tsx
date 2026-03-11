@@ -39,7 +39,10 @@ function MomentumBar({ value, max }: { value: number; max: number }) {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [projects, setProjects] = useState<Project[]>([]);
+  
+  const [ankaStats, setAnkaStats] = useState<{dept: string; slug: string; color: string; inProgress: number; todo: number; bugs: number; campaigns: number}[]>([]);
+
+const [projects, setProjects] = useState<Project[]>([]);
   const [decisions, setDecisions] = useState<Decision[]>([]);
   const [insights, setInsights] = useState<Insight[]>([]);
   const [predictions, setPredictions] = useState<any[]>([]);
@@ -146,6 +149,36 @@ export default function DashboardPage() {
     tasksByProject[key].items.push(t);
   });
   const taskGroups = Object.values(tasksByProject).sort((a, b) => b.items.length - a.items.length);
+
+
+  useEffect(() => {
+    async function loadAnkaStats() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: ws } = await supabase.from("workspaces").select("id").eq("owner_id", user.id).maybeSingle();
+      if (!ws) return;
+      const { data: depts } = await supabase.from("departments").select("*").eq("workspace_id", ws.id);
+      if (!depts) return;
+      const stats = await Promise.all(depts.map(async (d: any) => {
+        const [tRes, aRes] = await Promise.all([
+          supabase.from("project_tasks").select("status").eq("department_id", d.id).neq("status", "cancelled"),
+          supabase.from("department_activity").select("activity_type").eq("department_id", d.id),
+        ]);
+        const tasks = tRes.data ?? [];
+        const activity = aRes.data ?? [];
+        const colorMap: Record<string,string> = { design: "#8B5CF6", development: "#3B82F6", marketing: "#10B981" };
+        return {
+          dept: d.name, slug: d.slug, color: colorMap[d.slug] ?? "#E8521A",
+          inProgress: tasks.filter((t: any) => t.status === "in_progress").length,
+          todo: tasks.filter((t: any) => t.status === "todo").length,
+          bugs: activity.filter((a: any) => a.activity_type === "bug").length,
+          campaigns: activity.filter((a: any) => a.activity_type === "campaign").length,
+        };
+      }));
+      setAnkaStats(stats);
+    }
+    loadAnkaStats();
+  }, []);
 
   return (
     <div className="flex-1 overflow-auto">
@@ -461,6 +494,36 @@ export default function DashboardPage() {
               className="bg-[#1A1A1A] text-white text-[13px] px-4 py-2.5 rounded-xl hover:bg-[#333] transition-colors">→</button>
           </div>
         </div>
+
+        {/* ANKA Team Card */}
+        {ankaStats.length > 0 && (
+          <Link href="/app/workspace" className="block">
+            <div className="bg-[#0F0F0F] rounded-2xl p-5 hover:bg-[#1A1A1A] transition-colors cursor-pointer group">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <div className="text-white font-bold text-sm tracking-tight">ANKA <span className="text-[#E8521A]">SPHERE</span></div>
+                  <div className="text-[#525252] text-[10px]">Team pulse</div>
+                </div>
+                <ChevronRight size={14} className="text-[#525252] group-hover:text-white transition-colors" />
+              </div>
+              <div className="space-y-2.5">
+                {ankaStats.map(s => (
+                  <div key={s.slug} className="flex items-center gap-3">
+                    <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+                    <div className="flex-1 text-[11px] text-[#8A8A8A]">{s.dept}</div>
+                    <div className="flex items-center gap-3 text-[10px]">
+                      {s.inProgress > 0 && <span style={{ color: s.color }}>{s.inProgress} active</span>}
+                      {s.todo > 0 && <span className="text-[#525252]">{s.todo} queued</span>}
+                      {s.bugs > 0 && <span className="text-red-400">{s.bugs} bugs</span>}
+                      {s.campaigns > 0 && <span className="text-[#10B981]">{s.campaigns} campaigns</span>}
+                      {s.inProgress === 0 && s.todo === 0 && <span className="text-[#3A3A3A]">no activity</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Link>
+        )}
       </div>
     </div>
   );

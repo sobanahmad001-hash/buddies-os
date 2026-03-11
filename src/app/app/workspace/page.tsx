@@ -2,74 +2,74 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { Users, ChevronRight, Plus, Copy, Palette, Code2, Megaphone } from "lucide-react";
 
-const ROLES = ["agent","developer","admin","viewer"];
-const ROLE_COLORS: Record<string,string> = {
-  owner: "bg-[#E8521A] text-white",
-  admin: "bg-[#DBEAFE] text-[#1E40AF]",
-  developer: "bg-[#DCFCE7] text-[#166534]",
-  agent: "bg-[#F3F4F6] text-[#374151]",
-  viewer: "bg-[#F7F5F2] text-[#6B7280]",
+const DEPT_META: Record<string, { icon: any; color: string; bg: string; label: string }> = {
+  design:      { icon: Palette,   color: "#8B5CF6", bg: "#8B5CF610", label: "Design" },
+  development: { icon: Code2,     color: "#3B82F6", bg: "#3B82F610", label: "Development" },
+  marketing:   { icon: Megaphone, color: "#10B981", bg: "#10B98110", label: "Marketing" },
 };
+
+const ROLES = ["dept_head", "executive", "intern"];
+const ROLE_LABEL: Record<string, string> = { dept_head: "Dept Head", executive: "Executive", intern: "Intern" };
 
 export default function WorkspacePage() {
   const router = useRouter();
   const [workspace, setWorkspace] = useState<any>(null);
+  const [departments, setDepartments] = useState<any[]>([]);
   const [members, setMembers] = useState<any[]>([]);
   const [invites, setInvites] = useState<any[]>([]);
-  const [departments, setDepartments] = useState<any[]>([]);
-  const [wsName, setWsName] = useState("");
+  const [deptStats, setDeptStats] = useState<Record<string, any>>({});
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState("agent");
-  const [creating, setCreating] = useState(false);
+  const [inviteRole, setInviteRole] = useState("executive");
+  const [inviteDept, setInviteDept] = useState("");
   const [inviting, setInviting] = useState(false);
-  const [generatedLink, setGeneratedLink] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [newName, setNewName] = useState("");
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(false);
-  const [editName, setEditName] = useState("");
-  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => { init(); }, []);
 
   async function init() {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { router.push("/login"); return; }
-    setUserId(user.id);
-    await loadWorkspace(user.id);
+    if (!user) return;
+    const { data: ws } = await supabase.from("workspaces").select("*").eq("owner_id", user.id).maybeSingle();
+    if (!ws) { setLoading(false); return; }
+    setWorkspace(ws);
+    setNewName(ws.name);
+    await Promise.all([loadDepts(ws.id), loadMembers(ws.id), loadInvites(ws.id)]);
     setLoading(false);
   }
 
-  async function loadWorkspace(uid: string) {
-    // Direct client-side read — bypasses SSR cookie issues
-    const { data: ws } = await supabase
-      .from("workspaces").select("*").eq("owner_id", uid).maybeSingle();
-
-    if (ws) {
-      setWorkspace(ws);
-      await loadMembers(ws.id);
-      await loadInvites(ws.id);
-      await loadDepartments(ws.id);
-    } else {
-      // Check if member of someone else's workspace
-      const { data: mem } = await supabase
-        .from("memberships").select("workspace_id, role")
-        .eq("user_id", uid).eq("status", "active").maybeSingle();
-      if (mem) {
-        const { data: ws2 } = await supabase
-          .from("workspaces").select("*").eq("id", mem.workspace_id).maybeSingle();
-        if (ws2) setWorkspace(ws2);
-      }
+  async function loadDepts(wsId: string) {
+    const { data } = await supabase.from("departments").select("*").eq("workspace_id", wsId).order("name");
+    setDepartments(data ?? []);
+    // Load stats per dept
+    const stats: Record<string, any> = {};
+    for (const d of (data ?? [])) {
+      const [tRes, aRes, mRes] = await Promise.all([
+        supabase.from("project_tasks").select("status").eq("department_id", d.id).neq("status", "cancelled"),
+        supabase.from("department_activity").select("created_at, title").eq("department_id", d.id).order("created_at", { ascending: false }).limit(1),
+        supabase.from("memberships").select("id").eq("department_id", d.id).eq("status", "active"),
+      ]);
+      const tasks = tRes.data ?? [];
+      stats[d.id] = {
+        total: tasks.length,
+        inProgress: tasks.filter((t: any) => t.status === "in_progress").length,
+        done: tasks.filter((t: any) => t.status === "done").length,
+        todo: tasks.filter((t: any) => t.status === "todo").length,
+        lastActivity: aRes.data?.[0]?.title ?? null,
+        lastAt: aRes.data?.[0]?.created_at ?? null,
+        memberCount: mRes.data?.length ?? 0,
+      };
     }
+    setDeptStats(stats);
   }
 
   async function loadMembers(wsId: string) {
-    const { data } = await supabase
-      .from("memberships")
-      .select("id, user_id, role, status, invited_email, joined_at")
-      .eq("workspace_id", wsId)
-      .neq("status", "suspended");
-    // Enrich with auth email where invited_email is missing
+    const { data } = await supabase.from("memberships")
+      .select("*, departments(name, slug, color)")
+      .eq("workspace_id", wsId).neq("status", "suspended");
     const enriched = (data ?? []).map((m: any) => ({
       ...m,
       invited_email: m.invited_email ?? (m.role === "owner" ? "sobanahmed9090@gmail.com" : m.user_id)
@@ -78,88 +78,48 @@ export default function WorkspacePage() {
   }
 
   async function loadInvites(wsId: string) {
-    const { data } = await supabase
-      .from("workspace_invites").select("*")
-      .eq("workspace_id", wsId)
-      .order("created_at", { ascending: false });
+    const { data } = await supabase.from("workspace_invites")
+      .select("*").eq("workspace_id", wsId).eq("status", "pending");
     setInvites(data ?? []);
-  }
-
-  async function loadDepartments(wsId: string) {
-    const { data } = await supabase.from("departments").select("*").eq("workspace_id", wsId).order("name");
-    setDepartments(data ?? []);
-  }
-
-  async function assignDepartment(memberId: string, departmentId: string) {
-    await supabase.from("memberships").update({ department_id: departmentId || null }).eq("id", memberId);
-    if (workspace) await loadMembers(workspace.id);
-  }
-
-  async function createWorkspace() {
-    if (!wsName.trim() || !userId) return;
-    setCreating(true);
-    const { data, error } = await supabase
-      .from("workspaces")
-      .insert({ name: wsName.trim(), owner_id: userId })
-      .select().single();
-
-    if (error) {
-      alert("Error: " + error.message);
-      setCreating(false);
-      return;
-    }
-
-    // Add self as owner member
-    await supabase.from("memberships").insert({
-      workspace_id: data.id, user_id: userId, role: "owner", status: "active"
-    });
-
-    setWorkspace(data);
-    await loadMembers(data.id);
-    setCreating(false);
-  }
-
-  async function saveWorkspaceName() {
-    if (!editName.trim() || !workspace || !userId) return;
-    const { error } = await supabase
-      .from("workspaces")
-      .update({ name: editName.trim() })
-      .eq("id", workspace.id)
-      .eq("owner_id", userId);
-    if (error) { alert(error.message); return; }
-    setWorkspace({ ...workspace, name: editName.trim() });
-    setEditing(false);
   }
 
   async function sendInvite() {
     if (!inviteEmail.trim() || !workspace) return;
     setInviting(true);
-    const res = await fetch("/api/workspace/invite", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole, workspace_id: workspace.id })
+    const token = crypto.randomUUID();
+    const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    await supabase.from("workspace_invites").insert({
+      workspace_id: workspace.id, invited_by: (await supabase.auth.getUser()).data.user?.id,
+      email: inviteEmail.trim(), role: inviteRole, token, status: "pending", expires_at: expires
     });
-    const d = await res.json();
-    if (d.inviteUrl) {
-      setGeneratedLink(d.inviteUrl);
-      setInviteEmail("");
-      await loadInvites(workspace.id);
-    } else {
-      alert(d.error ?? "Failed to create invite");
-    }
+    setInviteEmail("");
     setInviting(false);
+    await loadInvites(workspace.id);
   }
 
-  async function copyLink(link: string) {
-    await navigator.clipboard.writeText(link);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
-
-  async function updateMember(memberId: string, updates: any) {
-    await supabase.from("memberships").update(updates).eq("id", memberId);
+  async function assignDepartment(memberId: string, deptId: string) {
+    await supabase.from("memberships").update({ department_id: deptId || null }).eq("id", memberId);
     if (workspace) await loadMembers(workspace.id);
   }
+
+  async function updateRole(memberId: string, role: string) {
+    await supabase.from("memberships").update({ role }).eq("id", memberId);
+    if (workspace) await loadMembers(workspace.id);
+  }
+
+  async function saveName() {
+    if (!newName.trim() || !workspace) return;
+    await supabase.from("workspaces").update({ name: newName.trim() }).eq("id", workspace.id);
+    setWorkspace((w: any) => ({ ...w, name: newName.trim() }));
+    setEditingName(false);
+  }
+
+  function copyInviteLink(token: string) {
+    navigator.clipboard.writeText(`${window.location.origin}/join?token=${token}`);
+  }
+
+  const membersByDept = (deptId: string) => members.filter(m => m.department_id === deptId && m.role !== "owner");
+  const unassigned = members.filter(m => !m.department_id && m.role !== "owner");
 
   if (loading) return (
     <div className="flex-1 flex items-center justify-center">
@@ -168,157 +128,209 @@ export default function WorkspacePage() {
   );
 
   return (
-    <div className="flex-1 overflow-auto p-8">
-      <div className="max-w-[720px]">
-        <h1 className="text-[20px] font-semibold text-[#1A1A1A] mb-1">Workspace</h1>
-        <p className="text-sm text-[#737373] mb-8">Invite your team, manage roles, share projects.</p>
-
-        {!workspace ? (
-          <div className="bg-white rounded-xl border border-[#E5E2DE] p-6">
-            <h2 className="text-sm font-bold text-[#1A1A1A] mb-4">Create Your Workspace</h2>
-            <div className="flex gap-2">
-              <input value={wsName} onChange={e => setWsName(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && createWorkspace()}
-                placeholder="e.g. Anka Sphere"
-                className="flex-1 text-sm px-3 py-2 border border-[#E5E2DE] rounded-lg focus:outline-none focus:border-[#E8521A]" />
-              <button onClick={createWorkspace} disabled={creating || !wsName.trim()}
-                className="px-4 py-2 bg-[#E8521A] text-white text-sm font-semibold rounded-lg hover:bg-[#c94415] disabled:opacity-40">
-                {creating ? "Creating..." : "Create"}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {/* Header */}
-            <div className="bg-white rounded-xl border border-[#E5E2DE] p-5">
-              <div className="flex items-center justify-between">
-                <div className="flex-1 min-w-0">
-                  {editing ? (
-                    <div className="flex items-center gap-2">
-                      <input value={editName} onChange={e => setEditName(e.target.value)}
-                        onKeyDown={e => { if (e.key === "Enter") saveWorkspaceName(); if (e.key === "Escape") setEditing(false); }}
-                        autoFocus
-                        className="text-[16px] font-semibold text-[#1A1A1A] border-b-2 border-[#E8521A] bg-transparent focus:outline-none flex-1" />
-                      <button onClick={saveWorkspaceName} className="text-xs font-semibold text-[#E8521A] hover:underline">Save</button>
-                      <button onClick={() => setEditing(false)} className="text-xs text-[#737373] hover:underline">Cancel</button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <div className="text-[16px] font-semibold text-[#1A1A1A]">{workspace.name}</div>
-                      <button onClick={() => { setEditName(workspace.name); setEditing(true); }}
-                        className="text-[10px] text-[#737373] hover:text-[#E8521A] px-1.5 py-0.5 rounded border border-[#E5E2DE] hover:border-[#E8521A] transition-colors">
-                        Edit
-                      </button>
-                    </div>
-                  )}
-                  <div className="text-xs text-[#737373] mt-0.5">
-                    {members.length} member{members.length !== 1 ? "s" : ""} · {invites.filter((i:any) => i.status === "pending").length} pending
-                  </div>
-                </div>
-                <span className="text-[11px] px-2.5 py-1 rounded-full bg-[#E8521A] text-white font-semibold">Owner</span>
+    <div className="flex-1 overflow-auto bg-[#F7F5F2]">
+      {/* Header */}
+      <div className="bg-[#0F0F0F] text-white px-8 py-6">
+        <div className="max-w-[1000px]">
+          <div className="flex items-center gap-3 mb-1">
+            {editingName ? (
+              <div className="flex items-center gap-2">
+                <input value={newName} onChange={e => setNewName(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") saveName(); if (e.key === "Escape") setEditingName(false); }}
+                  className="text-[24px] font-bold bg-transparent border-b border-white/40 focus:outline-none focus:border-white" autoFocus />
+                <button onClick={saveName} className="text-xs px-3 py-1 bg-[#E8521A] rounded-lg">Save</button>
+                <button onClick={() => setEditingName(false)} className="text-xs px-3 py-1 bg-white/10 rounded-lg">Cancel</button>
               </div>
-            </div>
-
-            {/* Invite */}
-            <div className="bg-white rounded-xl border border-[#E5E2DE] p-5">
-              <h2 className="text-sm font-bold text-[#1A1A1A] mb-4">Invite Team Member</h2>
-              <div className="flex gap-2 mb-3">
-                <input value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && sendInvite()}
-                  placeholder="Email address"
-                  className="flex-1 text-sm px-3 py-2 border border-[#E5E2DE] rounded-lg focus:outline-none focus:border-[#E8521A]" />
-                <select value={inviteRole} onChange={e => setInviteRole(e.target.value)}
-                  className="text-sm px-3 py-2 border border-[#E5E2DE] rounded-lg focus:outline-none bg-white">
-                  {ROLES.map(r => (
-                            <option key={r} value={r}>
-                              {r === "dept_head" ? "Dept Head" : r === "executive" ? "Executive" : "Intern"}
-                            </option>
-                          ))}
-                </select>
-                <button onClick={sendInvite} disabled={inviting || !inviteEmail.trim()}
-                  className="px-4 py-2 bg-[#1A1A1A] text-white text-sm font-semibold rounded-lg hover:bg-[#333] disabled:opacity-40">
-                  {inviting ? "..." : "Invite"}
-                </button>
-              </div>
-
-              {generatedLink && (
-                <div className="bg-[#F7F5F2] rounded-lg p-3 flex items-center gap-2">
-                  <span className="text-xs text-[#737373] flex-1 truncate">{generatedLink}</span>
-                  <button onClick={() => copyLink(generatedLink)}
-                    className="text-xs font-semibold text-[#E8521A] hover:underline shrink-0">
-                    {copied ? "✓ Copied!" : "Copy link"}
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Members */}
-            <div className="bg-white rounded-xl border border-[#E5E2DE] p-5">
-              <h2 className="text-sm font-bold text-[#1A1A1A] mb-4">Members ({members.length})</h2>
-              {members.length === 0 ? (
-                <p className="text-sm text-[#737373]">No members yet.</p>
-              ) : (
-                <div className="space-y-1">
-                  {members.map((m: any) => (
-                    <div key={m.id} className="flex items-center gap-3 py-2.5 border-b border-[#F7F5F2] last:border-0">
-                      <div className="w-8 h-8 rounded-full bg-[#E8521A] flex items-center justify-center text-white text-xs font-bold shrink-0">
-                        {(m.invited_email ?? "?")[0].toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-[#1A1A1A] truncate">{m.invited_email ?? "Member"}</div>
-                        <div className="text-xs text-[#737373]">{new Date(m.joined_at).toLocaleDateString()}</div>
-                      </div>
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold capitalize ${ROLE_COLORS[m.role] ?? ROLE_COLORS.agent}`}>
-                        {m.role}
-                      </span>
-                      {m.role !== "owner" && (
-                        <>
-                          <select value={m.role}
-                            onChange={e => updateMember(m.id, { role: e.target.value })}
-                            className="text-xs px-2 py-1 border border-[#E5E2DE] rounded-lg bg-white focus:outline-none">
-                            {ROLES.map(r => (
-                            <option key={r} value={r}>
-                              {r === "dept_head" ? "Dept Head" : r === "executive" ? "Executive" : "Intern"}
-                            </option>
-                          ))}
-                          </select>
-                          <select value={m.department_id ?? ""}
-                            onChange={e => assignDepartment(m.id, e.target.value)}
-                            className="text-xs px-2 py-1 border border-[#E5E2DE] rounded-lg bg-white focus:outline-none">
-                            <option value="">No dept</option>
-                            {departments.map((d: any) => <option key={d.id} value={d.id}>{d.icon} {d.name}</option>)}
-                          </select>
-                          <button onClick={() => updateMember(m.id, { status: "suspended" })}
-                            className="text-xs text-[#EF4444] hover:underline">Remove</button>
-                        </>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Pending invites */}
-            {invites.filter((i:any) => i.status === "pending").length > 0 && (
-              <div className="bg-white rounded-xl border border-[#E5E2DE] p-5">
-                <h2 className="text-sm font-bold text-[#1A1A1A] mb-4">Pending Invites</h2>
-                <div className="space-y-1">
-                  {invites.filter((i:any) => i.status === "pending").map((inv: any) => (
-                    <div key={inv.id} className="flex items-center gap-3 py-2 border-b border-[#F7F5F2] last:border-0">
-                      <div className="flex-1">
-                        <div className="text-sm text-[#1A1A1A]">{inv.email}</div>
-                        <div className="text-xs text-[#737373]">expires {new Date(inv.expires_at).toLocaleDateString()}</div>
-                      </div>
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold capitalize ${ROLE_COLORS[inv.role] ?? ROLE_COLORS.agent}`}>
-                        {inv.role}
-                      </span>
-                      <button onClick={() => copyLink(`${window.location.origin}/join?token=${inv.token}`)}
-                        className="text-xs text-[#E8521A] hover:underline">Copy link</button>
-                    </div>
-                  ))}
-                </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <h1 className="text-[24px] font-bold tracking-tight">{workspace?.name ?? "ANKA"}</h1>
+                <button onClick={() => setEditingName(true)} className="text-[10px] px-2 py-0.5 rounded-md bg-white/10 text-white/60 hover:bg-white/20 transition-colors">Edit</button>
               </div>
             )}
+          </div>
+          <p className="text-white/40 text-xs">{members.filter(m => m.role !== "owner").length} team members · {departments.length} departments</p>
+        </div>
+      </div>
+
+      <div className="px-8 py-6 max-w-[1000px]">
+
+        {/* Department Cards */}
+        <div className="mb-8">
+          <h2 className="text-xs font-bold text-[#737373] uppercase tracking-widest mb-4">Departments</h2>
+          <div className="grid grid-cols-3 gap-4">
+            {departments.map(dept => {
+              const meta = DEPT_META[dept.slug] ?? { color: "#E8521A", bg: "#E8521A10", label: dept.name, icon: Users };
+              const Icon = meta.icon;
+              const stats = deptStats[dept.id] ?? {};
+              const dMembers = membersByDept(dept.id);
+              return (
+                <div key={dept.id}
+                  onClick={() => router.push(`/app/dept/${dept.slug}`)}
+                  className="bg-white rounded-2xl border border-[#E5E2DE] p-5 cursor-pointer hover:shadow-md transition-all hover:border-[#D5D0CA] group">
+                  {/* Dept header */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: meta.bg }}>
+                        <Icon size={16} style={{ color: meta.color }} />
+                      </div>
+                      <div>
+                        <div className="text-sm font-bold text-[#1A1A1A]">{meta.label}</div>
+                        <div className="text-[10px] text-[#737373]">{dMembers.length} member{dMembers.length !== 1 ? "s" : ""}</div>
+                      </div>
+                    </div>
+                    <ChevronRight size={14} className="text-[#B0ADA9] group-hover:text-[#737373] transition-colors" />
+                  </div>
+
+                  {/* Task stats */}
+                  <div className="grid grid-cols-3 gap-2 mb-4">
+                    {[
+                      { label: "Todo", value: stats.todo ?? 0, color: "#737373" },
+                      { label: "Active", value: stats.inProgress ?? 0, color: meta.color },
+                      { label: "Done", value: stats.done ?? 0, color: "#10B981" },
+                    ].map(s => (
+                      <div key={s.label} className="text-center p-2 rounded-lg bg-[#F7F5F2]">
+                        <div className="text-lg font-bold" style={{ color: s.color }}>{s.value}</div>
+                        <div className="text-[9px] text-[#B0ADA9] font-medium uppercase tracking-wide">{s.label}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Last activity */}
+                  {stats.lastActivity && (
+                    <div className="text-[10px] text-[#B0ADA9] truncate border-t border-[#F0EDE9] pt-3">
+                      ↑ {stats.lastActivity}
+                    </div>
+                  )}
+
+                  {/* Member avatars */}
+                  {dMembers.length > 0 && (
+                    <div className="flex items-center gap-1 mt-3">
+                      {dMembers.slice(0, 5).map((m: any) => (
+                        <div key={m.id} className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[9px] font-bold shrink-0"
+                          style={{ backgroundColor: meta.color }} title={m.invited_email}>
+                          {(m.invited_email ?? "?")[0].toUpperCase()}
+                        </div>
+                      ))}
+                      {dMembers.length > 5 && <div className="text-[10px] text-[#737373]">+{dMembers.length - 5}</div>}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Invite */}
+        <div className="bg-white rounded-2xl border border-[#E5E2DE] p-5 mb-6">
+          <h2 className="text-sm font-bold text-[#1A1A1A] mb-4">Invite Team Member</h2>
+          <div className="flex gap-2">
+            <input value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && sendInvite()}
+              placeholder="Email address"
+              className="flex-1 text-sm px-3 py-2 border border-[#E5E2DE] rounded-lg focus:outline-none focus:border-[#E8521A] bg-white" />
+            <select value={inviteRole} onChange={e => setInviteRole(e.target.value)}
+              className="text-sm px-3 py-2 border border-[#E5E2DE] rounded-lg bg-white focus:outline-none">
+              {ROLES.map(r => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
+            </select>
+            <select value={inviteDept} onChange={e => setInviteDept(e.target.value)}
+              className="text-sm px-3 py-2 border border-[#E5E2DE] rounded-lg bg-white focus:outline-none">
+              <option value="">No dept yet</option>
+              {departments.map(d => <option key={d.id} value={d.id}>{DEPT_META[d.slug]?.label ?? d.name}</option>)}
+            </select>
+            <button onClick={sendInvite} disabled={inviting || !inviteEmail.trim()}
+              className="px-5 py-2 bg-[#E8521A] text-white text-sm font-semibold rounded-lg disabled:opacity-40 hover:bg-[#c94415]">
+              Invite
+            </button>
+          </div>
+        </div>
+
+        {/* Members by department */}
+        <div className="bg-white rounded-2xl border border-[#E5E2DE] p-5 mb-6">
+          <h2 className="text-sm font-bold text-[#1A1A1A] mb-5">Team</h2>
+          {departments.map(dept => {
+            const meta = DEPT_META[dept.slug] ?? { color: "#E8521A", bg: "#E8521A10", label: dept.name, icon: Users };
+            const Icon = meta.icon;
+            const dMembers = membersByDept(dept.id);
+            if (dMembers.length === 0) return null;
+            return (
+              <div key={dept.id} className="mb-5 last:mb-0">
+                <div className="flex items-center gap-2 mb-3">
+                  <Icon size={12} style={{ color: meta.color }} />
+                  <span className="text-xs font-bold uppercase tracking-widest" style={{ color: meta.color }}>{meta.label}</span>
+                </div>
+                <div className="space-y-2 pl-4">
+                  {dMembers.map((m: any) => (
+                    <div key={m.id} className="flex items-center gap-3">
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
+                        style={{ backgroundColor: meta.color }}>
+                        {(m.invited_email ?? "?")[0].toUpperCase()}
+                      </div>
+                      <div className="flex-1 text-sm text-[#1A1A1A] truncate">{m.invited_email}</div>
+                      <select value={m.role} onChange={e => updateRole(m.id, e.target.value)}
+                        className="text-xs px-2 py-1 border border-[#E5E2DE] rounded-lg bg-white focus:outline-none">
+                        {ROLES.map(r => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
+                      </select>
+                      <select value={m.department_id ?? ""} onChange={e => assignDepartment(m.id, e.target.value)}
+                        className="text-xs px-2 py-1 border border-[#E5E2DE] rounded-lg bg-white focus:outline-none">
+                        <option value="">No dept</option>
+                        {departments.map(d => <option key={d.id} value={d.id}>{DEPT_META[d.slug]?.label ?? d.name}</option>)}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Unassigned */}
+          {unassigned.length > 0 && (
+            <div className="mb-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Users size={12} className="text-[#B0ADA9]" />
+                <span className="text-xs font-bold uppercase tracking-widest text-[#B0ADA9]">Unassigned</span>
+              </div>
+              <div className="space-y-2 pl-4">
+                {unassigned.map((m: any) => (
+                  <div key={m.id} className="flex items-center gap-3">
+                    <div className="w-7 h-7 rounded-full bg-[#E5E2DE] flex items-center justify-center text-[#737373] text-[10px] font-bold shrink-0">
+                      {(m.invited_email ?? "?")[0].toUpperCase()}
+                    </div>
+                    <div className="flex-1 text-sm text-[#1A1A1A] truncate">{m.invited_email}</div>
+                    <select value={m.role} onChange={e => updateRole(m.id, e.target.value)}
+                      className="text-xs px-2 py-1 border border-[#E5E2DE] rounded-lg bg-white focus:outline-none">
+                      {ROLES.map(r => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
+                    </select>
+                    <select value={m.department_id ?? ""} onChange={e => assignDepartment(m.id, e.target.value)}
+                      className="text-xs px-2 py-1 border border-[#E5E2DE] rounded-lg bg-white focus:outline-none">
+                      <option value="">Assign dept</option>
+                      {departments.map(d => <option key={d.id} value={d.id}>{DEPT_META[d.slug]?.label ?? d.name}</option>)}
+                    </select>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Pending Invites */}
+        {invites.length > 0 && (
+          <div className="bg-white rounded-2xl border border-[#E5E2DE] p-5">
+            <h2 className="text-sm font-bold text-[#1A1A1A] mb-4">Pending Invites</h2>
+            <div className="space-y-2">
+              {invites.map((inv: any) => (
+                <div key={inv.id} className="flex items-center gap-3 py-2 border-b border-[#F7F5F2] last:border-0">
+                  <div className="flex-1">
+                    <div className="text-sm text-[#1A1A1A]">{inv.email}</div>
+                    <div className="text-[10px] text-[#B0ADA9]">expires {new Date(inv.expires_at).toLocaleDateString()}</div>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#F0EDE9] text-[#737373] font-semibold">{ROLE_LABEL[inv.role] ?? inv.role}</span>
+                  <button onClick={() => copyInviteLink(inv.token)}
+                    className="flex items-center gap-1 text-xs text-[#E8521A] hover:underline">
+                    <Copy size={11} /> Copy link
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

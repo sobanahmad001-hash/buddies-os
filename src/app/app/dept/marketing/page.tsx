@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useRole } from "@/hooks/useRole";
 import TaskBoard from "@/components/dept/TaskBoard";
 import ActivityFeed from "@/components/dept/ActivityFeed";
+import MiniDashboard from "@/components/dept/MiniDashboard";
 
 const ACCENT = "#10B981";
 
@@ -109,6 +110,16 @@ export default function MarketingDept() {
             </a>
           ))}
         </div>
+
+        <MiniDashboard
+          totalTasks={tasks.length}
+          inProgress={tasks.filter(t => t.status === "in_progress").length}
+          done={tasks.filter(t => t.status === "done").length}
+          todo={tasks.filter(t => t.status === "todo").length}
+          memberCount={members.length}
+          lastActivity={activity[0]?.title ?? null}
+          accentColor={ACCENT}
+        />
 
         <div className="flex gap-1 mb-4 bg-[#F0EDE9] p-1 rounded-lg w-fit">
           {(tabs as string[]).map(t => (
