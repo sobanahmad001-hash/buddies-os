@@ -109,7 +109,27 @@ export async function POST(req: NextRequest) {
       confidence_score: 0.9,
     });
 
-    return NextResponse.json({ saved: true, projectId, triggerMemory: !!(projectId && ['task','project_update','blocker','decision'].includes(item.type)) });
+      // Log to workspace activity
+  try {
+    const { data: ws } = await supabase.from("workspaces").select("id").eq("owner_id", user.id).maybeSingle();
+    const { data: mem } = !ws ? await supabase.from("memberships").select("workspace_id").eq("user_id", user.id).maybeSingle() : { data: null };
+    const wsId = ws?.id ?? mem?.workspace_id;
+    if (wsId) {
+      const actionMap: Record<string, string> = {
+        task: "task_created", decision: "decision_logged",
+        rule: "rule_added", daily_check: "daily_check",
+        project_update: "project_update", blocker: "project_update"
+      };
+      await supabase.from("workspace_activity").insert({
+        workspace_id: wsId, user_id: user.id,
+        action_type: actionMap[type] ?? "project_update",
+        summary: `logged a ${type.replace("_", " ")}`,
+        metadata: { detail: content?.slice?.(0, 100) }
+      });
+    }
+  } catch {}
+
+  return NextResponse.json({ saved: true, projectId, triggerMemory: !!(projectId && ['task','project_update','blocker','decision'].includes(item.type)) });
   } catch (err: any) {
     console.error("Save error:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
