@@ -15,7 +15,9 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-  const { messages } = await req.json();
+  const body = await req.json();
+  // Support both old format { messages } and new format { message, history }
+  const messages = body.messages ?? [...(body.history ?? []), { role: "user", content: body.message }];
   const lastMessage = messages[messages.length - 1]?.content ?? "";
 
   const [
@@ -110,7 +112,7 @@ ${contextBlock}${teamContextBlock ? `\n\nTEAM CONTEXT:\n${teamContextBlock}` : "
           messages: messages.map((m: any) => ({ role: m.role, content: m.content })),
         });
         const text = response.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("") || "No response.";
-        return NextResponse.json({ text, provider: "claude" });
+        return NextResponse.json({ response: text, text, provider: "claude" });
       } catch (claudeErr: any) {
         console.error("Claude error, falling back to OpenAI:", claudeErr.message);
       }
@@ -137,7 +139,7 @@ ${contextBlock}${teamContextBlock ? `\n\nTEAM CONTEXT:\n${teamContextBlock}` : "
         ?.map((c: any) => c.text)
         ?.join("") ?? "";
 
-      return NextResponse.json({ text, provider: "openai" });
+      return NextResponse.json({ response: text, text, provider: "openai" });
     } catch {
       // Fallback to chat completions
       const response = await openai.chat.completions.create({
@@ -146,7 +148,7 @@ ${contextBlock}${teamContextBlock ? `\n\nTEAM CONTEXT:\n${teamContextBlock}` : "
         messages: [{ role: "system", content: systemPrompt }, ...messages],
       });
       const text = response.choices[0]?.message?.content ?? "No response.";
-      return NextResponse.json({ text, provider: "openai-fallback" });
+      return NextResponse.json({ response: text, text, provider: "openai-fallback" });
     }
   } catch (err: any) {
     return NextResponse.json({ text: `Error: ${err.message}` });

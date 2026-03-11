@@ -308,8 +308,15 @@ export default function AIPage() {
   return (
     <div className="flex flex-1 overflow-hidden bg-[#F7F5F2]">
 
+      {/* Mobile overlay — closes sidebar when tapping outside */}
+      {sidebarOpen && (
+        <div className="md:hidden fixed inset-0 bg-black/50 z-30 backdrop-blur-sm"
+          onClick={() => setSidebarOpen(false)} />
+      )}
+
       {/* ── Session sidebar ─────────────────────────────────────────────── */}
       <div className={`flex flex-col bg-[#0F0F0F] border-r border-[#1E1E1E] transition-all duration-200 shrink-0
+        md:relative fixed left-0 top-0 h-full z-40
         ${sidebarOpen ? "w-[220px]" : "w-0 overflow-hidden"}`}>
 
         {/* New chat */}
