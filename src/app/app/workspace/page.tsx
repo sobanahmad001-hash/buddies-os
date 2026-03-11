@@ -25,6 +25,8 @@ export default function WorkspacePage() {
   const [generatedLink, setGeneratedLink] = useState("");
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => { init(); }, []);
@@ -97,6 +99,18 @@ export default function WorkspacePage() {
     setCreating(false);
   }
 
+  async function saveWorkspaceName() {
+    if (!editName.trim() || !workspace || !userId) return;
+    const { error } = await supabase
+      .from("workspaces")
+      .update({ name: editName.trim() })
+      .eq("id", workspace.id)
+      .eq("owner_id", userId);
+    if (error) { alert(error.message); return; }
+    setWorkspace({ ...workspace, name: editName.trim() });
+    setEditing(false);
+  }
+
   async function sendInvite() {
     if (!inviteEmail.trim() || !workspace) return;
     setInviting(true);
@@ -158,8 +172,25 @@ export default function WorkspacePage() {
             {/* Header */}
             <div className="bg-white rounded-xl border border-[#E5E2DE] p-5">
               <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-[16px] font-semibold text-[#1A1A1A]">{workspace.name}</div>
+                <div className="flex-1 min-w-0">
+                  {editing ? (
+                    <div className="flex items-center gap-2">
+                      <input value={editName} onChange={e => setEditName(e.target.value)}
+                        onKeyDown={e => { if (e.key === "Enter") saveWorkspaceName(); if (e.key === "Escape") setEditing(false); }}
+                        autoFocus
+                        className="text-[16px] font-semibold text-[#1A1A1A] border-b-2 border-[#E8521A] bg-transparent focus:outline-none flex-1" />
+                      <button onClick={saveWorkspaceName} className="text-xs font-semibold text-[#E8521A] hover:underline">Save</button>
+                      <button onClick={() => setEditing(false)} className="text-xs text-[#737373] hover:underline">Cancel</button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <div className="text-[16px] font-semibold text-[#1A1A1A]">{workspace.name}</div>
+                      <button onClick={() => { setEditName(workspace.name); setEditing(true); }}
+                        className="text-[10px] text-[#737373] hover:text-[#E8521A] px-1.5 py-0.5 rounded border border-[#E5E2DE] hover:border-[#E8521A] transition-colors">
+                        Edit
+                      </button>
+                    </div>
+                  )}
                   <div className="text-xs text-[#737373] mt-0.5">
                     {members.length} member{members.length !== 1 ? "s" : ""} · {invites.filter((i:any) => i.status === "pending").length} pending
                   </div>
