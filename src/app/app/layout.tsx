@@ -5,8 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import {
   LayoutDashboard, Bot, FolderKanban, Scale, ShieldCheck,
-  SunMedium, Users, Search, LogOut, FlaskConical,
-  ChevronLeft, ChevronRight, X
+  SunMedium, Users, Search, LogOut, FlaskConical, X
 } from "lucide-react";
 import { WorkspaceProvider } from '@/context/WorkspaceContext';
 import WorkspaceSwitcher from '@/components/WorkspaceSwitcher';
@@ -53,9 +52,11 @@ function NavContent({
         {/* Desktop collapse toggle */}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="hidden md:flex flex-col justify-center items-center w-8 h-8 gap-1.5 text-[#8A8A8A] hover:text-white rounded-lg hover:bg-[#1E1E1E] transition-colors"
+          className="hidden md:flex flex-col justify-center items-center w-7 h-7 gap-1 text-[#525252] hover:text-white rounded-lg hover:bg-[#1E1E1E] transition-colors shrink-0"
         >
-          {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+          <span className="w-3.5 h-0.5 bg-current rounded-full transition-all" />
+          <span className={`h-0.5 bg-current rounded-full transition-all ${collapsed ? "w-3.5" : "w-2.5"}`} />
+          <span className="w-3.5 h-0.5 bg-current rounded-full transition-all" />
         </button>
         {/* Mobile close */}
         {mobileOpen && (
