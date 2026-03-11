@@ -17,6 +17,7 @@ export default function WorkspacePage() {
   const [workspace, setWorkspace] = useState<any>(null);
   const [members, setMembers] = useState<any[]>([]);
   const [invites, setInvites] = useState<any[]>([]);
+  const [departments, setDepartments] = useState<any[]>([]);
   const [wsName, setWsName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("agent");
@@ -48,6 +49,7 @@ export default function WorkspacePage() {
       setWorkspace(ws);
       await loadMembers(ws.id);
       await loadInvites(ws.id);
+      await loadDepartments(ws.id);
     } else {
       // Check if member of someone else's workspace
       const { data: mem } = await supabase
@@ -81,6 +83,16 @@ export default function WorkspacePage() {
       .eq("workspace_id", wsId)
       .order("created_at", { ascending: false });
     setInvites(data ?? []);
+  }
+
+  async function loadDepartments(wsId: string) {
+    const { data } = await supabase.from("departments").select("*").eq("workspace_id", wsId).order("name");
+    setDepartments(data ?? []);
+  }
+
+  async function assignDepartment(memberId: string, departmentId: string) {
+    await supabase.from("memberships").update({ department_id: departmentId || null }).eq("id", memberId);
+    if (workspace) await loadMembers(workspace.id);
   }
 
   async function createWorkspace() {
@@ -261,6 +273,12 @@ export default function WorkspacePage() {
                             onChange={e => updateMember(m.id, { role: e.target.value })}
                             className="text-xs px-2 py-1 border border-[#E5E2DE] rounded-lg bg-white focus:outline-none">
                             {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                          </select>
+                          <select value={m.department_id ?? ""}
+                            onChange={e => assignDepartment(m.id, e.target.value)}
+                            className="text-xs px-2 py-1 border border-[#E5E2DE] rounded-lg bg-white focus:outline-none">
+                            <option value="">No dept</option>
+                            {departments.map((d: any) => <option key={d.id} value={d.id}>{d.icon} {d.name}</option>)}
                           </select>
                           <button onClick={() => updateMember(m.id, { status: "suspended" })}
                             className="text-xs text-[#EF4444] hover:underline">Remove</button>

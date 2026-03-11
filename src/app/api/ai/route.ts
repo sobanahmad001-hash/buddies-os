@@ -30,6 +30,24 @@ export async function POST(req: NextRequest) {
     supabase.from("ai_sessions").select("messages, updated_at").eq("user_id", user.id).order("updated_at", { ascending: false }).limit(3),
   ]);
 
+  // Fetch team context (owner sees all depts, team member sees own dept)
+  const teamContextBlock = await (async () => {
+    try {
+      const { data: ws } = await supabase.from("workspaces").select("id").eq("owner_id", user.id).maybeSingle();
+      if (!ws) return "";
+      const since = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+      const [{ data: depts }, { data: teamTasks }, { data: teamActivity }] = await Promise.all([
+        supabase.from("departments").select("id, name, slug").eq("workspace_id", ws.id),
+        supabase.from("project_tasks").select("title, status, department_id").neq("status", "cancelled").limit(20),
+        supabase.from("department_activity").select("title, activity_type, created_at, department_id").gte("created_at", since).order("created_at", { ascending: false }).limit(30),
+      ]);
+      const deptMap: Record<string, string> = {};
+      (depts ?? []).forEach((d: any) => { deptMap[d.id] = d.name; });
+      if (!teamTasks?.length && !teamActivity?.length) return "";
+      return `TEAM ACTIVITY (last 48hrs):\n${(teamActivity ?? []).map((a: any) => `- [${deptMap[a.department_id] ?? "?"}] ${a.activity_type}: ${a.title}`).join("\n") || "none"}\nTEAM TASKS:\n${(teamTasks ?? []).map((t: any) => `- [${deptMap[t.department_id] ?? "?"}] ${t.status}: ${t.title}`).join("\n") || "none"}`;
+    } catch { return ""; }
+  })();
+
   const projectMap: Record<string, string> = {};
   const projectMemory: Record<string, string> = {};
   (projects ?? []).forEach(p => {
@@ -78,7 +96,7 @@ RESPONSE RULES:
 - For live data (prices, news, events) — use web search
 
 CURRENT CONTEXT:
-${contextBlock}`;
+${contextBlock}${teamContextBlock ? `\n\nTEAM CONTEXT:\n${teamContextBlock}` : ""}`;
 
   try {
     // ── PRIMARY: Claude ──────────────────────────────────────────
