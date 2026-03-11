@@ -32,6 +32,23 @@ export async function POST(req: NextRequest) {
     supabase.from("ai_sessions").select("messages, updated_at").eq("user_id", user.id).order("updated_at", { ascending: false }).limit(3),
   ]);
 
+  // Fetch client context for owner
+  const clientContextBlock = await (async () => {
+    try {
+      const { data: ws } = await supabase.from("workspaces").select("id").eq("owner_id", user.id).maybeSingle();
+      if (!ws) return "";
+      const { data: clients } = await supabase.from("clients").select("id, name, status").eq("workspace_id", ws.id).eq("status", "active");
+      if (!clients?.length) return "";
+      const summaries = await Promise.all(clients.map(async (c: any) => {
+        const { data: stages } = await supabase.from("client_stages").select("stage_name, status, department").eq("client_id", c.id);
+        const done = stages?.filter((s: any) => s.status === "done").length ?? 0;
+        const inProgress = stages?.filter((s: any) => s.status === "in_progress") ?? [];
+        return `${c.name}: ${done}/${stages?.length ?? 14} stages done${inProgress.length > 0 ? ". In progress: " + inProgress.map((s: any) => s.stage_name).join(", ") : ""}`;
+      }));
+      return "\nACTIVE CLIENTS:\n" + summaries.join("\n");
+    } catch { return ""; }
+  })();
+
   // Fetch team context (owner sees all depts, team member sees own dept)
   const teamContextBlock = await (async () => {
     try {
@@ -98,7 +115,7 @@ RESPONSE RULES:
 - For live data (prices, news, events) — use web search
 
 CURRENT CONTEXT:
-${contextBlock}${teamContextBlock ? `\n\nTEAM CONTEXT:\n${teamContextBlock}` : ""}`;
+${contextBlock}${clientContextBlock ? `\n\nCLIENT STATUS:${clientContextBlock}` : ""}${teamContextBlock ? `\n\nTEAM CONTEXT:\n${teamContextBlock}` : ""}`;
 
   try {
     // ── PRIMARY: Claude ──────────────────────────────────────────

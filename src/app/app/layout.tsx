@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import {
   LayoutDashboard, Bot, FolderKanban, Scale, ShieldCheck,
   SunMedium, Users, Search, LogOut, FlaskConical,
-  ChevronLeft, ChevronRight, Menu, X
+  ChevronLeft, ChevronRight, Menu, X, Briefcase
 } from "lucide-react";
 
 const navItems = [
@@ -17,6 +17,7 @@ const navItems = [
   { to: "/app/rules",       icon: ShieldCheck,     label: "Rules" },
   { to: "/app/daily-check", icon: SunMedium,       label: "Daily Check" },
   { to: "/app/research",    icon: FlaskConical,    label: "Research" },
+  { to: "/app/clients",     icon: Briefcase,       label: "Clients" },
   { to: "/app/workspace",   icon: Users,           label: "Workspace" },
   { to: "/app/search",      icon: Search,          label: "Search" },
 ];
