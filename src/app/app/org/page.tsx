@@ -193,5 +193,7 @@ export default function OrgPage() {
 
           </div>
         )}
+      </div>
+    </div>
   );
 }
