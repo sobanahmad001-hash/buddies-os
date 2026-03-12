@@ -124,7 +124,7 @@ ${contextBlock}${clientContextBlock ? `\n\nCLIENT STATUS:${clientContextBlock}` 
         const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
         const response = await anthropic.messages.create({
           model: "claude-sonnet-4-5",
-          max_tokens: 1024,
+          max_tokens: 4096,
           system: systemPrompt,
           messages: messages.map((m: any) => ({ role: m.role, content: m.content })),
         });
@@ -161,7 +161,7 @@ ${contextBlock}${clientContextBlock ? `\n\nCLIENT STATUS:${clientContextBlock}` 
       // Fallback to chat completions
       const response = await openai.chat.completions.create({
         model: "gpt-4o-mini",
-        max_tokens: 1024,
+        max_tokens: 4096,
         messages: [{ role: "system", content: systemPrompt }, ...messages],
       });
       const text = response.choices[0]?.message?.content ?? "No response.";
