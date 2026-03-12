@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import {
   LayoutDashboard, Bot, FolderKanban, Scale, ShieldCheck,
-  SunMedium, Users, Search, LogOut, FlaskConical, X
+  SunMedium, Users, Search, LogOut, FlaskConical, X, Building2
 } from "lucide-react";
 import { WorkspaceProvider } from '@/context/WorkspaceContext';
 import WorkspaceSwitcher from '@/components/WorkspaceSwitcher';
@@ -21,6 +21,7 @@ const navItems = [
   { to: "/app/research",     icon: FlaskConical,    label: "Research" },
   { to: "/app/clients",      icon: Users,           label: "Clients" },
   { to: "/app/workspace",    icon: Users,           label: "Workspace" },
+  { to: "/app/org",          icon: Building2,       label: "Org" },
   { to: "/app/search",       icon: Search,          label: "Search" },
 ];
 
