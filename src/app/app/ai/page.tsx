@@ -543,7 +543,7 @@ export default function AIPage() {
             <kbd className="hidden sm:inline px-1 py-0.5 bg-white border border-[#E5E2DE] rounded text-[9px]">⌘K</kbd>
           </button>
 
-          {/* Context badge */}}
+          {/* Context badge */}
           <button onClick={() => setContextModalOpen(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#F0EDE9] hover:bg-[#E5E2DE] text-[#1A1A1A] text-[11px] font-medium transition-colors">
             <span>🧠</span>
