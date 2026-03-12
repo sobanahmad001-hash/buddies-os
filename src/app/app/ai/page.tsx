@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Plus, Send, Copy, RotateCcw, Trash2, Edit2,
-  MessageSquare, Check, ChevronDown
+  MessageSquare, Check, ChevronDown, Globe, Paperclip
 } from "lucide-react";
 import ContextPreviewModal from "@/components/ContextPreviewModal";
 import ContextToggle from "@/components/ContextToggle";
@@ -11,6 +11,8 @@ import { savePendingCommand } from "@/lib/offline-store";
 import QuickActionsDropdown from "@/components/QuickActionsDropdown";
 import VoiceInputButton from "@/components/VoiceInputButton";
 import SearchModal from "@/components/SearchModal";
+import WebSearchButton from "@/components/WebSearchButton";
+import FileUpload from "@/components/FileUpload";
 
 // ── Markdown renderer ─────────────────────────────────────────────────────────
 function renderMarkdown(text: string): React.ReactNode[] {
@@ -150,7 +152,7 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
   );
 }
 
-interface Message { role: "user" | "assistant"; content: string; ts?: string; contextUsed?: boolean; isCommand?: boolean; }
+interface Message { role: "user" | "assistant"; content: string; ts?: string; contextUsed?: boolean; isCommand?: boolean; webSearchUsed?: boolean; images?: string[]; }
 interface Session { id: string; title: string; created_at: string; messages?: Message[]; }
 
 function groupSessions(sessions: Session[]) {
@@ -201,6 +203,7 @@ export default function AIPage() {
   const [contextModalOpen, setContextModalOpen] = useState(false);
   const [contextEnabled, setContextEnabled] = useState(true);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -216,6 +219,24 @@ export default function AIPage() {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Screenshot paste handler
+  useEffect(() => {
+    async function onPaste(e: ClipboardEvent) {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const item of Array.from(items)) {
+        if (item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (file) {
+            setAttachedFiles(prev => [...prev, file]);
+          }
+        }
+      }
+    }
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
   }, []);
 
   async function loadSessions() {
@@ -299,7 +320,30 @@ export default function AIPage() {
   async function send(overrideInput?: string) {
     const text = (overrideInput ?? input).trim();
     if (!text || loading) return;
-    const userMsg: Message = { role: "user", content: text, ts: new Date().toISOString() };
+
+    // Upload any attached files first
+    const imageUrls: string[] = [];
+    if (attachedFiles.length > 0) {
+      for (const file of attachedFiles) {
+        try {
+          const formData = new FormData();
+          formData.append("file", file);
+          const uploadRes = await fetch("/api/ai/upload", { method: "POST", body: formData });
+          if (uploadRes.ok) {
+            const uploadData = await uploadRes.json();
+            if (uploadData.url) imageUrls.push(uploadData.url);
+          }
+        } catch { /* skip failed uploads */ }
+      }
+      setAttachedFiles([]);
+    }
+
+    const userMsg: Message = {
+      role: "user",
+      content: text,
+      ts: new Date().toISOString(),
+      images: imageUrls.length > 0 ? imageUrls : undefined,
+    };
     const newMessages = [...messages, userMsg];
     setMessages(newMessages);
     setInput("");
@@ -394,8 +438,13 @@ export default function AIPage() {
         body: JSON.stringify({
           message: text,
           sessionId: activeSession?.id ?? null,
-          history: messages.slice(-12),
+          history: messages.slice(-12).map(m => ({
+            role: m.role,
+            content: m.content,
+            images: m.images,
+          })),
           contextEnabled,
+          images: imageUrls.length > 0 ? imageUrls : undefined,
         })
       });
       const data = await res.json();
@@ -404,6 +453,7 @@ export default function AIPage() {
         content: data.response ?? data.error ?? "Something went wrong.",
         ts: new Date().toISOString(),
         contextUsed: data.contextUsed,
+        webSearchUsed: data.webSearchUsed,
       };
       const finalMessages = [...newMessages, assistantMsg];
       setMessages(finalMessages);
@@ -647,19 +697,33 @@ export default function AIPage() {
                                   : "bg-[#F0EDE9]"
                               }`}>
                                 {group.role === "user" ? (
-                                  <p className="text-[15px] text-[#1A1A1A] leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                                  <div>
+                                    <p className="text-[15px] text-[#1A1A1A] leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                                    {msg.images && msg.images.length > 0 && (
+                                      <div className="flex flex-wrap gap-2 mt-2">
+                                        {msg.images.map((url, ii) => (
+                                          // eslint-disable-next-line @next/next/no-img-element
+                                          <img key={ii} src={url} alt="attachment"
+                                            className="max-w-[200px] max-h-[200px] rounded-lg object-cover border border-[#E5E2DE]" />
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
                                 ) : (
                                   <div className="prose-sm">{renderMarkdown(msg.content)}</div>
                                 )}
                                 {group.role === "assistant" && msg.contextUsed !== undefined && (
-                                  <div className="mt-3 pt-2.5 border-t border-[#F0EDE9]">
+                                  <div className="mt-3 pt-2.5 border-t border-[#F0EDE9] flex items-center gap-3">
                                     <span className={`text-[10px] font-medium ${
-                                      msg.contextUsed
-                                        ? "text-[#10B981]"
-                                        : "text-[#B0ADA9]"
+                                      msg.contextUsed ? "text-[#10B981]" : "text-[#B0ADA9]"
                                     }`}>
                                       {msg.contextUsed ? "✓ Context used" : "○ No context"}
                                     </span>
+                                    {msg.webSearchUsed && (
+                                      <span className="flex items-center gap-1 text-[10px] font-medium text-[#3B82F6]">
+                                        <Globe size={10} /> Web searched
+                                      </span>
+                                    )}
                                   </div>
                                 )}
                               </div>
@@ -720,9 +784,23 @@ export default function AIPage() {
         {/* Input */}
         <div className="px-3 sm:px-4 py-3 sm:py-4 bg-white border-t border-[#E5E2DE] shrink-0" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
           <div className="max-w-[800px] mx-auto">
-            <div className="flex items-end gap-2 sm:gap-3 bg-[#F7F5F2] rounded-2xl px-3 sm:px-4 py-2 sm:py-3 border border-[#E5E2DE] focus-within:border-[#E8521A] transition-colors">
+            {/* Attached files preview */}
+            {attachedFiles.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-2">
+                {attachedFiles.map((file, i) => (
+                  <div key={i} className="flex items-center gap-1.5 px-2 py-1 bg-[#F0EDE9] rounded-lg text-[12px] text-[#737373]">
+                    {file.type.startsWith("image/") ? "🖼️" : "📄"} {file.name.slice(0, 20)}{file.name.length > 20 ? "…" : ""}
+                    <button onClick={() => setAttachedFiles(prev => prev.filter((_, j) => j !== i))}
+                      className="ml-0.5 hover:text-[#E8521A] transition-colors">✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="relative flex items-end gap-2 sm:gap-3 bg-[#F7F5F2] rounded-2xl px-3 sm:px-4 py-2 sm:py-3 border border-[#E5E2DE] focus-within:border-[#E8521A] transition-colors">
               <QuickActionsDropdown onSelectAction={handleQuickAction} />
               <VoiceInputButton onTranscript={handleVoiceTranscript} />
+              <FileUpload onFilesSelected={setAttachedFiles} />
+              <WebSearchButton onSearch={(query) => { setInput(query); setTimeout(() => textareaRef.current?.focus(), 0); }} />
               <textarea
                 ref={textareaRef}
                 value={input}
@@ -740,7 +818,7 @@ export default function AIPage() {
               </button>
             </div>
             <p className="hidden sm:block text-[11px] text-[#B0ADA9] text-center mt-2">
-              Enter to send · Shift+Enter for new line · ⚡ Actions · 🎤 Voice
+              Enter to send · Shift+Enter for new line · ⚡ Actions · 🎤 Voice · 🌐 Web · 📎 Attach · Ctrl+V paste image
             </p>
           </div>
         </div>

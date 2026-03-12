@@ -4,6 +4,17 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
 
+function detectWebSearchIntent(message: string): boolean {
+  const triggers = [
+    "search for", "look up", "find information", "what is the current",
+    "latest news", "price of", "weather in", "stock price", "how to",
+    "what happened", "current price", "news about", "today's", "right now",
+    "recent", "live", "real-time",
+  ];
+  const lower = message.toLowerCase();
+  return triggers.some(t => lower.includes(t));
+}
+
 export async function POST(req: NextRequest) {
   const cookieStore = await cookies();
   const supabase = createServerClient(
@@ -20,6 +31,31 @@ export async function POST(req: NextRequest) {
   const messages = body.messages ?? [...(body.history ?? []), { role: "user", content: body.message }];
   const lastMessage = messages[messages.length - 1]?.content ?? "";
   const contextEnabled = body.contextEnabled !== false;
+
+  // ── Web search (Tavily) ───────────────────────────────────────
+  let webSearchBlock = "";
+  let webSearchUsed = false;
+  if (detectWebSearchIntent(lastMessage) && process.env.TAVILY_API_KEY) {
+    try {
+      const origin = req.nextUrl.origin;
+      const searchRes = await fetch(`${origin}/api/web-search`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: lastMessage }),
+      });
+      if (searchRes.ok) {
+        const searchData = await searchRes.json();
+        if (searchData.answer || searchData.results?.length) {
+          webSearchUsed = true;
+          webSearchBlock = `\n\nWEB SEARCH RESULTS (live data):\n${searchData.answer ?? ""}\n\nSOURCES:\n${
+            (searchData.results ?? []).map((r: any) => `- ${r.title}: ${r.url}`).join("\n")
+          }`;
+        }
+      }
+    } catch (e) {
+      console.error("Web search failed:", e);
+    }
+  }
 
   const [  
     { data: projects }, { data: updates }, { data: decisions },
@@ -120,7 +156,7 @@ RESPONSE RULES:
 - For live data (prices, news, events) — use web search
 
 CURRENT CONTEXT:
-${contextBlock}${clientContextBlock ? `\n\nCLIENT STATUS:${clientContextBlock}` : ""}${teamContextBlock ? `\n\nTEAM CONTEXT:\n${teamContextBlock}` : ""}`
+${contextBlock}${clientContextBlock ? `\n\nCLIENT STATUS:${clientContextBlock}` : ""}${teamContextBlock ? `\n\nTEAM CONTEXT:\n${teamContextBlock}` : ""}${webSearchBlock}`
     : `You are the AI core of Buddies OS — a personal operating system for an entrepreneur named Soban.
 
 PHILOSOPHY: Capture → Understand → Analyze → Suggest → Human decides.
@@ -136,7 +172,7 @@ RESPONSE RULES:
 - Tight responses. No padding. No flattery.
 - For live data (prices, news, events) — use web search
 
-Note: Context mode is OFF. Respond based on this conversation only.`;
+Note: Context mode is OFF. Respond based on this conversation only.${webSearchBlock}`;
 
   try {
     // ── PRIMARY: Claude ──────────────────────────────────────────
@@ -147,10 +183,25 @@ Note: Context mode is OFF. Respond based on this conversation only.`;
           model: "claude-sonnet-4-5",
           max_tokens: 16000,
           system: systemPrompt,
-          messages: messages.map((m: any) => ({ role: m.role, content: m.content })),
+          messages: messages.map((m: any) => {
+            // Vision: message with attached image URLs
+            if (m.images && m.images.length > 0) {
+              return {
+                role: m.role,
+                content: [
+                  { type: "text", text: m.content },
+                  ...m.images.map((url: string) => ({
+                    type: "image",
+                    source: { type: "url", url },
+                  })),
+                ],
+              };
+            }
+            return { role: m.role, content: m.content };
+          }),
         });
         const text = response.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("") || "No response.";
-        return NextResponse.json({ response: text, text, provider: "claude", contextUsed: contextEnabled });
+        return NextResponse.json({ response: text, text, provider: "claude", contextUsed: contextEnabled, webSearchUsed });
       } catch (claudeErr: any) {
         console.error("Claude error, falling back to OpenAI:", claudeErr.message);
       }
@@ -177,7 +228,7 @@ Note: Context mode is OFF. Respond based on this conversation only.`;
         ?.map((c: any) => c.text)
         ?.join("") ?? "";
 
-      return NextResponse.json({ response: text, text, provider: "openai", contextUsed: contextEnabled });
+      return NextResponse.json({ response: text, text, provider: "openai", contextUsed: contextEnabled, webSearchUsed });
     } catch {
       // Fallback to chat completions
       const response = await openai.chat.completions.create({
@@ -186,7 +237,7 @@ Note: Context mode is OFF. Respond based on this conversation only.`;
         messages: [{ role: "system", content: systemPrompt }, ...messages],
       });
       const text = response.choices[0]?.message?.content ?? "No response.";
-      return NextResponse.json({ response: text, text, provider: "openai-fallback", contextUsed: contextEnabled });
+      return NextResponse.json({ response: text, text, provider: "openai-fallback", contextUsed: contextEnabled, webSearchUsed });
     }
   } catch (err: any) {
     return NextResponse.json({ text: `Error: ${err.message}` });
