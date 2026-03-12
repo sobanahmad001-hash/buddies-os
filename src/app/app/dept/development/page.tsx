@@ -5,8 +5,15 @@ import { useRole } from "@/hooks/useRole";
 import TaskBoard from "@/components/dept/TaskBoard";
 import ActivityFeed from "@/components/dept/ActivityFeed";
 import MiniDashboard from "@/components/dept/MiniDashboard";
+import { Plus, Trash2, Settings, GitBranch, Rocket, Zap } from "lucide-react";
 
 const ACCENT = "#3B82F6";
+
+const DEV_TOOL_TYPES = ["code_editor", "ci_cd", "api_testing", "monitoring", "version_control", "deployment", "other"] as const;
+const TOOL_TYPE_ICONS: Record<string, string> = {
+  code_editor: "🖥️", ci_cd: "🔄", api_testing: "🧪",
+  monitoring: "📊", version_control: "🌿", deployment: "🚀", other: "🔧",
+};
 
 export default function DevDept() {
   const { isIntern } = useRole();
@@ -18,10 +25,14 @@ export default function DevDept() {
   const [bugs, setBugs] = useState<any[]>([]);
   const [userId, setUserId] = useState("");
   const [userRole, setUserRole] = useState("");
-  const [tab, setTab] = useState<"tasks"|"projects"|"bugs"|"activity">("tasks");
+  const [tab, setTab] = useState<"tasks"|"projects"|"tools"|"bugs"|"activity">("tasks");
   const [newProject, setNewProject] = useState("");
   const [newBug, setNewBug] = useState("");
   const [githubLinks, setGithubLinks] = useState<Record<string, string>>({});
+  const [tools, setTools] = useState<any[]>([]);
+  const [showToolForm, setShowToolForm] = useState(false);
+  const [toolForm, setToolForm] = useState({ name: "", tool_type: "code_editor", config: "" });
+  const [savingTool, setSavingTool] = useState(false);
 
   useEffect(() => { init(); }, []);
 
@@ -56,6 +67,30 @@ export default function DevDept() {
     setActivity(aRes.data ?? []);
     setMembers(mRes.data ?? []);
     setBugs(bRes.data ?? []);
+    const toolsRes = await fetch(`/api/dev/tools?department_id=${deptId}`).then(r => r.json()).catch(() => ({}));
+    setTools(toolsRes.tools ?? []);
+  }
+
+  async function addTool() {
+    if (!toolForm.name.trim() || !dept) return;
+    setSavingTool(true);
+    let configObj: any = {};
+    try { if (toolForm.config.trim()) configObj = JSON.parse(toolForm.config); } catch {}
+    await fetch("/api/dev/tools", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ department_id: dept.id, tool_type: toolForm.tool_type, name: toolForm.name, config: configObj }),
+    });
+    setToolForm({ name: "", tool_type: "code_editor", config: "" });
+    setShowToolForm(false);
+    setSavingTool(false);
+    const res = await fetch(`/api/dev/tools?department_id=${dept.id}`).then(r => r.json()).catch(() => ({}));
+    setTools(res.tools ?? []);
+  }
+
+  async function deleteTool(id: string) {
+    await fetch(`/api/dev/tools/${id}`, { method: "DELETE" });
+    setTools(prev => prev.filter(t => t.id !== id));
   }
 
   async function addProject() {
@@ -73,7 +108,7 @@ export default function DevDept() {
   }
 
   const isHead = userRole === "owner" || userRole === "dept_head";
-  const tabs = isIntern ? ["tasks", "bugs"] : ["tasks", "projects", "bugs", "activity"];
+  const tabs = isIntern ? ["tasks", "bugs"] : ["tasks", "projects", "tools", "bugs", "activity"];
 
   if (!dept) return <div className="flex-1 flex items-center justify-center"><div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: ACCENT, borderTopColor: "transparent" }} /></div>;
 
@@ -92,6 +127,26 @@ export default function DevDept() {
               )}
             </p>
           </div>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="flex flex-wrap gap-2 mb-5">
+          <a href="https://github.com" target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-white hover:opacity-90 transition-opacity" style={{ backgroundColor: ACCENT }}>
+            <GitBranch className="w-3.5 h-3.5" />Manage Code
+          </a>
+          <a href="https://vercel.com" target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-white bg-black hover:opacity-80 transition-opacity">
+            <Rocket className="w-3.5 h-3.5" />Deploy
+          </a>
+          <button onClick={() => setTab("tools")}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-[#1A1A1A] bg-white border border-[#E5E2DE] hover:border-[#3B82F6] transition-colors">
+            <Zap className="w-3.5 h-3.5" />Test API
+          </button>
+          <button onClick={() => setTab("bugs")}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-white bg-red-500 hover:opacity-90 transition-opacity">
+            🐛 Report Bug
+          </button>
         </div>
 
         <div className="grid grid-cols-4 gap-3 mb-6">
@@ -165,6 +220,78 @@ export default function DevDept() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        )}
+
+        {tab === "tools" && (
+          <div>
+            {isHead && (
+              <div className="mb-4">
+                {!showToolForm ? (
+                  <button onClick={() => setShowToolForm(true)}
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg text-white" style={{ backgroundColor: ACCENT }}>
+                    <Plus className="w-3.5 h-3.5" />Add Tool
+                  </button>
+                ) : (
+                  <div className="bg-white border border-[#E5E2DE] rounded-xl p-4 space-y-3">
+                    <p className="text-sm font-semibold text-[#1A1A1A]">Configure Tool</p>
+                    <input value={toolForm.name} onChange={e => setToolForm(f => ({ ...f, name: e.target.value }))}
+                      placeholder="Tool name (e.g. GitHub Actions, Postman, Sentry...)"
+                      className="w-full text-sm px-3 py-2 border border-[#E5E2DE] rounded-lg focus:outline-none" />
+                    <select value={toolForm.tool_type} onChange={e => setToolForm(f => ({ ...f, tool_type: e.target.value }))}
+                      className="w-full text-sm px-3 py-2 border border-[#E5E2DE] rounded-lg focus:outline-none bg-white">
+                      {DEV_TOOL_TYPES.map(t => <option key={t} value={t}>{t.replace(/_/g, " ")}</option>)}
+                    </select>
+                    <textarea value={toolForm.config} onChange={e => setToolForm(f => ({ ...f, config: e.target.value }))}
+                      placeholder='{"repo":"org/repo","branch":"main"}'
+                      rows={3}
+                      className="w-full text-xs px-3 py-2 border border-[#E5E2DE] rounded-lg focus:outline-none font-mono resize-none" />
+                    <div className="flex gap-2">
+                      <button onClick={addTool} disabled={!toolForm.name.trim() || savingTool}
+                        className="px-4 py-2 text-white text-sm font-semibold rounded-lg disabled:opacity-40" style={{ backgroundColor: ACCENT }}>
+                        {savingTool ? "Saving..." : "Save Tool"}
+                      </button>
+                      <button onClick={() => setShowToolForm(false)}
+                        className="px-4 py-2 text-sm text-[#737373] border border-[#E5E2DE] rounded-lg hover:bg-[#F5F5F5]">Cancel</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            <div className="space-y-3">
+              {tools.map((tool: any) => (
+                <div key={tool.id} className="bg-white rounded-xl border border-[#E5E2DE] p-4 flex items-start gap-3">
+                  <span className="text-2xl">{TOOL_TYPE_ICONS[tool.tool_type] ?? "🔧"}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-medium text-sm">{tool.name}</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold text-white" style={{ backgroundColor: ACCENT }}>
+                        {tool.tool_type.replace(/_/g, " ")}
+                      </span>
+                    </div>
+                    {tool.config && Object.keys(tool.config).length > 0 && (
+                      <pre className="text-[10px] text-[#737373] bg-[#F5F5F5] rounded p-2 font-mono overflow-x-auto mt-1">
+                        {JSON.stringify(tool.config, null, 2)}
+                      </pre>
+                    )}
+                    <p className="text-[10px] text-[#B0ADA9] mt-1">{new Date(tool.created_at).toLocaleDateString()}</p>
+                  </div>
+                  {isHead && (
+                    <button onClick={() => deleteTool(tool.id)}
+                      className="p-1 rounded hover:bg-red-50 text-[#B0ADA9] hover:text-red-500 transition-colors">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              ))}
+              {tools.length === 0 && (
+                <div className="text-center py-8 text-[#737373]">
+                  <Settings className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                  <p className="text-sm">No tools configured yet.</p>
+                  {isHead && <p className="text-xs mt-1">Add tools like GitHub Actions, Postman, Sentry, Vercel CLI…</p>}
+                </div>
+              )}
             </div>
           </div>
         )}
