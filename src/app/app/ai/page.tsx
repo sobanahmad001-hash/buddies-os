@@ -319,7 +319,7 @@ export default function AIPage() {
 
   async function send(overrideInput?: string) {
     const text = (overrideInput ?? input).trim();
-    if (!text || loading) return;
+    if ((!text && attachedFiles.length === 0) || loading) return;
 
     // Upload any attached files first
     const imageUrls: string[] = [];
@@ -340,7 +340,7 @@ export default function AIPage() {
 
     const userMsg: Message = {
       role: "user",
-      content: text,
+      content: text || `📎 ${attachedFiles.length} file${attachedFiles.length > 1 ? "s" : ""} attached`,
       ts: new Date().toISOString(),
       images: imageUrls.length > 0 ? imageUrls : undefined,
     };
@@ -799,7 +799,7 @@ export default function AIPage() {
             <div className="relative flex items-end gap-2 sm:gap-3 bg-[#F7F5F2] rounded-2xl px-3 sm:px-4 py-2 sm:py-3 border border-[#E5E2DE] focus-within:border-[#E8521A] transition-colors">
               <QuickActionsDropdown onSelectAction={handleQuickAction} />
               <VoiceInputButton onTranscript={handleVoiceTranscript} />
-              <FileUpload onFilesSelected={setAttachedFiles} />
+              <FileUpload onFilesSelected={(f) => setAttachedFiles(prev => [...prev, ...f])} />
               <WebSearchButton onSearch={(query) => { setInput(query); setTimeout(() => textareaRef.current?.focus(), 0); }} />
               <textarea
                 ref={textareaRef}
@@ -811,7 +811,7 @@ export default function AIPage() {
                 className="flex-1 bg-transparent text-[14px] sm:text-[15px] text-[#1A1A1A] placeholder-[#B0ADA9] resize-none focus:outline-none leading-relaxed"
                 style={{ maxHeight: "120px", minHeight: "24px" }}
               />
-              <button onClick={() => send()} disabled={!input.trim() || loading}
+              <button onClick={() => send()} disabled={(!input.trim() && attachedFiles.length === 0) || loading}
                 className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all
                   disabled:bg-[#E5E2DE] disabled:text-[#B0ADA9] bg-[#E8521A] text-white hover:bg-[#c94415]">
                 <Send size={16} />
