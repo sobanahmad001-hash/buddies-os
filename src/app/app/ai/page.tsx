@@ -4,6 +4,7 @@ import {
   Plus, Send, Copy, RotateCcw, Trash2, Edit2,
   MessageSquare, Check, ChevronDown
 } from "lucide-react";
+import ContextPreviewModal from "@/components/ContextPreviewModal";
 
 // ── Markdown renderer ─────────────────────────────────────────────────────────
 function renderMarkdown(text: string): React.ReactNode[] {
@@ -191,6 +192,7 @@ export default function AIPage() {
   const [editText, setEditText] = useState("");
   const [modelOpen, setModelOpen] = useState(false);
   const [selectedModel, setSelectedModel] = useState("Claude 3.5 Sonnet");
+  const [contextModalOpen, setContextModalOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -410,6 +412,13 @@ export default function AIPage() {
               {activeSession?.title ?? "New Chat"}
             </div>
           </div>
+          {/* Context badge */}
+          <button onClick={() => setContextModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#F0EDE9] hover:bg-[#E5E2DE] text-[#1A1A1A] text-[11px] font-medium transition-colors">
+            <span>🧠</span>
+            <span>Context</span>
+          </button>
+
           <div className="relative">
             <button onClick={() => setModelOpen(!modelOpen)}
               className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#0F0F0F] text-white text-[11px] font-medium hover:bg-[#1A1A1A] transition-colors">
@@ -592,5 +601,7 @@ export default function AIPage() {
       </div>
 
     </div>
+
+    <ContextPreviewModal isOpen={contextModalOpen} onClose={() => setContextModalOpen(false)} />
   );
 }
