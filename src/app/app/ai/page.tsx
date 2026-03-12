@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useRef, useState, useCallback } from "react";
-import { supabase } from "@/lib/supabaseClient";
 import {
   Plus, Send, Copy, RotateCcw, Trash2,
   MessageSquare, Check
@@ -197,14 +196,13 @@ export default function AIPage() {
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
 
   async function loadSessions() {
-    const { data } = await supabase.from("ai_sessions")
-      .select("id, title, created_at, messages")
-      .order("created_at", { ascending: false })
-      .limit(60);
+    const res = await fetch("/api/ai/sessions");
+    if (!res.ok) return;
+    const { sessions: data } = await res.json();
     setSessions((data ?? []).map((s: any) => ({
       ...s,
-      title: s.title || (s.messages?.[0]?.content?.slice(0, 45) + "…") || "New chat",
-      messages: Array.isArray(s.messages) ? s.messages : []
+      title: s.title || "New chat",
+      messages: []
     })));
   }
 
@@ -215,16 +213,22 @@ export default function AIPage() {
     textareaRef.current?.focus();
   }
 
-  function openSession(s: Session) {
+  async function openSession(s: Session) {
     setActiveSession(s);
-    const msgs = Array.isArray(s.messages) ? s.messages : [];
-    setMessages(msgs);
+    setMessages([]);
+    const res = await fetch(`/api/ai/sessions?id=${s.id}`);
+    if (res.ok) {
+      const { session } = await res.json();
+      const msgs = Array.isArray(session?.messages) ? session.messages : [];
+      setMessages(msgs);
+      setActiveSession({ ...s, messages: msgs });
+    }
   }
 
   async function deleteSession(id: string, e: React.MouseEvent) {
     e.stopPropagation();
     setDeletingId(id);
-    await supabase.from("ai_sessions").delete().eq("id", id);
+    await fetch(`/api/ai/sessions?id=${id}`, { method: "DELETE" });
     if (activeSession?.id === id) startNewChat();
     await loadSessions();
     setDeletingId(null);
@@ -267,13 +271,22 @@ export default function AIPage() {
 
       // Save / update session
       if (activeSession?.id) {
-        await supabase.from("ai_sessions").update({ messages: finalMessages }).eq("id", activeSession.id);
+        await fetch("/api/ai/sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId: activeSession.id, messages: finalMessages })
+        });
       } else {
         const title = text.slice(0, 50);
-        const { data: saved } = await supabase.from("ai_sessions")
-          .insert({ title, messages: finalMessages })
-          .select().single();
-        if (saved) setActiveSession({ ...saved, title });
+        const res = await fetch("/api/ai/sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title, messages: finalMessages })
+        });
+        if (res.ok) {
+          const { sessionId } = await res.json();
+          if (sessionId) setActiveSession({ id: sessionId, title, created_at: new Date().toISOString() });
+        }
       }
       await loadSessions();
     } catch (e) {

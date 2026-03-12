@@ -19,8 +19,25 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ session: data });
   }
 
-  const { data } = await supabase.from("ai_sessions").select("id, title, updated_at").eq("user_id", user.id).order("updated_at", { ascending: false }).limit(10);
+  const { data } = await supabase.from("ai_sessions").select("id, title, created_at, updated_at").eq("user_id", user.id).order("updated_at", { ascending: false }).limit(60);
   return NextResponse.json({ sessions: data ?? [] });
+}
+
+export async function DELETE(req: NextRequest) {
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { cookies: { getAll() { return cookieStore.getAll(); }, setAll(s) { s.forEach(({ name, value, options }) => cookieStore.set(name, value, options)); } } }
+  );
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+
+  const id = req.nextUrl.searchParams.get("id");
+  if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+
+  await supabase.from("ai_sessions").delete().eq("id", id).eq("user_id", user.id);
+  return NextResponse.json({ deleted: true });
 }
 
 export async function POST(req: NextRequest) {
