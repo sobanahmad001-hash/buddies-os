@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { useWorkspace } from "@/context/WorkspaceContext";
 import { useRole } from "@/hooks/useRole";
 import TaskBoard from "@/components/dept/TaskBoard";
 import ActivityFeed from "@/components/dept/ActivityFeed";
@@ -9,6 +10,7 @@ import MiniDashboard from "@/components/dept/MiniDashboard";
 const ACCENT = "#8B5CF6";
 
 export default function DesignDept() {
+  const { activeWorkspace } = useWorkspace();
   const { canSeeAllDeptTasks, canSeeAllDeptProjects, canSeeActivityFeed, canAssignTasks, isIntern } = useRole();
   const [dept, setDept] = useState<any>(null);
   const [projects, setProjects] = useState<any[]>([]);
@@ -21,21 +23,22 @@ export default function DesignDept() {
   const [newProject, setNewProject] = useState("");
   const [figmaLinks, setFigmaLinks] = useState<Record<string, string>>({});
 
-  useEffect(() => { init(); }, []);
+  useEffect(() => { init(); }, [activeWorkspace]);
 
   async function init() {
+    if (!activeWorkspace) return;
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     setUserId(user.id);
     const { data: mem } = await supabase.from("memberships")
-      .select("workspace_id, role").eq("user_id", user.id).eq("status", "active").maybeSingle();
-    if (!mem) return;
-    setUserRole(mem.role);
+      .select("role").eq("user_id", user.id).eq("workspace_id", activeWorkspace.id).eq("status", "active").maybeSingle();
+    const role = mem?.role ?? "";
+    setUserRole(role);
     const { data: d } = await supabase.from("departments")
-      .select("*").eq("workspace_id", mem.workspace_id).eq("slug", "design").maybeSingle();
+      .select("*").eq("workspace_id", activeWorkspace.id).eq("slug", "design").maybeSingle();
     if (!d) return;
     setDept(d);
-    await loadAll(d.id, user.id, mem.role);
+    await loadAll(d.id, user.id, role);
   }
 
   async function loadAll(deptId: string, uid: string, role: string) {

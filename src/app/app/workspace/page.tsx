@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { useWorkspace } from "@/context/WorkspaceContext";
 import { Users, ChevronRight, Plus, Copy, Palette, Code2, Megaphone } from "lucide-react";
 
 const DEPT_META: Record<string, { icon: any; color: string; bg: string; label: string }> = {
@@ -15,7 +16,7 @@ const ROLE_LABEL: Record<string, string> = { dept_head: "Dept Head", executive: 
 
 export default function WorkspacePage() {
   const router = useRouter();
-  const [workspace, setWorkspace] = useState<any>(null);
+  const { activeWorkspace, setActiveWorkspace, loading } = useWorkspace();
   const [departments, setDepartments] = useState<any[]>([]);
   const [members, setMembers] = useState<any[]>([]);
   const [invites, setInvites] = useState<any[]>([]);
@@ -26,20 +27,13 @@ export default function WorkspacePage() {
   const [inviting, setInviting] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState("");
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => { init(); }, []);
+  useEffect(() => { if (activeWorkspace) setNewName(activeWorkspace.name); }, [activeWorkspace]);
 
-  async function init() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data: ws } = await supabase.from("workspaces").select("*").eq("owner_id", user.id).maybeSingle();
-    if (!ws) { setLoading(false); return; }
-    setWorkspace(ws);
-    setNewName(ws.name);
-    await Promise.all([loadDepts(ws.id), loadMembers(ws.id), loadInvites(ws.id)]);
-    setLoading(false);
-  }
+  useEffect(() => {
+    if (!activeWorkspace) return;
+    Promise.all([loadDepts(activeWorkspace.id), loadMembers(activeWorkspace.id), loadInvites(activeWorkspace.id)]);
+  }, [activeWorkspace]);
 
   async function loadDepts(wsId: string) {
     const { data } = await supabase.from("departments").select("*").eq("workspace_id", wsId).order("name");
@@ -84,33 +78,33 @@ export default function WorkspacePage() {
   }
 
   async function sendInvite() {
-    if (!inviteEmail.trim() || !workspace) return;
+    if (!inviteEmail.trim() || !activeWorkspace) return;
     setInviting(true);
     const token = crypto.randomUUID();
     const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
     await supabase.from("workspace_invites").insert({
-      workspace_id: workspace.id, invited_by: (await supabase.auth.getUser()).data.user?.id,
+      workspace_id: activeWorkspace.id, invited_by: (await supabase.auth.getUser()).data.user?.id,
       email: inviteEmail.trim(), role: inviteRole, token, status: "pending", expires_at: expires
     });
     setInviteEmail("");
     setInviting(false);
-    await loadInvites(workspace.id);
+    await loadInvites(activeWorkspace.id);
   }
 
   async function assignDepartment(memberId: string, deptId: string) {
     await supabase.from("memberships").update({ department_id: deptId || null }).eq("id", memberId);
-    if (workspace) await loadMembers(workspace.id);
+    if (activeWorkspace) await loadMembers(activeWorkspace.id);
   }
 
   async function updateRole(memberId: string, role: string) {
     await supabase.from("memberships").update({ role }).eq("id", memberId);
-    if (workspace) await loadMembers(workspace.id);
+    if (activeWorkspace) await loadMembers(activeWorkspace.id);
   }
 
   async function saveName() {
-    if (!newName.trim() || !workspace) return;
-    await supabase.from("workspaces").update({ name: newName.trim() }).eq("id", workspace.id);
-    setWorkspace((w: any) => ({ ...w, name: newName.trim() }));
+    if (!newName.trim() || !activeWorkspace) return;
+    await supabase.from("workspaces").update({ name: newName.trim() }).eq("id", activeWorkspace.id);
+    setActiveWorkspace({ ...activeWorkspace, name: newName.trim() });
     setEditingName(false);
   }
 
@@ -143,7 +137,7 @@ export default function WorkspacePage() {
               </div>
             ) : (
               <div className="flex items-center gap-3">
-                <h1 className="text-[24px] font-bold tracking-tight">{workspace?.name ?? "ANKA"}</h1>
+                <h1 className="text-[24px] font-bold tracking-tight">{activeWorkspace?.name ?? "ANKA"}</h1>
                 <button onClick={() => setEditingName(true)} className="text-[10px] px-2 py-0.5 rounded-md bg-white/10 text-white/60 hover:bg-white/20 transition-colors">Edit</button>
               </div>
             )}
