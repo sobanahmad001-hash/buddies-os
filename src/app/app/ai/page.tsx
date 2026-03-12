@@ -345,6 +345,7 @@ export default function AIPage() {
   const messageGroups = groupMessages(messages);
 
   return (
+    <>
     <div className="flex flex-1 overflow-hidden bg-[#FAFAF8]">
 
       {sidebarOpen && (
@@ -603,5 +604,6 @@ export default function AIPage() {
     </div>
 
     <ContextPreviewModal isOpen={contextModalOpen} onClose={() => setContextModalOpen(false)} />
+    </>
   );
 }
