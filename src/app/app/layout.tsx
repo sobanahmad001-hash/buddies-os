@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { WorkspaceProvider } from '@/context/WorkspaceContext';
 import WorkspaceSwitcher from '@/components/WorkspaceSwitcher';
+import BottomNav from '@/components/BottomNav';
 
 const navItems = [
   { to: "/app",              icon: LayoutDashboard, label: "Dashboard" },
@@ -152,7 +153,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         )}
 
         {/* Main content */}
-        <main className="flex-1 flex flex-col overflow-hidden min-w-0">
+        <main className="flex-1 flex flex-col overflow-hidden min-w-0 pb-[60px] md:pb-0">
           {/* Mobile top bar */}
           <div className="md:hidden flex items-center gap-3 px-4 py-3 bg-[#0F0F0F] border-b border-[#1E1E1E] shrink-0">
             <button onClick={() => setMobileOpen(true)}
@@ -169,6 +170,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
           {children}
         </main>
+
+        {/* Bottom Navigation (mobile) */}
+        <BottomNav />
       </div>
     </WorkspaceProvider>
   );

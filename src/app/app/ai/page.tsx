@@ -5,6 +5,12 @@ import {
   MessageSquare, Check, ChevronDown
 } from "lucide-react";
 import ContextPreviewModal from "@/components/ContextPreviewModal";
+import ContextToggle from "@/components/ContextToggle";
+import SuggestionsPanel from "@/components/SuggestionsPanel";
+import { savePendingCommand } from "@/lib/offline-store";
+import QuickActionsDropdown from "@/components/QuickActionsDropdown";
+import VoiceInputButton from "@/components/VoiceInputButton";
+import SearchModal from "@/components/SearchModal";
 
 // ── Markdown renderer ─────────────────────────────────────────────────────────
 function renderMarkdown(text: string): React.ReactNode[] {
@@ -144,7 +150,7 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
   );
 }
 
-interface Message { role: "user" | "assistant"; content: string; ts?: string; }
+interface Message { role: "user" | "assistant"; content: string; ts?: string; contextUsed?: boolean; isCommand?: boolean; }
 interface Session { id: string; title: string; created_at: string; messages?: Message[]; }
 
 function groupSessions(sessions: Session[]) {
@@ -193,11 +199,24 @@ export default function AIPage() {
   const [modelOpen, setModelOpen] = useState(false);
   const [selectedModel, setSelectedModel] = useState("Claude 3.5 Sonnet");
   const [contextModalOpen, setContextModalOpen] = useState(false);
+  const [contextEnabled, setContextEnabled] = useState(true);
+  const [searchOpen, setSearchOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => { loadSessions(); }, []);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setSearchOpen(v => !v);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   async function loadSessions() {
     const res = await fetch("/api/ai/sessions");
@@ -267,6 +286,16 @@ export default function AIPage() {
     }
   }
 
+  function handleQuickAction(command: string) {
+    setInput(command);
+    setTimeout(() => textareaRef.current?.focus(), 0);
+  }
+
+  function handleVoiceTranscript(transcript: string) {
+    setInput(transcript);
+    setTimeout(() => textareaRef.current?.focus(), 0);
+  }
+
   async function send(overrideInput?: string) {
     const text = (overrideInput ?? input).trim();
     if (!text || loading) return;
@@ -277,21 +306,104 @@ export default function AIPage() {
     if (textareaRef.current) { textareaRef.current.style.height = "auto"; }
     setLoading(true);
 
+    // ── Offline guard ─────────────────────────────────────────────
+    if (!navigator.onLine) {
+      await savePendingCommand({ type: "message", content: text });
+      setMessages(prev => [
+        ...prev,
+        {
+          role: "assistant",
+          content: "📡 You're offline. This message will be sent when you're back online.",
+          ts: new Date().toISOString(),
+        },
+      ]);
+      setLoading(false);
+      return;
+    }
+
     try {
+      // ── Check if it's a quick command first ───────────────────
+      const cmdRes = await fetch("/api/ai/command", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text }),
+      });
+      const cmdData = await cmdRes.json();
+
+      if (cmdData.isCommand) {
+        const cmdMsg: Message = {
+          role: "assistant",
+          content: cmdData.response ?? "Done.",
+          ts: new Date().toISOString(),
+          isCommand: true,
+        };
+        const finalMessages = [...newMessages, cmdMsg];
+        setMessages(finalMessages);
+        if (activeSession?.id) {
+          await fetch("/api/ai/sessions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sessionId: activeSession.id, messages: finalMessages }),
+          });
+        }
+        setLoading(false);
+        return;
+      }
+
+      // ── Tier 2: AI natural language command extraction ─────────
+      const extractRes = await fetch("/api/ai/extract-command", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text }),
+      });
+      const extractData = await extractRes.json();
+
+      if (extractData.isCommand && extractData.type) {
+        const executeRes = await fetch("/api/ai/execute-command", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: extractData.type, data: extractData.data }),
+        });
+        const executeData = await executeRes.json();
+
+        if (executeData.success) {
+          const nlCmdMsg: Message = {
+            role: "assistant",
+            content: executeData.response,
+            ts: new Date().toISOString(),
+            isCommand: true,
+          };
+          const finalMessages = [...newMessages, nlCmdMsg];
+          setMessages(finalMessages);
+          if (activeSession?.id) {
+            await fetch("/api/ai/sessions", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ sessionId: activeSession.id, messages: finalMessages }),
+            });
+          }
+          setLoading(false);
+          return;
+        }
+      }
+
+      // ── Tier 3: Normal AI conversation ──────────────────────────
       const res = await fetch("/api/ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: text,
           sessionId: activeSession?.id ?? null,
-          history: messages.slice(-12)
+          history: messages.slice(-12),
+          contextEnabled,
         })
       });
       const data = await res.json();
       const assistantMsg: Message = {
         role: "assistant",
         content: data.response ?? data.error ?? "Something went wrong.",
-        ts: new Date().toISOString()
+        ts: new Date().toISOString(),
+        contextUsed: data.contextUsed,
       };
       const finalMessages = [...newMessages, assistantMsg];
       setMessages(finalMessages);
@@ -394,6 +506,11 @@ export default function AIPage() {
             <div className="px-4 py-12 text-center text-[#3A3A3A] text-[11px]">No chats yet</div>
           )}
         </div>
+
+        {/* Suggestions Panel */}
+        <div className="border-t border-[#1E1E1E] p-3">
+          <SuggestionsPanel />
+        </div>
       </div>
 
       {/* Main chat area */}
@@ -413,7 +530,20 @@ export default function AIPage() {
               {activeSession?.title ?? "New Chat"}
             </div>
           </div>
-          {/* Context badge */}
+          {/* Context Toggle */}
+          <ContextToggle onChange={setContextEnabled} />
+
+          {/* Search */}
+          <button
+            onClick={() => setSearchOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#F0EDE9] hover:bg-[#E5E2DE] text-[#1A1A1A] text-[11px] font-medium transition-colors"
+            title="Search (⌘K)">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
+            <span>Search</span>
+            <kbd className="hidden sm:inline px-1 py-0.5 bg-white border border-[#E5E2DE] rounded text-[9px]">⌘K</kbd>
+          </button>
+
+          {/* Context badge */}}
           <button onClick={() => setContextModalOpen(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#F0EDE9] hover:bg-[#E5E2DE] text-[#1A1A1A] text-[11px] font-medium transition-colors">
             <span>🧠</span>
@@ -511,13 +641,26 @@ export default function AIPage() {
                             <>
                               <div className={`rounded-2xl px-5 py-4 ${
                                 group.role === "assistant"
-                                  ? "bg-white border border-[#E5E2DE]"
+                                  ? msg.isCommand
+                                    ? "bg-[#F0FDF4] border border-[#BBF7D0]"
+                                    : "bg-white border border-[#E5E2DE]"
                                   : "bg-[#F0EDE9]"
                               }`}>
                                 {group.role === "user" ? (
                                   <p className="text-[15px] text-[#1A1A1A] leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                                 ) : (
                                   <div className="prose-sm">{renderMarkdown(msg.content)}</div>
+                                )}
+                                {group.role === "assistant" && msg.contextUsed !== undefined && (
+                                  <div className="mt-3 pt-2.5 border-t border-[#F0EDE9]">
+                                    <span className={`text-[10px] font-medium ${
+                                      msg.contextUsed
+                                        ? "text-[#10B981]"
+                                        : "text-[#B0ADA9]"
+                                    }`}>
+                                      {msg.contextUsed ? "✓ Context used" : "○ No context"}
+                                    </span>
+                                  </div>
                                 )}
                               </div>
 
@@ -575,18 +718,20 @@ export default function AIPage() {
         </div>
 
         {/* Input */}
-        <div className="px-4 py-4 bg-white border-t border-[#E5E2DE] shrink-0">
+        <div className="px-3 sm:px-4 py-3 sm:py-4 bg-white border-t border-[#E5E2DE] shrink-0" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
           <div className="max-w-[800px] mx-auto">
-            <div className="flex items-end gap-3 bg-[#F7F5F2] rounded-2xl px-4 py-3 border border-[#E5E2DE] focus-within:border-[#E8521A] transition-colors">
+            <div className="flex items-end gap-2 sm:gap-3 bg-[#F7F5F2] rounded-2xl px-3 sm:px-4 py-2 sm:py-3 border border-[#E5E2DE] focus-within:border-[#E8521A] transition-colors">
+              <QuickActionsDropdown onSelectAction={handleQuickAction} />
+              <VoiceInputButton onTranscript={handleVoiceTranscript} />
               <textarea
                 ref={textareaRef}
                 value={input}
                 onChange={autoResize}
                 onKeyDown={handleKey}
-                placeholder="Message Buddies AI..."
+                placeholder="Message Buddies AI or type a command..."
                 rows={1}
-                className="flex-1 bg-transparent text-[15px] text-[#1A1A1A] placeholder-[#B0ADA9] resize-none focus:outline-none leading-relaxed"
-                style={{ maxHeight: "120px" }}
+                className="flex-1 bg-transparent text-[14px] sm:text-[15px] text-[#1A1A1A] placeholder-[#B0ADA9] resize-none focus:outline-none leading-relaxed"
+                style={{ maxHeight: "120px", minHeight: "24px" }}
               />
               <button onClick={() => send()} disabled={!input.trim() || loading}
                 className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all
@@ -594,8 +739,8 @@ export default function AIPage() {
                 <Send size={16} />
               </button>
             </div>
-            <p className="text-[11px] text-[#B0ADA9] text-center mt-2">
-              Enter to send · Shift+Enter for new line
+            <p className="hidden sm:block text-[11px] text-[#B0ADA9] text-center mt-2">
+              Enter to send · Shift+Enter for new line · ⚡ Actions · 🎤 Voice
             </p>
           </div>
         </div>
@@ -604,6 +749,7 @@ export default function AIPage() {
     </div>
 
     <ContextPreviewModal isOpen={contextModalOpen} onClose={() => setContextModalOpen(false)} />
+    <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
     </>
   );
 }

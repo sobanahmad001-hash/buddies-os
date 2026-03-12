@@ -19,21 +19,25 @@ export async function POST(req: NextRequest) {
   // Support both old format { messages } and new format { message, history }
   const messages = body.messages ?? [...(body.history ?? []), { role: "user", content: body.message }];
   const lastMessage = messages[messages.length - 1]?.content ?? "";
+  const contextEnabled = body.contextEnabled !== false;
 
-  const [
+  const [  
     { data: projects }, { data: updates }, { data: decisions },
     { data: rules }, { data: logs }, { data: recentSessions }
-  ] = await Promise.all([
+  ] = contextEnabled ? await Promise.all([
     supabase.from("projects").select("id, name, description, status, memory").eq("user_id", user.id).eq("status", "active"),
     supabase.from("project_updates").select("content, next_actions, update_type, created_at, project_id").eq("user_id", user.id).order("created_at", { ascending: false }).limit(20),
     supabase.from("decisions").select("context, verdict, probability, outcome_rating, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(10),
     supabase.from("rules").select("rule_text, severity, active").eq("user_id", user.id).eq("active", true),
     supabase.from("behavior_logs").select("mood_tag, stress, sleep_hours, notes, timestamp").eq("user_id", user.id).order("timestamp", { ascending: false }).limit(7),
     supabase.from("ai_sessions").select("messages, updated_at").eq("user_id", user.id).order("updated_at", { ascending: false }).limit(3),
-  ]);
+  ]) : [
+    { data: null }, { data: null }, { data: null },
+    { data: null }, { data: null }, { data: null },
+  ];
 
   // Fetch client context for owner
-  const clientContextBlock = await (async () => {
+  const clientContextBlock = contextEnabled ? await (async () => {
     try {
       const { data: ws } = await supabase.from("workspaces").select("id").eq("owner_id", user.id).maybeSingle();
       if (!ws) return "";
@@ -47,10 +51,10 @@ export async function POST(req: NextRequest) {
       }));
       return "\nACTIVE CLIENTS:\n" + summaries.join("\n");
     } catch { return ""; }
-  })();
+  })() : "";
 
   // Fetch team context (owner sees all depts, team member sees own dept)
-  const teamContextBlock = await (async () => {
+  const teamContextBlock = contextEnabled ? await (async () => {
     try {
       const { data: ws } = await supabase.from("workspaces").select("id").eq("owner_id", user.id).maybeSingle();
       if (!ws) return "";
@@ -65,7 +69,7 @@ export async function POST(req: NextRequest) {
       if (!teamTasks?.length && !teamActivity?.length) return "";
       return `TEAM ACTIVITY (last 48hrs):\n${(teamActivity ?? []).map((a: any) => `- [${deptMap[a.department_id] ?? "?"}] ${a.activity_type}: ${a.title}`).join("\n") || "none"}\nTEAM TASKS:\n${(teamTasks ?? []).map((t: any) => `- [${deptMap[t.department_id] ?? "?"}] ${t.status}: ${t.title}`).join("\n") || "none"}`;
     } catch { return ""; }
-  })();
+  })() : "";
 
   const projectMap: Record<string, string> = {};
   const projectMemory: Record<string, string> = {};
@@ -99,7 +103,8 @@ ${(logs ?? []).map(l => `- mood: ${l.mood_tag ?? "?"}, stress: ${l.stress ?? "?"
 
 ${sessionHistory ? `RECENT CONVERSATION HISTORY:\n${sessionHistory}` : ""}`.trim();
 
-  const systemPrompt = `You are the AI core of Buddies OS — a personal operating system for an entrepreneur named Soban.
+  const systemPrompt = contextEnabled
+    ? `You are the AI core of Buddies OS — a personal operating system for an entrepreneur named Soban.
 
 PHILOSOPHY: Capture → Understand → Analyze → Suggest → Human decides.
 You are an advisor, not a governor. Surface intelligence, let the human decide.
@@ -115,7 +120,23 @@ RESPONSE RULES:
 - For live data (prices, news, events) — use web search
 
 CURRENT CONTEXT:
-${contextBlock}${clientContextBlock ? `\n\nCLIENT STATUS:${clientContextBlock}` : ""}${teamContextBlock ? `\n\nTEAM CONTEXT:\n${teamContextBlock}` : ""}`;
+${contextBlock}${clientContextBlock ? `\n\nCLIENT STATUS:${clientContextBlock}` : ""}${teamContextBlock ? `\n\nTEAM CONTEXT:\n${teamContextBlock}` : ""}`
+    : `You are the AI core of Buddies OS — a personal operating system for an entrepreneur named Soban.
+
+PHILOSOPHY: Capture → Understand → Analyze → Suggest → Human decides.
+You are an advisor, not a governor. Surface intelligence, let the human decide.
+
+Respond naturally in markdown. Never output JSON or structured data.
+
+RESPONSE RULES:
+- Factual questions: answer directly
+- Patterns detected: "Observation: [what data shows]. [supporting data]. You decide."
+- Never say "you should" — say "the data suggests" or "worth considering"
+- Use markdown — bold key terms, bullets for lists
+- Tight responses. No padding. No flattery.
+- For live data (prices, news, events) — use web search
+
+Note: Context mode is OFF. Respond based on this conversation only.`;
 
   try {
     // ── PRIMARY: Claude ──────────────────────────────────────────
@@ -129,7 +150,7 @@ ${contextBlock}${clientContextBlock ? `\n\nCLIENT STATUS:${clientContextBlock}` 
           messages: messages.map((m: any) => ({ role: m.role, content: m.content })),
         });
         const text = response.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("") || "No response.";
-        return NextResponse.json({ response: text, text, provider: "claude" });
+        return NextResponse.json({ response: text, text, provider: "claude", contextUsed: contextEnabled });
       } catch (claudeErr: any) {
         console.error("Claude error, falling back to OpenAI:", claudeErr.message);
       }
@@ -156,7 +177,7 @@ ${contextBlock}${clientContextBlock ? `\n\nCLIENT STATUS:${clientContextBlock}` 
         ?.map((c: any) => c.text)
         ?.join("") ?? "";
 
-      return NextResponse.json({ response: text, text, provider: "openai" });
+      return NextResponse.json({ response: text, text, provider: "openai", contextUsed: contextEnabled });
     } catch {
       // Fallback to chat completions
       const response = await openai.chat.completions.create({
@@ -165,7 +186,7 @@ ${contextBlock}${clientContextBlock ? `\n\nCLIENT STATUS:${clientContextBlock}` 
         messages: [{ role: "system", content: systemPrompt }, ...messages],
       });
       const text = response.choices[0]?.message?.content ?? "No response.";
-      return NextResponse.json({ response: text, text, provider: "openai-fallback" });
+      return NextResponse.json({ response: text, text, provider: "openai-fallback", contextUsed: contextEnabled });
     }
   } catch (err: any) {
     return NextResponse.json({ text: `Error: ${err.message}` });

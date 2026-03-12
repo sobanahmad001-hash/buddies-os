@@ -14,3 +14,47 @@ body {
   color: var(--foreground);
   font-family: 'Inter', -apple-system, sans-serif;
 }
+
+/* ── Mobile / PWA touch improvements ──────────────────────────────────── */
+
+/* Tap highlight removed for all interactive elements */
+button, a, [role="button"] {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+/* Smooth momentum scrolling on iOS */
+.overflow-y-auto, .overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Minimum 44×44px tap targets on mobile */
+@media (max-width: 767px) {
+  button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  /* Override for icon-only buttons where we explicitly set a smaller size */
+  .tap-sm {
+    min-height: unset;
+    min-width: unset;
+  }
+}
+
+/* Safe area helpers */
+.pb-safe {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Utility classes */
+@media (max-width: 1023px) {
+  .desktop-only { display: none !important; }
+}
+
+@media (min-width: 1024px) {
+  .mobile-only { display: none !important; }
+}
