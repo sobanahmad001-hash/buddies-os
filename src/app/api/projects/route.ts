@@ -36,9 +36,10 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const name = body.name?.trim();
   const description = body.description?.trim() ?? null;
+  const department_id = body.department_id ?? null;
   if (!name) return NextResponse.json({ error: "Name required" }, { status: 400 });
 
-  // Return existing if already exists
+  // Return existing if already exists (same user + name)
   const { data: existing } = await supabase
     .from("projects").select("id, name, status")
     .eq("user_id", user.id).ilike("name", name).limit(1);
@@ -48,8 +49,8 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await supabase
     .from("projects")
-    .insert({ user_id: user.id, name, description, status: "active", tags: [] })
-    .select("id, name, status")
+    .insert({ user_id: user.id, name, description, status: "active", tags: [], department_id })
+    .select("id, name, status, department_id")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
