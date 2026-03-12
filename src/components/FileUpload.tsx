@@ -39,7 +39,7 @@ export default function FileUpload({ onFilesSelected, maxSizeMB = 10 }: Props) {
         type="button"
         onClick={() => inputRef.current?.click()}
         className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-[#F0EDE9] text-[#737373] hover:bg-[#E5E2DE] hover:text-[#1A1A1A] transition-all"
-        title="Attach files"
+        title="Attach files (images, PDF, txt, doc, zip)"
       >
         <Paperclip size={16} />
       </button>
@@ -49,7 +49,7 @@ export default function FileUpload({ onFilesSelected, maxSizeMB = 10 }: Props) {
         multiple
         onChange={handleFileChange}
         className="hidden"
-        accept="image/*,.pdf,.txt,.doc,.docx"
+        accept="image/*,.pdf,.txt,.doc,.docx,.zip,.tar,.gz"
       />
       {error && (
         <div className="absolute bottom-full mb-2 left-0 whitespace-nowrap text-[12px] text-red-500 bg-white border border-red-200 rounded-lg px-3 py-1.5 shadow-sm z-50">

@@ -31,6 +31,8 @@ export async function POST(req: NextRequest) {
   const messages = body.messages ?? [...(body.history ?? []), { role: "user", content: body.message }];
   const lastMessage = messages[messages.length - 1]?.content ?? "";
   const contextEnabled = body.contextEnabled !== false;
+  const sessionSummary: string = body.sessionSummary ?? "";
+  const contextNote: string = body.contextNote ?? "";
 
   // ── Web search (Tavily) ───────────────────────────────────────
   let webSearchBlock = "";
@@ -156,7 +158,7 @@ RESPONSE RULES:
 - For live data (prices, news, events) — use web search
 
 CURRENT CONTEXT:
-${contextBlock}${clientContextBlock ? `\n\nCLIENT STATUS:${clientContextBlock}` : ""}${teamContextBlock ? `\n\nTEAM CONTEXT:\n${teamContextBlock}` : ""}${webSearchBlock}`
+${contextBlock}${clientContextBlock ? `\n\nCLIENT STATUS:${clientContextBlock}` : ""}${teamContextBlock ? `\n\nTEAM CONTEXT:\n${teamContextBlock}` : ""}${webSearchBlock}${sessionSummary ? `\n\nPREVIOUS CONVERSATION SUMMARY (earlier context from this chat — treat as memory):\n${sessionSummary}` : ""}${contextNote ? `\n\nUSER PINNED NOTE (always apply in every reply):\n${contextNote}` : ""}`
     : `You are the AI core of Buddies OS — a personal operating system for an entrepreneur named Soban.
 
 PHILOSOPHY: Capture → Understand → Analyze → Suggest → Human decides.
@@ -172,7 +174,7 @@ RESPONSE RULES:
 - Tight responses. No padding. No flattery.
 - For live data (prices, news, events) — use web search
 
-Note: Context mode is OFF. Respond based on this conversation only.${webSearchBlock}`;
+Note: Context mode is OFF. Respond based on this conversation only.${webSearchBlock}${sessionSummary ? `\n\nPREVIOUS CONVERSATION SUMMARY:\n${sessionSummary}` : ""}${contextNote ? `\n\nUSER PINNED NOTE (always apply):\n${contextNote}` : ""}`;
 
   try {
     // ── PRIMARY: Claude ──────────────────────────────────────────

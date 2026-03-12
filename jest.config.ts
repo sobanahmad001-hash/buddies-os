@@ -1,18 +1,19 @@
 import type { Config } from "jest";
 
 const config: Config = {
+  preset: "ts-jest",
   testEnvironment: "node",
   transform: {
-    "^.+\\.tsx?$": ["ts-jest", { tsconfig: { jsx: "react-jsx" } }],
+    "^.+\\.tsx?$": ["ts-jest", { tsconfig: { jsx: "react-jsx" }, isolatedModules: true }],
   },
   moduleNameMapper: {
     // Resolve @/ path alias
     "^@/(.*)$": "<rootDir>/src/$1",
   },
   testMatch: ["**/__tests__/**/*.test.ts", "**/__tests__/**/*.test.tsx"],
-  // Clear call history between tests but keep mock implementations intact
-  // (resetMocks would wipe the createServerClient closure → undefined supabase)
   clearMocks: true,
+  collectCoverage: true,
+  coverageDirectory: "coverage",
   // Env vars available to all tests
   testEnvironmentOptions: {
     env: {

@@ -2,6 +2,79 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
+import JSZip from "jszip";
+
+// Extensions whose text content is worth extracting from a ZIP
+const TEXT_EXTS = new Set([
+  "ts","tsx","js","jsx","py","rb","go","java","cs","php","swift",
+  "html","css","scss","md","mdx","txt","json","yaml","yml","toml",
+  "xml","csv","env","sh","bash","sql","graphql","prisma","tf","rs",
+]);
+
+async function extractZip(buffer: ArrayBuffer, filename: string, openai: OpenAI) {
+  const zip = await JSZip.loadAsync(buffer);
+
+  // Build file tree + extract text from readable files
+  const tree: string[] = [];
+  const textChunks: string[] = [];
+  let totalTextChars = 0;
+  const MAX_TEXT_CHARS = 12000;
+
+  const entries = Object.entries(zip.files).filter(([, f]) => !f.dir);
+
+  // Sort: text files first so we prioritise code/docs
+  entries.sort(([a], [b]) => {
+    const extA = a.split(".").pop()?.toLowerCase() ?? "";
+    const extB = b.split(".").pop()?.toLowerCase() ?? "";
+    return (TEXT_EXTS.has(extA) ? 0 : 1) - (TEXT_EXTS.has(extB) ? 0 : 1);
+  });
+
+  for (const [path, file] of entries) {
+    tree.push(path);
+    const ext = path.split(".").pop()?.toLowerCase() ?? "";
+    if (TEXT_EXTS.has(ext) && totalTextChars < MAX_TEXT_CHARS) {
+      try {
+        const content = await file.async("string");
+        const chunk = content.slice(0, MAX_TEXT_CHARS - totalTextChars);
+        textChunks.push(`=== ${path} ===\n${chunk}`);
+        totalTextChars += chunk.length;
+      } catch { /* binary or unreadable */ }
+    }
+  }
+
+  const fileTree = tree.slice(0, 100).join("\n") + (tree.length > 100 ? `\n… and ${tree.length - 100} more files` : "");
+  const codeSnippet = textChunks.join("\n\n").slice(0, MAX_TEXT_CHARS);
+
+  const prompt = `You are analyzing a ZIP archive called "${filename}" for an entrepreneur's personal OS.
+
+FILE TREE (${tree.length} files total):
+${fileTree}
+
+${codeSnippet ? `FILE CONTENTS (sampled):\n${codeSnippet}` : ""}
+
+Return a JSON object:
+{
+  "summary": "2-3 sentence overview of what this ZIP contains and its purpose",
+  "file_count": ${tree.length},
+  "key_files": ["list of the most important files"],
+  "updates": ["project progress items if any"],
+  "decisions": ["decisions that need to be made"],
+  "actions": ["recommended next steps"],
+  "blockers": ["risks or blockers found"],
+  "project": "project name if obvious, otherwise null"
+}
+Return ONLY valid JSON.`;
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    max_tokens: 1000,
+    messages: [{ role: "user", content: prompt }],
+  });
+
+  const raw = response.choices[0]?.message?.content ?? "{}";
+  const clean = raw.replace(/```json|```/g, "").trim();
+  return JSON.parse(clean) as { summary: string; file_count: number; key_files: string[]; updates: string[]; decisions: string[]; actions: string[]; blockers: string[]; project: string | null; };
+}
 
 export async function POST(req: NextRequest) {
   const cookieStore = await cookies();
@@ -36,6 +109,37 @@ export async function POST(req: NextRequest) {
 
   try {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+    // ── ZIP / archive handling ──────────────────────────────────────
+    const isZip = file.type === "application/zip"
+      || file.type === "application/x-zip-compressed"
+      || file.type === "application/x-zip"
+      || file.name.endsWith(".zip");
+
+    if (isZip) {
+      const parsed = await extractZip(arrayBuffer, file.name, openai);
+      summary = parsed.summary ?? "ZIP file uploaded.";
+
+      await supabase.from("uploaded_files").insert({
+        user_id: user.id,
+        storage_path: storagePath,
+        filename: file.name,
+        file_type: file.type || "application/zip",
+        file_size: file.size,
+        extracted_text: `File tree (${parsed.file_count} files). Key files: ${(parsed.key_files ?? []).join(", ")}`,
+        summary,
+      });
+
+      return NextResponse.json({
+        filename: file.name,
+        summary,
+        extracted: parsed,
+        storagePath,
+        isZip: true,
+        fileCount: parsed.file_count,
+        keyFiles: parsed.key_files ?? [],
+      });
+    }
 
     if (file.type === "application/pdf" || file.type.includes("text") || file.type.includes("word")) {
       // For text-based files, read content directly

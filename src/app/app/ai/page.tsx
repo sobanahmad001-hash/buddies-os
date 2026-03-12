@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Plus, Send, Copy, RotateCcw, Trash2, Edit2,
-  MessageSquare, Check, ChevronDown, Globe, Paperclip
+  MessageSquare, Check, ChevronDown, Globe, Paperclip, Square, X
 } from "lucide-react";
 import ContextPreviewModal from "@/components/ContextPreviewModal";
 import ContextToggle from "@/components/ContextToggle";
@@ -206,6 +206,16 @@ export default function AIPage() {
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const [sessionSummary, setSessionSummary] = useState("");
+  const [contextNote, setContextNote] = useState("");
+  const [contextNoteOpen, setContextNoteOpen] = useState(false);
+
+  function stopResponse() {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+    setLoading(false);
+  }
 
   useEffect(() => { loadSessions(); }, []);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
@@ -254,12 +264,16 @@ export default function AIPage() {
     setActiveSession(null);
     setMessages([]);
     setInput("");
+    setSessionSummary("");
+    setContextNote("");
     textareaRef.current?.focus();
   }
 
   async function openSession(s: Session) {
     setActiveSession(s);
     setMessages([]);
+    setSessionSummary(localStorage.getItem(`buddies-summary-${s.id}`) ?? "");
+    setContextNote(localStorage.getItem(`buddies-note-${s.id}`) ?? "");
     const res = await fetch(`/api/ai/sessions?id=${s.id}`);
     if (res.ok) {
       const { session } = await res.json();
@@ -290,6 +304,13 @@ export default function AIPage() {
   function cancelEdit() {
     setEditingId(null);
     setEditText("");
+  }
+
+  function saveContextNote(note: string) {
+    setContextNote(note);
+    if (activeSession?.id) {
+      localStorage.setItem(`buddies-note-${activeSession.id}`, note);
+    }
   }
 
   async function saveEdit(idx: number) {
@@ -323,6 +344,7 @@ export default function AIPage() {
 
     // Upload any attached files first
     const imageUrls: string[] = [];
+    const fileContextBlocks: string[] = [];
     if (attachedFiles.length > 0) {
       for (const file of attachedFiles) {
         try {
@@ -332,15 +354,25 @@ export default function AIPage() {
           if (uploadRes.ok) {
             const uploadData = await uploadRes.json();
             if (uploadData.url) imageUrls.push(uploadData.url);
+            // For ZIP and non-image files, inject the extracted summary into the message
+            if (uploadData.summary && !file.type.startsWith("image/")) {
+              const block = uploadData.isZip
+                ? `📦 ZIP: **${file.name}** (${uploadData.fileCount ?? "?"} files)\nKey files: ${(uploadData.keyFiles ?? []).slice(0, 8).join(", ")}\nSummary: ${uploadData.summary}`
+                : `📄 File: **${file.name}**\nSummary: ${uploadData.summary}`;
+              fileContextBlocks.push(block);
+            }
           }
         } catch { /* skip failed uploads */ }
       }
       setAttachedFiles([]);
     }
 
+    // Merge file context into the message text so Claude sees it
+    const combinedText = [text, ...fileContextBlocks].filter(Boolean).join("\n\n");
+
     const userMsg: Message = {
       role: "user",
-      content: text || `📎 ${attachedFiles.length} file${attachedFiles.length > 1 ? "s" : ""} attached`,
+      content: combinedText || `📎 ${attachedFiles.length} file${attachedFiles.length > 1 ? "s" : ""} attached`,
       ts: new Date().toISOString(),
       images: imageUrls.length > 0 ? imageUrls : undefined,
     };
@@ -349,6 +381,10 @@ export default function AIPage() {
     setInput("");
     if (textareaRef.current) { textareaRef.current.style.height = "auto"; }
     setLoading(true);
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    const signal = controller.signal;
 
     // ── Offline guard ─────────────────────────────────────────────
     if (!navigator.onLine) {
@@ -370,7 +406,8 @@ export default function AIPage() {
       const cmdRes = await fetch("/api/ai/command", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({ message: combinedText }),
+        signal,
       });
       const cmdData = await cmdRes.json();
 
@@ -398,7 +435,8 @@ export default function AIPage() {
       const extractRes = await fetch("/api/ai/extract-command", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({ message: combinedText }),
+        signal,
       });
       const extractData = await extractRes.json();
 
@@ -407,6 +445,7 @@ export default function AIPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ type: extractData.type, data: extractData.data }),
+          signal,
         });
         const executeData = await executeRes.json();
 
@@ -436,16 +475,19 @@ export default function AIPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: text,
+          message: combinedText,
           sessionId: activeSession?.id ?? null,
-          history: messages.slice(-12).map(m => ({
+          history: messages.slice(-50).map(m => ({
             role: m.role,
             content: m.content,
             images: m.images,
           })),
           contextEnabled,
           images: imageUrls.length > 0 ? imageUrls : undefined,
-        })
+          sessionSummary: sessionSummary || undefined,
+          contextNote: contextNote || undefined,
+        }),
+        signal,
       });
       const data = await res.json();
       const assistantMsg: Message = {
@@ -477,9 +519,36 @@ export default function AIPage() {
         }
       }
       await loadSessions();
-    } catch {
-      setMessages(prev => [...prev, { role: "assistant", content: "Connection error. Try again.", ts: new Date().toISOString() }]);
+
+      // Background: summarize every 10 messages so context is retained beyond the 30-message window
+      if (finalMessages.length >= 10 && finalMessages.length % 10 === 0 && activeSession?.id) {
+        const idForSummary = activeSession.id;
+        fetch("/api/ai/summarize-session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: finalMessages }),
+        }).then(r => r.json()).then(({ summary }) => {
+          if (summary) {
+            setSessionSummary(summary);
+            localStorage.setItem(`buddies-summary-${idForSummary}`, summary);
+          }
+        }).catch(() => {});
+      }
+    } catch (err: unknown) {
+      if ((err as { name?: string })?.name === "AbortError") {
+        // Keep the user message visible but add a stopped marker so the
+        // messages array stays alternating (user → assistant → user…).
+        // Without this, the next send would have two consecutive user messages
+        // which breaks Claude's conversation context.
+        setMessages(prev => [
+          ...prev,
+          { role: "assistant", content: "_(Response stopped)_", ts: new Date().toISOString() },
+        ]);
+      } else {
+        setMessages(prev => [...prev, { role: "assistant", content: "Connection error. Try again.", ts: new Date().toISOString() }]);
+      }
     }
+    abortControllerRef.current = null;
     setLoading(false);
   }
 
@@ -490,6 +559,16 @@ export default function AIPage() {
     const trimmed = messages.slice(0, -1);
     setMessages(trimmed);
     await send(lastUser.content);
+  }
+
+  const MAX_CHARS = 12000;
+
+  function convertToFile() {
+    const blob = new Blob([input], { type: "text/plain" });
+    const file = new File([blob], `message-${Date.now()}.txt`, { type: "text/plain" });
+    setAttachedFiles(prev => [...prev, file]);
+    setInput("");
+    if (textareaRef.current) textareaRef.current.style.height = "auto";
   }
 
   function handleKey(e: React.KeyboardEvent) {
@@ -598,6 +677,17 @@ export default function AIPage() {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#F0EDE9] hover:bg-[#E5E2DE] text-[#1A1A1A] text-[11px] font-medium transition-colors">
             <span>🧠</span>
             <span>Context</span>
+          </button>
+
+          <button onClick={() => setContextNoteOpen(v => !v)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium transition-colors ${
+              contextNoteOpen || contextNote
+                ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
+                : "bg-[#F0EDE9] hover:bg-[#E5E2DE] text-[#1A1A1A]"
+            }`}>
+            <span>📌</span>
+            <span className="hidden sm:inline">Notes</span>
+            {contextNote && <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />}
           </button>
 
           <div className="relative">
@@ -784,12 +874,47 @@ export default function AIPage() {
         {/* Input */}
         <div className="px-3 sm:px-4 py-3 sm:py-4 bg-white border-t border-[#E5E2DE] shrink-0" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
           <div className="max-w-[800px] mx-auto">
+            {/* Context note panel */}
+            {contextNoteOpen && (
+              <div className="mb-2 rounded-xl border border-amber-200 overflow-hidden bg-white">
+                <div className="flex items-center justify-between px-3 py-2 bg-amber-50 border-b border-amber-100">
+                  <span className="text-[11px] font-semibold text-amber-700">📌 Pinned context note — always sent to AI in this chat</span>
+                  <button onClick={() => setContextNoteOpen(false)} className="text-amber-400 hover:text-amber-700 transition-colors"><X size={13} /></button>
+                </div>
+                <textarea
+                  value={contextNote}
+                  onChange={e => saveContextNote(e.target.value)}
+                  placeholder="Add key facts, ongoing context, or reminders the AI should always know in this chat…"
+                  rows={3}
+                  className="w-full px-3 py-2.5 text-[13px] text-[#1A1A1A] bg-white resize-none focus:outline-none"
+                />
+                {sessionSummary && (
+                  <div className="px-3 py-2 border-t border-amber-100 bg-amber-50/50">
+                    <p className="text-[10px] text-amber-600 font-semibold uppercase tracking-wider mb-1">Auto-retained summary (generated from chat history)</p>
+                    <p className="text-[11px] text-[#737373] whitespace-pre-wrap leading-relaxed">{sessionSummary}</p>
+                  </div>
+                )}
+              </div>
+            )}
+            {/* Large text warning banner */}
+            {input.length > MAX_CHARS && (
+              <div className="flex items-center justify-between gap-3 mb-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl text-[12px]">
+                <span className="text-amber-700">
+                  ⚠️ Message is <strong>{input.length.toLocaleString()}</strong> chars — this may be too large. Convert to a file?
+                </span>
+                <button
+                  onClick={convertToFile}
+                  className="shrink-0 px-3 py-1 rounded-lg bg-amber-500 text-white font-medium hover:bg-amber-600 transition-colors">
+                  Convert to .txt
+                </button>
+              </div>
+            )}
             {/* Attached files preview */}
             {attachedFiles.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-2">
                 {attachedFiles.map((file, i) => (
                   <div key={i} className="flex items-center gap-1.5 px-2 py-1 bg-[#F0EDE9] rounded-lg text-[12px] text-[#737373]">
-                    {file.type.startsWith("image/") ? "🖼️" : "📄"} {file.name.slice(0, 20)}{file.name.length > 20 ? "…" : ""}
+                    {file.type.startsWith("image/") ? "🖼️" : (file.name.endsWith(".zip") ? "📦" : "📄")} {file.name.slice(0, 20)}{file.name.length > 20 ? "…" : ""}
                     <button onClick={() => setAttachedFiles(prev => prev.filter((_, j) => j !== i))}
                       className="ml-0.5 hover:text-[#E8521A] transition-colors">✕</button>
                   </div>
@@ -811,11 +936,26 @@ export default function AIPage() {
                 className="flex-1 bg-transparent text-[14px] sm:text-[15px] text-[#1A1A1A] placeholder-[#B0ADA9] resize-none focus:outline-none leading-relaxed"
                 style={{ maxHeight: "120px", minHeight: "24px" }}
               />
-              <button onClick={() => send()} disabled={(!input.trim() && attachedFiles.length === 0) || loading}
-                className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all
-                  disabled:bg-[#E5E2DE] disabled:text-[#B0ADA9] bg-[#E8521A] text-white hover:bg-[#c94415]">
-                <Send size={16} />
-              </button>
+              {input.length > 8000 && (
+                <span className={`text-[10px] font-mono shrink-0 self-end mb-1 ${
+                  input.length > MAX_CHARS ? "text-red-500" : "text-amber-500"
+                }`}>
+                  {input.length.toLocaleString()}/{MAX_CHARS.toLocaleString()}
+                </span>
+              )}
+              {loading ? (
+                <button onClick={stopResponse}
+                  title="Stop generating"
+                  className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-[#1A1A1A] text-white hover:bg-[#E8521A] transition-all">
+                  <Square size={14} fill="currentColor" />
+                </button>
+              ) : (
+                <button onClick={() => send()} disabled={!input.trim() && attachedFiles.length === 0}
+                  className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all
+                    disabled:bg-[#E5E2DE] disabled:text-[#B0ADA9] bg-[#E8521A] text-white hover:bg-[#c94415]">
+                  <Send size={16} />
+                </button>
+              )}
             </div>
             <p className="hidden sm:block text-[11px] text-[#B0ADA9] text-center mt-2">
               Enter to send · Shift+Enter for new line · ⚡ Actions · 🎤 Voice · 🌐 Web · 📎 Attach · Ctrl+V paste image
