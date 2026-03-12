@@ -16,15 +16,20 @@ async function getSupabase() {
   );
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const supabase = await getSupabase();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ projects: [] });
-  const { data } = await supabase
+
+  const { searchParams } = new URL(req.url);
+  const organizationId = searchParams.get("organization_id");
+
+  let q = supabase
     .from("projects")
-    .select("id, name, status, updated_at")
-    .eq("user_id", user.id)
-    .order("updated_at", { ascending: false });
+    .select("id, name, status, updated_at, organization_id")
+    .eq("user_id", user.id);
+  if (organizationId) q = q.eq("organization_id", organizationId);
+  const { data } = await q.order("updated_at", { ascending: false });
   return NextResponse.json({ projects: data ?? [] });
 }
 
@@ -47,10 +52,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ project: existing[0], existed: true });
   }
 
+  const organization_id = body.organization_id ?? null;
   const { data, error } = await supabase
     .from("projects")
-    .insert({ user_id: user.id, name, description, status: "active", tags: [], department_id })
-    .select("id, name, status, department_id")
+    .insert({ user_id: user.id, name, description, status: "active", tags: [], department_id, organization_id })
+    .select("id, name, status, department_id, organization_id")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

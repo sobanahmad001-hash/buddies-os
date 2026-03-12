@@ -11,15 +11,20 @@ async function sb() {
   );
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const supabase = await sb();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ clients: [] });
 
+  const { searchParams } = new URL(req.url);
+  const organizationId = searchParams.get("organization_id");
+
   // Owner sees all; members see only granted clients
   const { data: ws } = await supabase.from("workspaces").select("id, owner_id").eq("owner_id", user.id).maybeSingle();
   if (ws) {
-    const { data } = await supabase.from("clients").select("*").eq("workspace_id", ws.id).order("created_at", { ascending: false });
+    let q = supabase.from("clients").select("*").eq("workspace_id", ws.id);
+    if (organizationId) q = q.eq("organization_id", organizationId);
+    const { data } = await q.order("created_at", { ascending: false });
     return NextResponse.json({ clients: data ?? [] });
   }
 
@@ -41,7 +46,7 @@ export async function POST(req: NextRequest) {
   if (!ws) return NextResponse.json({ error: "No workspace" }, { status: 404 });
   const body = await req.json();
   const { data, error } = await supabase.from("clients")
-    .insert({ ...body, workspace_id: ws.id, created_by: user.id, status: body.status ?? "active" })
+    .insert({ ...body, workspace_id: ws.id, created_by: user.id, status: body.status ?? "active", organization_id: body.organization_id ?? null })
     .select().single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

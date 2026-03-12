@@ -6,8 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import {
   LayoutDashboard, Bot, FolderKanban, Scale, ShieldCheck,
   SunMedium, Users, Search, LogOut, FlaskConical, X, Building2,
-  BarChart2, ChevronDown, ChevronRight, Briefcase, UserCircle,
-  Crown, UserCheck, GraduationCap, Globe2
+  BarChart2, ChevronDown, ChevronRight, UserCircle, Layers, Plus
 } from "lucide-react";
 import { WorkspaceProvider } from '@/context/WorkspaceContext';
 import WorkspaceSwitcher from '@/components/WorkspaceSwitcher';
@@ -30,26 +29,15 @@ const workspaceItems = [
   { to: "/app/workspace",   icon: Users,           label: "Workspace" },
   { to: "/app/clients",     icon: UserCircle,      label: "Clients" },
   { to: "/app/marketing",   icon: BarChart2,       label: "Marketing" },
-];
-
-// ── Orgs under Workspace ───────────────────────────────────────────────────────
-const orgItems = [
-  { to: "/app/org?org=anka-sphere",    icon: Globe2,    label: "Anka Sphere" },
-  { to: "/app/org?org=anka-diversify", icon: Briefcase, label: "Anka Diversify" },
-];
-
-// ── Agent tiers ────────────────────────────────────────────────────────────────
-const agentItems = [
-  { to: "/app/org?view=agents&role=project-head", icon: Crown,        label: "Project Head" },
-  { to: "/app/org?view=agents&role=executive",    icon: UserCheck,    label: "Executive" },
-  { to: "/app/org?view=agents&role=intern",       icon: GraduationCap,label: "Intern" },
+  { to: "/app/org",         icon: Building2,       label: "Organizations" },
 ];
 
 function NavLink({ to, icon: Icon, label, collapsed, indent = 0, onClick }: {
   to: string; icon: any; label: string; collapsed: boolean; indent?: number; onClick?: () => void;
 }) {
   const pathname = usePathname();
-  const active = pathname.split("?")[0] === to.split("?")[0];
+  const isOrgDetail = to.startsWith("/app/org/") && pathname.startsWith(to);
+  const active = isOrgDetail || pathname.split("?")[0] === to.split("?")[0];
   const pl = indent === 0 ? "px-3" : indent === 1 ? "pl-5 pr-3" : "pl-7 pr-3";
   return (
     <Link href={to} onClick={onClick}
@@ -58,7 +46,7 @@ function NavLink({ to, icon: Icon, label, collapsed, indent = 0, onClick }: {
       }`}
       title={collapsed ? label : undefined}>
       <Icon className="w-[16px] h-[16px] shrink-0" />
-      {!collapsed && <span className="leading-tight">{label}</span>}
+      {!collapsed && <span className="leading-tight truncate max-w-[140px]">{label}</span>}
     </Link>
   );
 }
@@ -87,6 +75,124 @@ function CollapsibleSection({ label, icon: Icon, children, collapsed, defaultOpe
         {open ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
       </button>
       {open && <div className="pl-2">{children}</div>}
+    </div>
+  );
+}
+
+// ── Dynamic org-and-departments collapsible ────────────────────────────────────
+interface OrgItem { id: string; name: string; }
+interface DeptItem { id: string; name: string; slug?: string; }
+
+function OrgDeptSection({ org, collapsed, close }: { org: OrgItem; collapsed: boolean; close: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [depts, setDepts] = useState<DeptItem[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const pathname = usePathname();
+  const orgActive = pathname === `/app/org/${org.id}`;
+
+  const toggle = async () => {
+    if (!loaded) {
+      const res = await fetch(`/api/departments?organization_id=${org.id}`);
+      const data = await res.json();
+      setDepts(data.departments ?? []);
+      setLoaded(true);
+    }
+    setOpen(v => !v);
+  };
+
+  if (collapsed) {
+    return (
+      <Link href={`/app/org/${org.id}`} onClick={close}
+        className={`flex items-center justify-center py-[7px] mx-2 rounded-lg transition-colors ${orgActive ? "bg-[#1E1E1E] text-white" : "text-[#8A8A8A] hover:text-white hover:bg-[#1E1E1E]"}`}
+        title={org.name}>
+        <Building2 className="w-[16px] h-[16px]" />
+      </Link>
+    );
+  }
+
+  return (
+    <div>
+      <div className={`flex items-center pl-5 pr-2 py-[7px] mx-2 rounded-lg transition-colors ${orgActive ? "bg-[#1E1E1E] text-white" : "text-[#8A8A8A] hover:text-white hover:bg-[#1E1E1E]"}`}>
+        <Link href={`/app/org/${org.id}`} onClick={close} className="flex items-center gap-2 flex-1 min-w-0">
+          <Building2 className="w-[14px] h-[14px] shrink-0" />
+          <span className="text-[13px] leading-tight truncate">{org.name}</span>
+        </Link>
+        <button onClick={toggle} className="ml-1 p-0.5 rounded hover:bg-[#2E2E2E] shrink-0">
+          {open ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+        </button>
+      </div>
+      {open && (
+        <div className="pl-4">
+          {depts.length === 0 ? (
+            <p className="text-[11px] text-[#3A3A3A] pl-5 py-1">No departments</p>
+          ) : (
+            depts.map(dept => (
+              <Link key={dept.id} href={`/app/org/${org.id}?dept=${dept.id}`} onClick={close}
+                className={`flex items-center gap-2 pl-5 pr-3 py-[6px] mx-2 rounded-lg text-[12px] transition-colors ${
+                  pathname === `/app/org/${org.id}` ? "text-[#8A8A8A] hover:text-white hover:bg-[#1E1E1E]" : "text-[#8A8A8A] hover:text-white hover:bg-[#1E1E1E]"
+                }`}>
+                <Layers className="w-[13px] h-[13px] shrink-0" />
+                <span className="truncate">{dept.name}</span>
+              </Link>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Dynamic Orgs section for sidebar ──────────────────────────────────────────
+function OrgsSection({ collapsed, close }: { collapsed: boolean; close: () => void }) {
+  const [orgs, setOrgs] = useState<OrgItem[]>([]);
+  const [open, setOpen] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+
+  useEffect(() => {
+    fetch("/api/organizations")
+      .then(r => r.json())
+      .then(d => { setOrgs(d.organizations ?? []); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  if (collapsed) {
+    return (
+      <>
+        {orgs.map(org => (
+          <OrgDeptSection key={org.id} org={org} collapsed={collapsed} close={close} />
+        ))}
+      </>
+    );
+  }
+
+  return (
+    <div>
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="flex items-center gap-2 w-full px-3 mx-0 py-[7px] pl-5 pr-3 text-[#8A8A8A] hover:text-white transition-colors text-[11px] font-semibold uppercase tracking-wider">
+        <Building2 className="w-[14px] h-[14px] shrink-0" />
+        <span className="flex-1 text-left">Organizations</span>
+        {open ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+      </button>
+      {open && (
+        <div className="pl-2">
+          {loading ? (
+            <p className="text-[11px] text-[#3A3A3A] pl-5 py-1">Loading...</p>
+          ) : orgs.length === 0 ? (
+            <button
+              onClick={() => { router.push("/app/org"); close(); }}
+              className="flex items-center gap-1.5 pl-5 pr-3 py-[6px] mx-2 rounded-lg text-[12px] text-[#8A8A8A] hover:text-white hover:bg-[#1E1E1E] transition-colors">
+              <Plus className="w-3 h-3" />
+              <span>Create organization</span>
+            </button>
+          ) : (
+            orgs.map(org => (
+              <OrgDeptSection key={org.id} org={org} collapsed={collapsed} close={close} />
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -152,22 +258,8 @@ function NavContent({
           <NavLink key={item.to} {...item} collapsed={collapsed} onClick={close} />
         ))}
 
-        {/* Orgs collapsible */}
-        <CollapsibleSection label="Organizations" icon={Building2} collapsed={collapsed} defaultOpen>
-          {orgItems.map(item => (
-            <NavLink key={item.to} {...item} collapsed={collapsed} indent={1} onClick={close} />
-          ))}
-
-          {/* Departments link inside orgs */}
-          <NavLink to="/app/org?view=departments" icon={FolderKanban} label="Departments" collapsed={collapsed} indent={1} onClick={close} />
-
-          {/* Agents collapsible */}
-          <CollapsibleSection label="Agents" icon={Users} collapsed={collapsed} defaultOpen={false}>
-            {agentItems.map(item => (
-              <NavLink key={item.to} {...item} collapsed={collapsed} indent={2} onClick={close} />
-            ))}
-          </CollapsibleSection>
-        </CollapsibleSection>
+        {/* ── ORGANIZATIONS (dynamic, from DB) ──── */}
+        <OrgsSection collapsed={collapsed} close={close} />
 
       </nav>
 
