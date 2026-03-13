@@ -38,6 +38,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  try {
   const cookieStore = await cookies();
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -157,6 +158,10 @@ ${mode === "document" ? "\nYou are in DOCUMENT GENERATION mode. Return only the 
   }
 
   return NextResponse.json({ reply });
+  } catch (err: any) {
+    console.error("[project-chat] unhandled error:", err);
+    return NextResponse.json({ error: err?.message ?? "Internal server error" }, { status: 500 });
+  }
 }
 
 // Delete all chat history for a project
