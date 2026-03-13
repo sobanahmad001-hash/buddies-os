@@ -339,7 +339,6 @@ function IntegrationCard({
 export default function IntegrationsPage() {
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [loading, setLoading] = useState(true);
-  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
 
@@ -358,7 +357,6 @@ export default function IntegrationsPage() {
         setFetchError(res.error ?? `Error ${r.status}`);
       } else {
         setIntegrations(res.integrations ?? []);
-        setWorkspaceId(res.workspace_id ?? null);
       }
     } catch (e: any) {
       setFetchError(e.message ?? "Network error");
@@ -372,11 +370,10 @@ export default function IntegrationsPage() {
     const r = await fetch("/api/integrations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type, name, config, workspace_id: workspaceId }),
+      body: JSON.stringify({ type, name, config }),
     });
     const res = await r.json();
     if (!r.ok) throw new Error(res.error ?? `Server error ${r.status}`);
-    // Re-fetch from server to confirm it was actually persisted
     await fetchIntegrations();
     showToast(`${name} connected successfully`, true);
   }
@@ -423,11 +420,6 @@ export default function IntegrationsPage() {
           <p className="text-[13px] text-[#8A8A8A]">
             Connect external tools so Buddies can assist across your entire stack.
           </p>
-          {!loading && !workspaceId && (
-            <p className="mt-1 text-[11px] text-red-500 flex items-center gap-1">
-              <AlertCircle className="w-3 h-3" /> No workspace found — make sure you have an active workspace.
-            </p>
-          )}
         </div>
         <div className="flex items-center gap-3">
           {totalConnected > 0 && (
