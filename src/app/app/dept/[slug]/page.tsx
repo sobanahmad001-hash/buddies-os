@@ -32,9 +32,9 @@ const { activeWorkspace, loading: wsLoading } = useWorkspace();
     if (!activeWorkspace) { setLoading(false); return; }
     setLoading(true);
 
-    const { data: d } = await supabase
-      .from("departments").select("*")
-      .eq("workspace_id", activeWorkspace.id).eq("slug", slug).maybeSingle();
+    const deptRes = await fetch(`/api/departments?workspace_id=${activeWorkspace.id}&slug=${encodeURIComponent(slug)}`);
+    const deptJson = await deptRes.json();
+    const d = deptJson.department;
     if (!d) { setLoading(false); return; }
     setDept(d);
 

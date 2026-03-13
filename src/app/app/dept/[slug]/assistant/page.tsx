@@ -2,7 +2,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { useWorkspace } from "@/context/WorkspaceContext";
-import { supabase } from "@/lib/supabaseClient";
 import { Send, Bot, User } from "lucide-react";
 
 const DEPT_META: Record<string, { label: string; color: string }> = {
@@ -28,8 +27,9 @@ export default function DeptAssistantPage() {
 
   async function init() {
     if (!activeWorkspace) { setInitLoading(false); setDeptError("No workspace found. Please sign in again."); return; }
-    const { data: d } = await supabase.from("departments").select("id")
-      .eq("workspace_id", activeWorkspace.id).eq("slug", slug).maybeSingle();
+    const deptRes = await fetch(`/api/departments?workspace_id=${activeWorkspace.id}&slug=${encodeURIComponent(slug)}`);
+    const deptJson = await deptRes.json();
+    const d = deptJson.department;
     if (!d) { setInitLoading(false); setDeptError(`Department "${meta.label}" not set up yet. Run the database migrations.`); return; }
     setDeptId(d.id);
     const res = await fetch(`/api/dept/${slug}/assistant?deptId=${d.id}`);

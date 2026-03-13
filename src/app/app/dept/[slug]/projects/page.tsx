@@ -37,8 +37,9 @@ export default function DeptProjectsPage() {
 
   async function init() {
     if (!activeWorkspace) { setLoading(false); return; }
-    const { data: d } = await supabase.from("departments").select("id")
-      .eq("workspace_id", activeWorkspace.id).eq("slug", slug).maybeSingle();
+    const deptRes = await fetch(`/api/departments?workspace_id=${activeWorkspace.id}&slug=${encodeURIComponent(slug)}`);
+    const deptJson = await deptRes.json();
+    const d = deptJson.department;
     if (!d) { setLoading(false); return; }
     setDeptId(d.id);
     await loadProjects(d.id);

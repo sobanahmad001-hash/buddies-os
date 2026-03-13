@@ -14,6 +14,20 @@ export async function GET(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ departments: [] });
 
+  // Lookup by workspace_id + optional slug (used by dept pages — bypasses client RLS)
+  const workspace_id = req.nextUrl.searchParams.get("workspace_id");
+  const slug = req.nextUrl.searchParams.get("slug");
+  if (workspace_id && slug) {
+    const { data } = await supabase.from("departments").select("*")
+      .eq("workspace_id", workspace_id).eq("slug", slug).maybeSingle();
+    return NextResponse.json({ department: data ?? null });
+  }
+  if (workspace_id) {
+    const { data } = await supabase.from("departments").select("*")
+      .eq("workspace_id", workspace_id).order("name");
+    return NextResponse.json({ departments: data ?? [] });
+  }
+
   // Phase 2: if organization_id query param provided, list departments for that org
   const organization_id = req.nextUrl.searchParams.get("organization_id");
   if (organization_id) {
