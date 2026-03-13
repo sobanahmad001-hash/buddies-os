@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useWorkspace } from "@/context/WorkspaceContext";
-import { Users, FolderKanban, CheckSquare, Bot, ArrowRight } from "lucide-react";
+import { Users, FolderKanban, CheckSquare, Bot, ArrowRight, RefreshCw } from "lucide-react";
 import Link from "next/link";
 
 const DEPT_META: Record<string, { label: string; emoji: string; color: string; bg: string; desc: string }> = {
@@ -23,19 +23,35 @@ const { activeWorkspace, loading: wsLoading } = useWorkspace();
   const [tasks, setTasks] = useState<any[]>([]);
   const [members, setMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [seeding, setSeeding] = useState(false);
 
   const meta = DEPT_META[slug] ?? { label: slug, emoji: "🏢", color: "#E8521A", bg: "#E8521A10", desc: "" };
   
   useEffect(() => { if (!wsLoading) load(); }, [activeWorkspace, slug, wsLoading]);
 
-  async function load() {
+  async function load(retryAfterSeed = false) {
     if (!activeWorkspace) { setLoading(false); return; }
     setLoading(true);
 
     const deptRes = await fetch(`/api/departments?workspace_id=${activeWorkspace.id}&slug=${encodeURIComponent(slug)}`);
     const deptJson = await deptRes.json();
     const d = deptJson.department;
-    if (!d) { setLoading(false); return; }
+    if (!d) {
+      if (!retryAfterSeed) {
+        // Auto-seed silently on first miss
+        try {
+          await fetch("/api/departments/seed", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ workspace_id: activeWorkspace.id }),
+          });
+          await load(true);
+          return;
+        } catch {}
+      }
+      setLoading(false);
+      return;
+    }
     setDept(d);
 
     const [projRes, taskRes, memRes] = await Promise.all([
@@ -58,6 +74,38 @@ const { activeWorkspace, loading: wsLoading } = useWorkspace();
   if (loading) return (
     <div className="flex-1 flex items-center justify-center">
       <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: meta.color, borderTopColor: "transparent" }} />
+    </div>
+  );
+
+  if (!dept) return (
+    <div className="flex-1 flex items-center justify-center">
+      <div className="text-center">
+        <div className="text-4xl mb-3">{meta.emoji}</div>
+        <p className="text-sm font-semibold text-[#737373] mb-1">Department not found</p>
+        <p className="text-xs text-[#B0ADA9] mb-4">The &quot;{meta.label}&quot; department hasn&apos;t been set up yet.</p>
+        <button
+          disabled={seeding}
+          onClick={async () => {
+            if (!activeWorkspace) return;
+            setSeeding(true);
+            try {
+              await fetch("/api/departments/seed", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ workspace_id: activeWorkspace.id }),
+              });
+              await load(false);
+            } finally {
+              setSeeding(false);
+            }
+          }}
+          className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold text-white mx-auto disabled:opacity-50"
+          style={{ background: meta.color }}
+        >
+          <RefreshCw size={13} className={seeding ? "animate-spin" : ""} />
+          {seeding ? "Initializing…" : "Initialize Department"}
+        </button>
+      </div>
     </div>
   );
 

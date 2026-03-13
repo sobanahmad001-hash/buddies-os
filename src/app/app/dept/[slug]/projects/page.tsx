@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useWorkspace } from "@/context/WorkspaceContext";
 import { supabase } from "@/lib/supabaseClient";
-import { Plus, FolderKanban, ArrowRight, Trash2 } from "lucide-react";
+import { Plus, FolderKanban, ArrowRight, Trash2, RefreshCw } from "lucide-react";
 
 const DEPT_META: Record<string, { label: string; color: string; bg: string }> = {
   design:      { label: "Design",      color: "#8B5CF6", bg: "#8B5CF610" },
@@ -26,6 +26,8 @@ export default function DeptProjectsPage() {
   const [deptId, setDeptId] = useState<string | null>(null);
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [seeding, setSeeding] = useState(false);
+  const [seedError, setSeedError] = useState("");
   const [createError, setCreateError] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [newName, setNewName] = useState("");
@@ -35,14 +37,47 @@ export default function DeptProjectsPage() {
 
   useEffect(() => { if (!wsLoading) init(); }, [activeWorkspace, slug, wsLoading]);
 
-  async function init() {
+  async function init(retryAfterSeed = false) {
     if (!activeWorkspace) { setLoading(false); return; }
+    setLoading(true);
     const deptRes = await fetch(`/api/departments?workspace_id=${activeWorkspace.id}&slug=${encodeURIComponent(slug)}`);
     const deptJson = await deptRes.json();
     const d = deptJson.department;
-    if (!d) { setLoading(false); return; }
+    if (!d) {
+      // Auto-seed if first visit and dept is missing
+      if (!retryAfterSeed) {
+        await seedDepartments(true);
+        return;
+      }
+      setLoading(false);
+      return;
+    }
     setDeptId(d.id);
     await loadProjects(d.id);
+  }
+
+  async function seedDepartments(auto = false) {
+    if (!activeWorkspace) return;
+    if (!auto) { setSeeding(true); setSeedError(""); }
+    try {
+      const res = await fetch("/api/departments/seed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workspace_id: activeWorkspace.id }),
+      });
+      if (res.ok) {
+        await init(true);
+      } else {
+        const j = await res.json().catch(() => ({}));
+        if (!auto) setSeedError(j.error ?? "Seeding failed. Run the SQL migration in Supabase.");
+        else setLoading(false);
+      }
+    } catch {
+      if (!auto) setSeedError("Seeding failed. Run sql/fix-departments-dev.sql in Supabase SQL Editor.");
+      else setLoading(false);
+    } finally {
+      if (!auto) setSeeding(false);
+    }
   }
 
   async function loadProjects(did?: string) {
@@ -136,7 +171,23 @@ export default function DeptProjectsPage() {
           <div className="border-2 border-dashed border-[#E5E2DE] rounded-2xl py-16 flex flex-col items-center justify-center text-center">
             <FolderKanban size={32} className="text-[#D5D0CA] mb-3" />
             <p className="text-sm font-semibold text-[#737373] mb-1">Department not found</p>
-            <p className="text-xs text-[#B0ADA9] max-w-[260px]">Run the database migrations and ensure the &quot;{meta.label}&quot; department exists in your workspace.</p>
+            <p className="text-xs text-[#B0ADA9] max-w-[260px] mb-4">
+              The &quot;{meta.label}&quot; department hasn&apos;t been set up for this workspace yet.
+            </p>
+            {seedError && (
+              <p className="text-xs text-red-500 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3 max-w-[300px]">
+                {seedError}
+              </p>
+            )}
+            <button
+              onClick={() => seedDepartments()}
+              disabled={seeding}
+              className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold text-white transition-colors disabled:opacity-50"
+              style={{ background: meta.color }}
+            >
+              <RefreshCw size={13} className={seeding ? "animate-spin" : ""} />
+              {seeding ? "Setting up…" : "Initialize Department"}
+            </button>
           </div>
         ) : projects.length === 0 ? (
           <div className="border-2 border-dashed border-[#E5E2DE] rounded-2xl py-16 flex flex-col items-center justify-center text-center">

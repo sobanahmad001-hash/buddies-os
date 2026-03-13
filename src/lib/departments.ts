@@ -16,15 +16,31 @@ export async function ensureDefaultWorkspaceDepartments(
   );
   if (targets.length === 0) return;
 
-  await supabase.from("departments").upsert(
-    targets.map((d) => ({
-      workspace_id: workspaceId,
-      name: d.name,
-      slug: d.slug,
-      color: d.color,
-    })),
-    { onConflict: "workspace_id,slug", ignoreDuplicates: true }
-  );
+  for (const dept of targets) {
+    // Try upsert with unique constraint first
+    const { error } = await supabase.from("departments").upsert(
+      [{ workspace_id: workspaceId, name: dept.name, slug: dept.slug, color: dept.color }],
+      { onConflict: "workspace_id,slug", ignoreDuplicates: true }
+    );
+
+    if (error) {
+      // Constraint may not exist yet — fall back to check-then-insert
+      const { data: existing } = await supabase
+        .from("departments")
+        .select("id")
+        .eq("workspace_id", workspaceId)
+        .eq("slug", dept.slug)
+        .maybeSingle();
+      if (!existing) {
+        await supabase.from("departments").insert({
+          workspace_id: workspaceId,
+          name: dept.name,
+          slug: dept.slug,
+          color: dept.color,
+        });
+      }
+    }
+  }
 }
 
 export async function resolveDeptForUser(
