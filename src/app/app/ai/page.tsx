@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Plus, Send, Copy, RotateCcw, Trash2, Edit2,
-  MessageSquare, Check, ChevronDown, Globe, Paperclip, Square, X, Code2, ExternalLink, RefreshCw
+  MessageSquare, Check, ChevronDown, Globe, Paperclip, Square, X, Code2, ExternalLink
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import ContextPreviewModal from "@/components/ContextPreviewModal";
@@ -215,8 +215,7 @@ export default function AIPage() {
   const [contextNoteOpen, setContextNoteOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<{ action: PendingAction; msgIdx: number } | null>(null);
   const [codeOpen, setCodeOpen] = useState(false);
-  const [codeUrl, setCodeUrl] = useState<string>('https://vscode.dev');
-  const [codeBlocked, setCodeBlocked] = useState(false);
+  const [codeUrl, setCodeUrl] = useState<string>('https://stackblitz.com?embed=1&theme=dark');
   const [codeRetryKey, setCodeRetryKey] = useState(0);
 
   /** Strip [BUDDIES_ACTION]…[/BUDDIES_ACTION] from text and return {clean, action} */
@@ -290,20 +289,15 @@ export default function AIPage() {
           .replace(/^https?:\/\/github\.com\//, '')
           .replace(/\.git$/, '')
           .replace(/\/$/, '');
-        setCodeUrl(`https://github.dev/${repo}`);
+        setCodeUrl(`https://stackblitz.com/github/${repo}?embed=1&theme=dark`);
       } else if (data?.config?.org_or_user) {
-        setCodeUrl(`https://github.dev/${data.config.org_or_user}`);
+        setCodeUrl(`https://stackblitz.com?embed=1&theme=dark`);
       }
     })();
   }, []);
 
-  // When code panel opens, start timer to detect X-Frame-Options block
-  useEffect(() => {
-    if (!codeOpen) return;
-    setCodeBlocked(false);
-    const timer = setTimeout(() => setCodeBlocked(true), 4000);
-    return () => clearTimeout(timer);
-  }, [codeOpen, codeRetryKey]);
+  // StackBlitz is embeddable and supports GitHub OAuth inside the iframe.
+  // No timer-based block detection needed.
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -1090,22 +1084,15 @@ export default function AIPage() {
             <div className="flex items-center justify-between px-3 py-2 bg-[#1A1A1A] border-b border-[#2D2D2D] shrink-0">
               <div className="flex items-center gap-2 min-w-0">
                 <Code2 size={12} className="text-[#E8521A] shrink-0" />
-                <span className="text-[10px] text-[#B0ADA9] font-mono truncate">{codeUrl}</span>
+                <span className="text-[10px] text-[#B0ADA9] font-mono truncate">StackBlitz — sign in with GitHub to edit</span>
               </div>
               <div className="flex items-center gap-1.5 shrink-0 ml-3">
-                {!codeBlocked && (
-                  <button
-                    onClick={() => setCodeRetryKey(k => k + 1)}
-                    className="flex items-center gap-1 text-[10px] text-[#737373] hover:text-white px-1.5 py-1 rounded transition-colors">
-                    <RefreshCw size={10} />
-                  </button>
-                )}
                 <a
                   href={codeUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-1 text-[10px] text-[#E8521A] hover:text-[#FDBA9A] px-2 py-1 rounded bg-[#2D2D2D] transition-colors font-semibold">
-                  <ExternalLink size={10} /> Open
+                  <ExternalLink size={10} /> Full screen
                 </a>
                 <button
                   onClick={() => setCodeOpen(false)}
@@ -1115,44 +1102,15 @@ export default function AIPage() {
               </div>
             </div>
 
-            {/* iframe or fallback */}
-            {codeBlocked ? (
-              <div className="flex-1 flex flex-col items-center justify-center gap-5 text-center p-8">
-                <div className="w-14 h-14 rounded-2xl bg-[#1A1A1A] border border-[#2D2D2D] flex items-center justify-center">
-                  <Code2 size={24} className="text-[#E8521A]" />
-                </div>
-                <div>
-                  <p className="text-white font-semibold text-[14px] mb-2">Open VS Code in browser</p>
-                  <p className="text-[#737373] text-[12px] max-w-[280px]">
-                    VS Code can&apos;t be embedded due to browser security restrictions.
-                  </p>
-                </div>
-                <div className="flex flex-col gap-2 w-full max-w-[280px]">
-                  <a
-                    href={codeUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[#E8521A] text-white rounded-xl font-semibold text-[13px] hover:bg-[#c94415] transition-colors">
-                    <Code2 size={14} /> Open github.dev <ExternalLink size={11} />
-                  </a>
-                  <a
-                    href="https://vscode.dev"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[#2D2D2D] text-[#B0ADA9] rounded-xl font-semibold text-[12px] hover:bg-[#3A3A3A] transition-colors">
-                    vscode.dev <ExternalLink size={11} />
-                  </a>
-                </div>
-              </div>
-            ) : (
-              <iframe
-                key={codeRetryKey}
-                src={codeUrl}
-                className="flex-1 w-full border-none bg-[#1E1E1E]"
-                title="VS Code"
-                allow="clipboard-read; clipboard-write"
-              />
-            )}
+            {/* iframe — StackBlitz supports embedding and GitHub sign-in */}
+            <iframe
+              key={codeRetryKey}
+              src={codeUrl}
+              className="flex-1 w-full border-none bg-[#1E1E1E]"
+              title="StackBlitz"
+              allow="clipboard-read; clipboard-write; cross-origin-isolated"
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-storage-access-by-user-activation"
+            />
           </div>
         )}
 
