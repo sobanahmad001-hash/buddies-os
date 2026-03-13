@@ -2,8 +2,10 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export async function GET(req: NextRequest) {
   const cookieStore = await cookies();
@@ -114,22 +116,39 @@ ${mode === "document" ? "\nYou are in DOCUMENT GENERATION mode. Return only the 
     content: message,
   });
 
-  // Call Claude
+  // Call AI (Claude with OpenAI fallback)
   let reply = "";
   try {
-    const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-5",
-      max_tokens: 2048,
-      system: systemPrompt,
-      messages: [
-        ...historyMessages,
-        { role: "user", content: message },
-      ],
-    });
-    reply = response.content[0].type === "text" ? response.content[0].text : "";
-  } catch (err) {
-    console.error("Anthropic error:", err);
-    return NextResponse.json({ error: "AI unavailable" }, { status: 500 });
+    if (process.env.ANTHROPIC_API_KEY) {
+      const response = await anthropic.messages.create({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 2048,
+        system: systemPrompt,
+        messages: [
+          ...historyMessages,
+          { role: "user", content: message },
+        ],
+      });
+      reply = response.content[0].type === "text" ? response.content[0].text : "";
+    }
+    if (!reply) throw new Error("No Claude response");
+  } catch (claudeErr: any) {
+    console.error("Claude error, falling back to OpenAI:", claudeErr.message);
+    try {
+      const oaiRes = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        max_tokens: 2048,
+        messages: [
+          { role: "system", content: systemPrompt },
+          ...historyMessages,
+          { role: "user", content: message },
+        ],
+      });
+      reply = oaiRes.choices[0].message.content ?? "";
+    } catch (oaiErr: any) {
+      console.error("OpenAI error:", oaiErr.message);
+      return NextResponse.json({ error: "AI unavailable" }, { status: 500 });
+    }
   }
 
   // Save assistant reply
