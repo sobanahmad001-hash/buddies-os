@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import {
   LayoutDashboard, Bot, FolderKanban, Scale, ShieldCheck,
   SunMedium, Users, Search, LogOut, FlaskConical, X, Building2,
-  BarChart2, ChevronDown, ChevronRight, UserCircle, Layers, Plus
+  BarChart2, ChevronDown, ChevronRight, UserCircle, Layers, Plus, BookOpen
 } from "lucide-react";
 import { WorkspaceProvider } from '@/context/WorkspaceContext';
 import WorkspaceSwitcher from '@/components/WorkspaceSwitcher';
@@ -16,6 +16,7 @@ import BottomNav from '@/components/BottomNav';
 const ownerItems = [
   { to: "/app",             icon: LayoutDashboard, label: "Dashboard" },
   { to: "/app/ai",          icon: Bot,             label: "AI Assistant" },
+  { to: "/app/documents",   icon: BookOpen,        label: "Documents" },
   { to: "/app/projects",    icon: FolderKanban,    label: "Projects" },
   { to: "/app/decisions",   icon: Scale,           label: "Decisions" },
   { to: "/app/rules",       icon: ShieldCheck,     label: "Rules" },
