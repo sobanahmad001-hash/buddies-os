@@ -6,6 +6,7 @@ import TaskBoard from "@/components/dept/TaskBoard";
 import ActivityFeed from "@/components/dept/ActivityFeed";
 import MiniDashboard from "@/components/dept/MiniDashboard";
 import { Plus, Trash2, Settings, GitBranch, Rocket, Zap } from "lucide-react";
+import GitHubIntegration from "@/components/dev/GitHubIntegration";
 
 const ACCENT = "#3B82F6";
 
@@ -25,7 +26,7 @@ export default function DevDept() {
   const [bugs, setBugs] = useState<any[]>([]);
   const [userId, setUserId] = useState("");
   const [userRole, setUserRole] = useState("");
-  const [tab, setTab] = useState<"tasks"|"projects"|"tools"|"bugs"|"activity">("tasks");
+  const [tab, setTab] = useState<"tasks"|"projects"|"tools"|"github"|"bugs"|"activity">("tasks");
   const [newProject, setNewProject] = useState("");
   const [newBug, setNewBug] = useState("");
   const [githubLinks, setGithubLinks] = useState<Record<string, string>>({});
@@ -108,7 +109,7 @@ export default function DevDept() {
   }
 
   const isHead = userRole === "owner" || userRole === "dept_head";
-  const tabs = isIntern ? ["tasks", "bugs"] : ["tasks", "projects", "tools", "bugs", "activity"];
+  const tabs = isIntern ? ["tasks", "bugs"] : ["tasks", "projects", "tools", "github", "bugs", "activity"];
 
   if (!dept) return <div className="flex-1 flex items-center justify-center"><div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: ACCENT, borderTopColor: "transparent" }} /></div>;
 
@@ -142,6 +143,10 @@ export default function DevDept() {
           <button onClick={() => setTab("tools")}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-[#1A1A1A] bg-white border border-[#E5E2DE] hover:border-[#3B82F6] transition-colors">
             <Zap className="w-3.5 h-3.5" />Test API
+          </button>
+          <button onClick={() => setTab("github")}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-[#1A1A1A] bg-white border border-[#E5E2DE] hover:border-[#3B82F6] transition-colors">
+            <GitBranch className="w-3.5 h-3.5" />GitHub Repos
           </button>
           <button onClick={() => setTab("bugs")}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-white bg-red-500 hover:opacity-90 transition-opacity">
@@ -294,6 +299,10 @@ export default function DevDept() {
               )}
             </div>
           </div>
+        )}
+
+        {tab === "github" && dept && (
+          <GitHubIntegration departmentId={dept.id} />
         )}
 
         {tab === "bugs" && (
