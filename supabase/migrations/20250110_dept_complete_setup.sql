@@ -29,6 +29,24 @@ END $$;
 
 CREATE INDEX IF NOT EXISTS idx_departments_workspace_slug ON departments(workspace_id, slug);
 
+-- RLS: allow workspace owners and active members to read departments by workspace_id
+-- (The old policy only covers organization_id which is NULL on workspace-seeded rows)
+DROP POLICY IF EXISTS "dept_workspace_read"  ON departments;
+DROP POLICY IF EXISTS "dept_workspace_write" ON departments;
+
+CREATE POLICY "dept_workspace_read" ON departments
+  FOR SELECT USING (
+    workspace_id IN (SELECT id FROM workspaces WHERE owner_id = auth.uid())
+    OR workspace_id IN (
+      SELECT workspace_id FROM memberships WHERE user_id = auth.uid() AND status = 'active'
+    )
+  );
+
+CREATE POLICY "dept_workspace_write" ON departments
+  FOR ALL USING (
+    workspace_id IN (SELECT id FROM workspaces WHERE owner_id = auth.uid())
+  );
+
 -- ─── 2. Dept Projects ────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS dept_projects (
   id           uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
