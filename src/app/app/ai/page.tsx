@@ -13,6 +13,7 @@ import VoiceInputButton from "@/components/VoiceInputButton";
 import SearchModal from "@/components/SearchModal";
 import WebSearchButton from "@/components/WebSearchButton";
 import FileUpload from "@/components/FileUpload";
+import ApprovalModal, { PendingAction } from "@/components/ApprovalModal";
 
 // ── Markdown renderer ─────────────────────────────────────────────────────────
 function renderMarkdown(text: string): React.ReactNode[] {
@@ -210,6 +211,49 @@ export default function AIPage() {
   const [sessionSummary, setSessionSummary] = useState("");
   const [contextNote, setContextNote] = useState("");
   const [contextNoteOpen, setContextNoteOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<{ action: PendingAction; msgIdx: number } | null>(null);
+
+  /** Strip [BUDDIES_ACTION]…[/BUDDIES_ACTION] from text and return {clean, action} */
+  function parseActionBlock(text: string): { clean: string; action: PendingAction | null } {
+    const match = text.match(/\[BUDDIES_ACTION\]([\s\S]*?)\[\/BUDDIES_ACTION\]/);
+    if (!match) return { clean: text, action: null };
+    try {
+      const action = JSON.parse(match[1].trim()) as PendingAction;
+      const clean = text.replace(match[0], "").trim();
+      return { clean, action };
+    } catch {
+      return { clean: text, action: null };
+    }
+  }
+
+  async function executeAction(action: PendingAction, msgIdx: number) {
+    const r = await fetch("/api/ai/execute", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: action.type, params: action.params }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error ?? `Execution failed (${r.status})`);
+    // Append result as assistant message
+    const resultMsg: Message = {
+      role: "assistant",
+      content: data.result ?? "✅ Action completed.",
+      ts: new Date().toISOString(),
+      isCommand: true,
+    };
+    setMessages(prev => {
+      const updated = [...prev, resultMsg];
+      if (activeSession?.id) {
+        fetch("/api/ai/sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId: activeSession.id, messages: updated }),
+        }).catch(() => {});
+      }
+      return updated;
+    });
+    setPendingAction(null);
+  }
 
   function stopResponse() {
     abortControllerRef.current?.abort();
@@ -490,15 +534,21 @@ export default function AIPage() {
         signal,
       });
       const data = await res.json();
+      const rawContent = data.response ?? data.error ?? "Something went wrong.";
+      const { clean, action } = parseActionBlock(rawContent);
       const assistantMsg: Message = {
         role: "assistant",
-        content: data.response ?? data.error ?? "Something went wrong.",
+        content: clean,
         ts: new Date().toISOString(),
         contextUsed: data.contextUsed,
         webSearchUsed: data.webSearchUsed,
       };
       const finalMessages = [...newMessages, assistantMsg];
       setMessages(finalMessages);
+      // If AI proposed an action, queue the approval modal
+      if (action) {
+        setPendingAction({ action, msgIdx: finalMessages.length - 1 });
+      }
 
       if (activeSession?.id) {
         await fetch("/api/ai/sessions", {
@@ -587,6 +637,13 @@ export default function AIPage() {
 
   return (
     <>
+    {pendingAction && (
+      <ApprovalModal
+        action={pendingAction.action}
+        onApprove={() => executeAction(pendingAction.action, pendingAction.msgIdx)}
+        onDeny={() => setPendingAction(null)}
+      />
+    )}
     <div className="flex flex-1 overflow-hidden bg-[#FAFAF8]">
 
       {sidebarOpen && (

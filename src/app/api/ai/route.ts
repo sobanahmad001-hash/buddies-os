@@ -91,6 +91,28 @@ export async function POST(req: NextRequest) {
     } catch { return ""; }
   })() : "";
 
+  // Fetch connected integrations (GitHub repos, Supabase projects, etc.)
+  const integrationsBlock = await (async () => {
+    try {
+      const { data } = await supabase
+        .from("integrations")
+        .select("type, name, config, status")
+        .eq("user_id", user.id)
+        .eq("status", "active");
+      if (!data?.length) return "";
+      const lines = data.map((i: any) => {
+        const meta: string[] = [];
+        if (i.config?.org_or_user) meta.push(`org/user: ${i.config.org_or_user}`);
+        if (i.config?.repo_url)    meta.push(`url: ${i.config.repo_url}`);
+        if (i.config?.project_url) meta.push(`url: ${i.config.project_url}`);
+        if (i.config?.team_slug)   meta.push(`team: ${i.config.team_slug}`);
+        if (i.config?.channel)     meta.push(`channel: ${i.config.channel}`);
+        return `- ${i.type.toUpperCase()}: ${i.name}${meta.length ? ` (${meta.join(", ")})` : ""}`;
+      });
+      return "\nCONNECTED INTEGRATIONS:\n" + lines.join("\n");
+    } catch { return ""; }
+  })();
+
   // Fetch team context (owner sees all depts, team member sees own dept)
   const teamContextBlock = contextEnabled ? await (async () => {
     try {
@@ -147,7 +169,7 @@ ${sessionHistory ? `RECENT CONVERSATION HISTORY:\n${sessionHistory}` : ""}`.trim
 PHILOSOPHY: Capture → Understand → Analyze → Suggest → Human decides.
 You are an advisor, not a governor. Surface intelligence, let the human decide.
 
-Respond naturally in markdown. Never output JSON or structured data.
+Respond naturally in markdown. Never output JSON or structured data EXCEPT for action blocks (see below).
 
 RESPONSE RULES:
 - Factual questions: answer directly
@@ -157,14 +179,39 @@ RESPONSE RULES:
 - Tight responses. No padding. No flattery.
 - For live data (prices, news, events) — use web search
 
+ACTION SYSTEM (read carefully):
+When the user asks you to perform a write action — create a task, log a decision, update a project, create a GitHub issue, run SQL — you MUST:
+1. Explain what you're about to do in plain markdown
+2. End your response with a single [BUDDIES_ACTION] block:
+
+[BUDDIES_ACTION]
+{"type":"<action_type>","description":"<one sentence what this does>","warning":"<risk or null>","params":{...}}
+[/BUDDIES_ACTION]
+
+Supported action types and their params:
+- "app.create_task": {"title":"...","project_id":"...","priority":1-5,"due_date":"YYYY-MM-DD or null"}
+- "app.create_decision": {"context":"...","verdict":"proceed|pause|reject","probability":0-100}
+- "app.update_project": {"project_id":"...","status":"active|completed|on_hold","description":"..."}
+- "app.add_project_update": {"project_id":"...","content":"...","update_type":"progress|blocker|milestone"}
+- "github.create_issue": {"repo":"owner/repo","title":"...","body":"...","labels":["bug","enhancement",...]}
+- "github.create_branch": {"repo":"owner/repo","branch":"feature/name","from":"main"}
+- "supabase.run_sql": {"sql":"SELECT ...","description":"what this query does"}
+
+RULES:
+- Never include [BUDDIES_ACTION] for read-only questions or analysis
+- Always include a "description" the user can read before approving
+- Set "warning" to the risk, or null if safe
+- Only ONE action block per response
+- The user must approve before any action runs — you are PROPOSING, not executing
+
 CURRENT CONTEXT:
-${contextBlock}${clientContextBlock ? `\n\nCLIENT STATUS:${clientContextBlock}` : ""}${teamContextBlock ? `\n\nTEAM CONTEXT:\n${teamContextBlock}` : ""}${webSearchBlock}${sessionSummary ? `\n\nPREVIOUS CONVERSATION SUMMARY (earlier context from this chat — treat as memory):\n${sessionSummary}` : ""}${contextNote ? `\n\nUSER PINNED NOTE (always apply in every reply):\n${contextNote}` : ""}`
+${contextBlock}${clientContextBlock ? `\n\nCLIENT STATUS:${clientContextBlock}` : ""}${teamContextBlock ? `\n\nTEAM CONTEXT:\n${teamContextBlock}` : ""}${integrationsBlock}${webSearchBlock}${sessionSummary ? `\n\nPREVIOUS CONVERSATION SUMMARY (earlier context from this chat — treat as memory):\n${sessionSummary}` : ""}${contextNote ? `\n\nUSER PINNED NOTE (always apply in every reply):\n${contextNote}` : ""}`
     : `You are the AI core of Buddies OS — a personal operating system for an entrepreneur named Soban.
 
 PHILOSOPHY: Capture → Understand → Analyze → Suggest → Human decides.
 You are an advisor, not a governor. Surface intelligence, let the human decide.
 
-Respond naturally in markdown. Never output JSON or structured data.
+Respond naturally in markdown. Never output JSON or structured data EXCEPT for action blocks.
 
 RESPONSE RULES:
 - Factual questions: answer directly
@@ -173,6 +220,9 @@ RESPONSE RULES:
 - Use markdown — bold key terms, bullets for lists
 - Tight responses. No padding. No flattery.
 - For live data (prices, news, events) — use web search
+
+ACTION SYSTEM: Same rules as above — include [BUDDIES_ACTION] blocks for any write action requested.
+${integrationsBlock}
 
 Note: Context mode is OFF. Respond based on this conversation only.${webSearchBlock}${sessionSummary ? `\n\nPREVIOUS CONVERSATION SUMMARY:\n${sessionSummary}` : ""}${contextNote ? `\n\nUSER PINNED NOTE (always apply):\n${contextNote}` : ""}`;
 
