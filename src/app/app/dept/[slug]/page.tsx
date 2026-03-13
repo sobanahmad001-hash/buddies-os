@@ -16,7 +16,7 @@ export default function DeptOverviewPage() {
   const params = useParams();
   const slug = params.slug as string;
   const router = useRouter();
-  const { activeWorkspace } = useWorkspace();
+const { activeWorkspace, loading: wsLoading } = useWorkspace();
 
   const [dept, setDept] = useState<any>(null);
   const [projects, setProjects] = useState<any[]>([]);
@@ -25,11 +25,11 @@ export default function DeptOverviewPage() {
   const [loading, setLoading] = useState(true);
 
   const meta = DEPT_META[slug] ?? { label: slug, emoji: "🏢", color: "#E8521A", bg: "#E8521A10", desc: "" };
-
-  useEffect(() => { load(); }, [activeWorkspace, slug]);
+  
+  useEffect(() => { if (!wsLoading) load(); }, [activeWorkspace, slug, wsLoading]);
 
   async function load() {
-    if (!activeWorkspace) return;
+    if (!activeWorkspace) { setLoading(false); return; }
     setLoading(true);
 
     const { data: d } = await supabase

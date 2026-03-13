@@ -165,21 +165,32 @@ export async function POST(req: NextRequest) {
     } catch { return ""; }
   })();
 
-  // Fetch team context (owner sees all depts, team member sees own dept)
+  // Fetch department/team context for workspace owner
   const teamContextBlock = contextEnabled ? await (async () => {
     try {
       const { data: ws } = await supabase.from("workspaces").select("id").eq("owner_id", user.id).maybeSingle();
       if (!ws) return "";
-      const since = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
-      const [{ data: depts }, { data: teamTasks }, { data: teamActivity }] = await Promise.all([
+      const [{ data: depts }, { data: deptProjects }, { data: deptTasks }] = await Promise.all([
         supabase.from("departments").select("id, name, slug").eq("workspace_id", ws.id),
-        supabase.from("project_tasks").select("title, status, department_id").neq("status", "cancelled").limit(20),
-        supabase.from("department_activity").select("title, activity_type, created_at, department_id").gte("created_at", since).order("created_at", { ascending: false }).limit(30),
+        supabase.from("dept_projects").select("name, status, dept_id").eq("workspace_id", ws.id).neq("status", "archived").order("updated_at", { ascending: false }).limit(20),
+        supabase.from("dept_project_tasks").select("title, status, priority, dept_id").neq("status", "cancelled").order("created_at", { ascending: false }).limit(30),
       ]);
+      if (!depts?.length) return "";
       const deptMap: Record<string, string> = {};
       (depts ?? []).forEach((d: any) => { deptMap[d.id] = d.name; });
-      if (!teamTasks?.length && !teamActivity?.length) return "";
-      return `TEAM ACTIVITY (last 48hrs):\n${(teamActivity ?? []).map((a: any) => `- [${deptMap[a.department_id] ?? "?"}] ${a.activity_type}: ${a.title}`).join("\n") || "none"}\nTEAM TASKS:\n${(teamTasks ?? []).map((t: any) => `- [${deptMap[t.department_id] ?? "?"}] ${t.status}: ${t.title}`).join("\n") || "none"}`;
+      const lines: string[] = [];
+      for (const dept of (depts ?? [])) {
+        const dp = (deptProjects ?? []).filter((p: any) => p.dept_id === dept.id);
+        const dt = (deptTasks ?? []).filter((t: any) => t.dept_id === dept.id);
+        if (!dp.length && !dt.length) continue;
+        lines.push(`[${dept.name.toUpperCase()} DEPT]`);
+        if (dp.length) lines.push(`  Projects: ${dp.map((p: any) => `${p.name} (${p.status})`).join(", ")}`);
+        const inProg = dt.filter((t: any) => t.status === "in_progress");
+        const todo   = dt.filter((t: any) => t.status === "todo");
+        if (inProg.length) lines.push(`  In progress: ${inProg.map((t: any) => t.title).join(", ")}`);
+        if (todo.length)   lines.push(`  Todo (${todo.length}): ${todo.slice(0, 4).map((t: any) => t.title).join(", ")}${todo.length > 4 ? ` +${todo.length - 4} more` : ""}`);
+      }
+      return lines.length ? `DEPARTMENT STATUS:\n${lines.join("\n")}` : "";
     } catch { return ""; }
   })() : "";
 

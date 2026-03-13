@@ -41,7 +41,8 @@ describe("GET /api/clients", () => {
         clients:    { data: fakeClients },
       },
     });
-    const res = await GET();
+    const req = makeRequest("http://localhost/api/clients");
+    const res = await GET(req);
     const body = await json(res);
     expect(res.status).toBe(200);
     expect(body.clients).toEqual(fakeClients);
@@ -55,7 +56,8 @@ describe("GET /api/clients", () => {
         client_access: { data: [] },              // no access
       },
     });
-    const res = await GET();
+    const req = makeRequest("http://localhost/api/clients");
+    const res = await GET(req);
     const body = await json(res);
     expect(body.clients).toEqual([]);
   });

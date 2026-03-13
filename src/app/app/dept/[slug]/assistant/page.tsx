@@ -13,26 +13,31 @@ const DEPT_META: Record<string, { label: string; color: string }> = {
 
 export default function DeptAssistantPage() {
   const { slug } = useParams() as { slug: string };
-  const { activeWorkspace } = useWorkspace();
+  const { activeWorkspace, loading: wsLoading } = useWorkspace();
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [initLoading, setInitLoading] = useState(true);
   const [deptId, setDeptId] = useState<string | null>(null);
+  const [deptError, setDeptError] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const meta = DEPT_META[slug] ?? { label: slug, color: "#E8521A" };
 
-  useEffect(() => { init(); }, [activeWorkspace, slug]);
+  useEffect(() => { if (!wsLoading) init(); }, [activeWorkspace, slug, wsLoading]);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
   async function init() {
-    if (!activeWorkspace) return;
+    if (!activeWorkspace) { setInitLoading(false); setDeptError("No workspace found. Please sign in again."); return; }
     const { data: d } = await supabase.from("departments").select("id")
       .eq("workspace_id", activeWorkspace.id).eq("slug", slug).maybeSingle();
-    if (!d) return;
+    if (!d) { setInitLoading(false); setDeptError(`Department "${meta.label}" not set up yet. Run the database migrations.`); return; }
     setDeptId(d.id);
     const res = await fetch(`/api/dept/${slug}/assistant?deptId=${d.id}`);
-    const data = await res.json();
-    setMessages(data.messages ?? []);
+    if (res.ok) {
+      const data = await res.json();
+      setMessages(data.messages ?? []);
+    }
+    setInitLoading(false);
   }
 
   async function send() {
@@ -41,13 +46,18 @@ export default function DeptAssistantPage() {
     setInput("");
     setMessages(prev => [...prev, { role: "user", content: text }]);
     setLoading(true);
-    const res = await fetch(`/api/dept/${slug}/assistant`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: text, deptId }),
-    });
-    const data = await res.json();
-    if (data.reply) setMessages(prev => [...prev, { role: "assistant", content: data.reply }]);
+    try {
+      const res = await fetch(`/api/dept/${slug}/assistant`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text, deptId }),
+      });
+      const data = await res.json();
+      if (data.reply) setMessages(prev => [...prev, { role: "assistant", content: data.reply }]);
+      else if (data.error) setMessages(prev => [...prev, { role: "assistant", content: `Error: ${data.error}` }]);
+    } catch {
+      setMessages(prev => [...prev, { role: "assistant", content: "Connection error. Please try again." }]);
+    }
     setLoading(false);
   }
 
@@ -66,7 +76,21 @@ export default function DeptAssistantPage() {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-        {messages.length === 0 && !loading && (
+        {initLoading && (
+          <div className="flex items-center justify-center h-full">
+            <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: meta.color, borderTopColor: "transparent" }} />
+          </div>
+        )}
+        {!initLoading && deptError && (
+          <div className="flex flex-col items-center justify-center h-full text-center select-none">
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4 bg-red-50">
+              <Bot size={24} className="text-red-400" />
+            </div>
+            <p className="text-sm font-semibold text-[#1A1A1A]">Department not available</p>
+            <p className="text-xs text-[#B0ADA9] mt-1 max-w-[280px]">{deptError}</p>
+          </div>
+        )}
+        {!initLoading && !deptError && messages.length === 0 && !loading && (
           <div className="flex flex-col items-center justify-center h-full text-center select-none">
             <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4" style={{ background: `${meta.color}15` }}>
               <Bot size={24} style={{ color: meta.color }} />
@@ -129,7 +153,7 @@ export default function DeptAssistantPage() {
           />
           <button
             onClick={send}
-            disabled={!input.trim() || loading}
+            disabled={!input.trim() || loading || !deptId}
             className="w-10 h-10 rounded-xl flex items-center justify-center disabled:opacity-40 transition-colors"
             style={{ background: meta.color }}>
             <Send size={15} className="text-white" />

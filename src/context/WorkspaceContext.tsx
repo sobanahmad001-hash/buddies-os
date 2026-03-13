@@ -32,29 +32,55 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     async function fetchWorkspaces() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setLoading(false); return; }
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
 
-      const { data: memberships } = await supabase
-        .from('memberships')
-        .select('workspace_id, workspaces(id, name, slug, owner_id)')
-        .eq('user_id', user.id)
-        .eq('status', 'active');
+        // Load via memberships (team members)
+        const { data: memberships } = await supabase
+          .from('memberships')
+          .select('workspace_id, workspaces(id, name, slug, owner_id)')
+          .eq('user_id', user.id)
+          .eq('status', 'active');
 
-      if (memberships && memberships.length > 0) {
-        const ws = memberships.map((m: any) => m.workspaces).filter(Boolean);
-        setWorkspaces(ws);
+        const memberWsIds = new Set<string>();
+        const wsMap: Workspace[] = [];
 
-        const savedSlug = typeof window !== 'undefined'
-          ? localStorage.getItem('buddies_active_workspace')
-          : null;
-        const saved = ws.find((w: Workspace) => w.slug === savedSlug);
-        setActiveWorkspaceState(saved || ws[0]);
+        for (const m of (memberships ?? [])) {
+          const w = (m as any).workspaces as Workspace | null;
+          if (w && !memberWsIds.has(w.id)) {
+            memberWsIds.add(w.id);
+            wsMap.push(w);
+          }
+        }
+
+        // Also load workspaces the user owns directly (owners may not have a membership row)
+        const { data: ownedWs } = await supabase
+          .from('workspaces')
+          .select('id, name, slug, owner_id')
+          .eq('owner_id', user.id);
+
+        for (const w of (ownedWs ?? [])) {
+          if (!memberWsIds.has(w.id)) wsMap.push(w as Workspace);
+        }
+
+        if (wsMap.length > 0) {
+          setWorkspaces(wsMap);
+          const savedSlug = typeof window !== 'undefined'
+            ? localStorage.getItem('buddies_active_workspace')
+            : null;
+          const saved = wsMap.find((w: Workspace) => w.slug === savedSlug);
+          setActiveWorkspaceState(saved || wsMap[0]);
+        }
+      } catch (err) {
+        console.error('WorkspaceContext: failed to fetch workspaces', err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
     fetchWorkspaces();
-  }, [supabase]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const setActiveWorkspace = (ws: Workspace) => {
     setActiveWorkspaceState(ws);

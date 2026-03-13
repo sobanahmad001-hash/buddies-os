@@ -20,22 +20,23 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function DeptProjectsPage() {
   const { slug } = useParams() as { slug: string };
-  const { activeWorkspace } = useWorkspace();
+  const { activeWorkspace, loading: wsLoading } = useWorkspace();
   const router = useRouter();
 
   const [deptId, setDeptId] = useState<string | null>(null);
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [createError, setCreateError] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
   const [creating, setCreating] = useState(false);
   const meta = DEPT_META[slug] ?? { label: slug, color: "#E8521A", bg: "#E8521A10" };
 
-  useEffect(() => { init(); }, [activeWorkspace, slug]);
+  useEffect(() => { if (!wsLoading) init(); }, [activeWorkspace, slug, wsLoading]);
 
   async function init() {
-    if (!activeWorkspace) return;
+    if (!activeWorkspace) { setLoading(false); return; }
     const { data: d } = await supabase.from("departments").select("id")
       .eq("workspace_id", activeWorkspace.id).eq("slug", slug).maybeSingle();
     if (!d) { setLoading(false); return; }
@@ -55,9 +56,10 @@ export default function DeptProjectsPage() {
   async function createProject() {
     if (!newName.trim() || !deptId || !activeWorkspace) return;
     setCreating(true);
+    setCreateError("");
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    const { data } = await supabase.from("dept_projects").insert({
+    const { data, error } = await supabase.from("dept_projects").insert({
       dept_id: deptId,
       workspace_id: activeWorkspace.id,
       created_by: user.id,
@@ -65,8 +67,13 @@ export default function DeptProjectsPage() {
       description: newDesc.trim() || null,
       status: "active",
     }).select().single();
-    setNewName(""); setNewDesc(""); setShowForm(false); setCreating(false);
-    if (data) router.push(`/app/dept/${slug}/projects/${data.id}`);
+    setCreating(false);
+    if (error || !data) {
+      setCreateError(error?.message ?? "Failed to create project. Make sure the database migration has been run.");
+      return;
+    }
+    setNewName(""); setNewDesc(""); setShowForm(false);
+    router.push(`/app/dept/${slug}/projects/${data.id}`);
   }
 
   async function deleteProject(id: string, e: React.MouseEvent) {
@@ -103,13 +110,16 @@ export default function DeptProjectsPage() {
             <input value={newDesc} onChange={e => setNewDesc(e.target.value)}
               placeholder="Description (optional)..."
               className="w-full border border-[#E5E2DE] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#8B5CF6]" />
+            {createError && (
+              <p className="text-xs text-red-500 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{createError}</p>
+            )}
             <div className="flex gap-2">
-              <button onClick={createProject} disabled={!newName.trim() || creating}
+              <button onClick={createProject} disabled={!newName.trim() || creating || !deptId}
                 className="px-5 py-2 text-white text-sm font-semibold rounded-xl disabled:opacity-40 transition-colors"
                 style={{ background: meta.color }}>
                 {creating ? "Creating..." : "Create"}
               </button>
-              <button onClick={() => setShowForm(false)}
+              <button onClick={() => { setShowForm(false); setCreateError(""); }}
                 className="px-5 py-2 text-sm font-semibold rounded-xl border border-[#E5E2DE] text-[#737373] hover:border-[#CC785C] transition-colors">
                 Cancel
               </button>
@@ -120,6 +130,12 @@ export default function DeptProjectsPage() {
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: meta.color, borderTopColor: "transparent" }} />
+          </div>
+        ) : !deptId ? (
+          <div className="border-2 border-dashed border-[#E5E2DE] rounded-2xl py-16 flex flex-col items-center justify-center text-center">
+            <FolderKanban size={32} className="text-[#D5D0CA] mb-3" />
+            <p className="text-sm font-semibold text-[#737373] mb-1">Department not found</p>
+            <p className="text-xs text-[#B0ADA9] max-w-[260px]">Run the database migrations and ensure the &quot;{meta.label}&quot; department exists in your workspace.</p>
           </div>
         ) : projects.length === 0 ? (
           <div className="border-2 border-dashed border-[#E5E2DE] rounded-2xl py-16 flex flex-col items-center justify-center text-center">
