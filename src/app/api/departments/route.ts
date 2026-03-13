@@ -72,6 +72,11 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ departments: data ?? [] });
 }
 
+export async function POST(req: NextRequest) {
+  const supabase = await sb();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+
   const body = await req.json();
   const { organization_id, name } = body;
   if (!organization_id || !name?.trim()) {
