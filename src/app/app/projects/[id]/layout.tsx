@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, LayoutGrid, CheckSquare, Bot, Scale, ShieldCheck, FlaskConical, FileText } from 'lucide-react';
+import { ArrowLeft, LayoutGrid, CheckSquare, Bot, Scale, ShieldCheck, FlaskConical, FileText, Code2 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 
 type Project = { id: string; name: string; status: string };
@@ -16,6 +16,7 @@ const TABS = [
   { label: 'Rules',      suffix: '/rules',      icon: ShieldCheck  },
   { label: 'Research',   suffix: '/research',   icon: FlaskConical },
   { label: 'Documents',  suffix: '/documents',  icon: FileText     },
+  { label: 'Code',       suffix: '/code',       icon: Code2        },
 ];
 
 export default function ProjectLayout({ children }: { children: React.ReactNode }) {

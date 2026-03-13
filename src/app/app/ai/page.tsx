@@ -2,8 +2,9 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Plus, Send, Copy, RotateCcw, Trash2, Edit2,
-  MessageSquare, Check, ChevronDown, Globe, Paperclip, Square, X
+  MessageSquare, Check, ChevronDown, Globe, Paperclip, Square, X, Code2, ExternalLink, RefreshCw
 } from "lucide-react";
+import { supabase } from "@/lib/supabaseClient";
 import ContextPreviewModal from "@/components/ContextPreviewModal";
 import ContextToggle from "@/components/ContextToggle";
 import SuggestionsPanel from "@/components/SuggestionsPanel";
@@ -213,6 +214,10 @@ export default function AIPage() {
   const [contextNote, setContextNote] = useState("");
   const [contextNoteOpen, setContextNoteOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<{ action: PendingAction; msgIdx: number } | null>(null);
+  const [codeOpen, setCodeOpen] = useState(false);
+  const [codeUrl, setCodeUrl] = useState<string>('https://vscode.dev');
+  const [codeBlocked, setCodeBlocked] = useState(false);
+  const [codeRetryKey, setCodeRetryKey] = useState(0);
 
   /** Strip [BUDDIES_ACTION]…[/BUDDIES_ACTION] from text and return {clean, action} */
   function parseActionBlock(text: string): { clean: string; action: PendingAction | null } {
@@ -266,6 +271,39 @@ export default function AIPage() {
 
   useEffect(() => { loadSessions(); }, []);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
+
+  // Fetch GitHub integration for the code panel URL
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from('integrations')
+        .select('config')
+        .eq('user_id', user.id)
+        .eq('type', 'github')
+        .eq('status', 'active')
+        .limit(1)
+        .single();
+      if (data?.config?.repo_url) {
+        const repo = (data.config.repo_url as string)
+          .replace(/^https?:\/\/github\.com\//, '')
+          .replace(/\.git$/, '')
+          .replace(/\/$/, '');
+        setCodeUrl(`https://github.dev/${repo}`);
+      } else if (data?.config?.org_or_user) {
+        setCodeUrl(`https://github.dev/${data.config.org_or_user}`);
+      }
+    })();
+  }, []);
+
+  // When code panel opens, start timer to detect X-Frame-Options block
+  useEffect(() => {
+    if (!codeOpen) return;
+    setCodeBlocked(false);
+    const timer = setTimeout(() => setCodeBlocked(true), 4000);
+    return () => clearTimeout(timer);
+  }, [codeOpen, codeRetryKey]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -769,9 +807,26 @@ export default function AIPage() {
               </div>
             )}
           </div>
+
+          {/* Code split panel toggle */}
+          <button
+            onClick={() => setCodeOpen(v => !v)}
+            title={codeOpen ? "Close code panel" : "Open VS Code"}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium transition-colors ${
+              codeOpen
+                ? "bg-[#0F0F0F] text-white hover:bg-[#1A1A1A]"
+                : "bg-[#F0EDE9] hover:bg-[#E5E2DE] text-[#1A1A1A]"
+            }`}>
+            <Code2 size={13} />
+            <span className="hidden sm:inline">Code</span>
+          </button>
         </div>
 
-        {/* Messages */}
+        {/* Content: messages + optional code panel side-by-side */}
+        <div className="flex flex-1 overflow-hidden">
+
+        {/* Chat messages column */}
+        <div className={`flex flex-col overflow-hidden transition-all duration-200 ${codeOpen ? 'w-[55%]' : 'flex-1'}`}>
         <div className="flex-1 overflow-y-auto px-4 py-6">
           <div className="max-w-[800px] mx-auto">
 
@@ -936,7 +991,7 @@ export default function AIPage() {
         </div>
 
         {/* Input */}
-        <div className="px-3 sm:px-4 py-3 sm:py-4 bg-white border-t border-[#E5E2DE] shrink-0" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+        <div className="px-3 sm:px-4 py-3 sm:py-4 bg-white border-t border-[#E5E2DE] shrink-0 border-r border-r-[#E5E2DE]" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
           <div className="max-w-[800px] mx-auto">
             {/* Context note panel */}
             {contextNoteOpen && (
@@ -1026,6 +1081,82 @@ export default function AIPage() {
             </p>
           </div>
         </div>
+        </div>{/* end chat column */}
+
+        {/* Code panel */}
+        {codeOpen && (
+          <div className="flex flex-col w-[45%] border-l border-[#E5E2DE] overflow-hidden bg-[#0F0F0F]">
+            {/* Code panel header */}
+            <div className="flex items-center justify-between px-3 py-2 bg-[#1A1A1A] border-b border-[#2D2D2D] shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <Code2 size={12} className="text-[#E8521A] shrink-0" />
+                <span className="text-[10px] text-[#B0ADA9] font-mono truncate">{codeUrl}</span>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0 ml-3">
+                {!codeBlocked && (
+                  <button
+                    onClick={() => setCodeRetryKey(k => k + 1)}
+                    className="flex items-center gap-1 text-[10px] text-[#737373] hover:text-white px-1.5 py-1 rounded transition-colors">
+                    <RefreshCw size={10} />
+                  </button>
+                )}
+                <a
+                  href={codeUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-[10px] text-[#E8521A] hover:text-[#FDBA9A] px-2 py-1 rounded bg-[#2D2D2D] transition-colors font-semibold">
+                  <ExternalLink size={10} /> Open
+                </a>
+                <button
+                  onClick={() => setCodeOpen(false)}
+                  className="text-[#737373] hover:text-white transition-colors p-1 rounded">
+                  <X size={13} />
+                </button>
+              </div>
+            </div>
+
+            {/* iframe or fallback */}
+            {codeBlocked ? (
+              <div className="flex-1 flex flex-col items-center justify-center gap-5 text-center p-8">
+                <div className="w-14 h-14 rounded-2xl bg-[#1A1A1A] border border-[#2D2D2D] flex items-center justify-center">
+                  <Code2 size={24} className="text-[#E8521A]" />
+                </div>
+                <div>
+                  <p className="text-white font-semibold text-[14px] mb-2">Open VS Code in browser</p>
+                  <p className="text-[#737373] text-[12px] max-w-[280px]">
+                    VS Code can&apos;t be embedded due to browser security restrictions.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-2 w-full max-w-[280px]">
+                  <a
+                    href={codeUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[#E8521A] text-white rounded-xl font-semibold text-[13px] hover:bg-[#c94415] transition-colors">
+                    <Code2 size={14} /> Open github.dev <ExternalLink size={11} />
+                  </a>
+                  <a
+                    href="https://vscode.dev"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[#2D2D2D] text-[#B0ADA9] rounded-xl font-semibold text-[12px] hover:bg-[#3A3A3A] transition-colors">
+                    vscode.dev <ExternalLink size={11} />
+                  </a>
+                </div>
+              </div>
+            ) : (
+              <iframe
+                key={codeRetryKey}
+                src={codeUrl}
+                className="flex-1 w-full border-none bg-[#1E1E1E]"
+                title="VS Code"
+                allow="clipboard-read; clipboard-write"
+              />
+            )}
+          </div>
+        )}
+
+        </div>{/* end content row */}
       </div>
 
     </div>
