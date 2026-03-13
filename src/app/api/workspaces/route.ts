@@ -21,18 +21,33 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { data: memberships, error } = await supabase
+  const wsMap: Record<string, any> = {};
+
+  // 1. Via memberships (works for team members AND owners who have a membership row)
+  const { data: memberships } = await supabase
     .from('memberships')
     .select('workspace_id, role, workspaces(id, name, slug, owner_id)')
     .eq('user_id', user.id)
     .eq('status', 'active');
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  for (const m of (memberships ?? [])) {
+    const w = (m as any).workspaces;
+    if (w?.id && !wsMap[w.id]) {
+      wsMap[w.id] = { ...w, role: m.role };
+    }
+  }
 
-  const workspaces = (memberships || []).map((m: any) => ({
-    ...m.workspaces,
-    role: m.role,
-  }));
+  // 2. Via direct ownership (fallback: owner may not have a membership row)
+  const { data: ownedWs } = await supabase
+    .from('workspaces')
+    .select('id, name, slug, owner_id')
+    .eq('owner_id', user.id);
 
-  return NextResponse.json(workspaces);
+  for (const w of (ownedWs ?? [])) {
+    if (w?.id && !wsMap[w.id]) {
+      wsMap[w.id] = { ...w, role: 'owner' };
+    }
+  }
+
+  return NextResponse.json(Object.values(wsMap));
 }
