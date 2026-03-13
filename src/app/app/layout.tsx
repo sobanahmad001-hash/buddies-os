@@ -6,7 +6,8 @@ import { supabase } from "@/lib/supabaseClient";
 import {
   LayoutDashboard, Bot, FolderKanban, Scale, ShieldCheck,
   SunMedium, Users, Search, LogOut, FlaskConical, X, Building2,
-  BarChart2, ChevronDown, ChevronRight, UserCircle, Layers, Plus, BookOpen
+  BarChart2, ChevronDown, ChevronRight, UserCircle, Layers, Plus, BookOpen, Plug,
+  Palette, Code2, Megaphone
 } from "lucide-react";
 import { WorkspaceProvider } from '@/context/WorkspaceContext';
 import WorkspaceSwitcher from '@/components/WorkspaceSwitcher';
@@ -18,6 +19,7 @@ const ownerItems = [
   { to: "/app/ai",          icon: Bot,             label: "AI Assistant" },
   { to: "/app/documents",   icon: BookOpen,        label: "Documents" },
   { to: "/app/projects",    icon: FolderKanban,    label: "Projects" },
+  { to: "/app/integrations", icon: Plug,            label: "Integrations" },
   { to: "/app/decisions",   icon: Scale,           label: "Decisions" },
   { to: "/app/rules",       icon: ShieldCheck,     label: "Rules" },
   { to: "/app/daily-check", icon: SunMedium,       label: "Daily Check" },
@@ -31,6 +33,13 @@ const workspaceItems = [
   { to: "/app/clients",     icon: UserCircle,      label: "Clients" },
   { to: "/app/marketing",   icon: BarChart2,       label: "Marketing" },
   { to: "/app/org",         icon: Building2,       label: "Organizations" },
+];
+
+// ── Department environment items ──────────────────────────────────────────────
+const deptItems = [
+  { to: "/app/dept/design",      icon: Palette,   label: "Design" },
+  { to: "/app/dept/development", icon: Code2,     label: "Development" },
+  { to: "/app/dept/marketing",   icon: Megaphone, label: "Marketing Dept" },
 ];
 
 function NavLink({ to, icon: Icon, label, collapsed, indent = 0, onClick }: {
@@ -256,6 +265,12 @@ function NavContent({
         {/* ── WORKSPACE ─────────────────────────── */}
         <SectionLabel label="Workspace" collapsed={collapsed} />
         {workspaceItems.map(item => (
+          <NavLink key={item.to} {...item} collapsed={collapsed} onClick={close} />
+        ))}
+
+        {/* ── DEPARTMENTS ───────────────────────── */}
+        <SectionLabel label="Departments" collapsed={collapsed} />
+        {deptItems.map(item => (
           <NavLink key={item.to} {...item} collapsed={collapsed} onClick={close} />
         ))}
 

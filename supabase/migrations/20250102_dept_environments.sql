@@ -94,6 +94,53 @@ CREATE POLICY IF NOT EXISTS "dev_env_delete" ON development_environment
     )
   );
 
--- ─── 3. Indexes ───────────────────────────────────────────────────────────────
-CREATE INDEX IF NOT EXISTS idx_design_environment_dept   ON design_environment(department_id);
-CREATE INDEX IF NOT EXISTS idx_dev_environment_dept      ON development_environment(department_id);
+-- ─── 3. Marketing Environment Configuration ───────────────────────────────────
+CREATE TABLE IF NOT EXISTS marketing_environment (
+  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  department_id uuid REFERENCES departments(id) ON DELETE CASCADE,
+  name          text NOT NULL,
+  tool_type     text NOT NULL, -- "analytics", "social_media", "email_campaign", "seo", etc.
+  config        jsonb NOT NULL DEFAULT '{}',
+  api_keys      jsonb NOT NULL DEFAULT '{}', -- store encrypted/hashed keys only
+  created_at    timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE marketing_environment ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY IF NOT EXISTS "marketing_env_select" ON marketing_environment
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM departments d
+      JOIN memberships m ON m.workspace_id = d.workspace_id
+      WHERE d.id = marketing_environment.department_id
+        AND m.user_id = auth.uid()
+        AND m.status = 'active'
+    )
+  );
+
+CREATE POLICY IF NOT EXISTS "marketing_env_insert" ON marketing_environment
+  FOR INSERT WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM departments d
+      JOIN memberships m ON m.workspace_id = d.workspace_id
+      WHERE d.id = marketing_environment.department_id
+        AND m.user_id = auth.uid()
+        AND m.status = 'active'
+    )
+  );
+
+CREATE POLICY IF NOT EXISTS "marketing_env_delete" ON marketing_environment
+  FOR DELETE USING (
+    EXISTS (
+      SELECT 1 FROM departments d
+      JOIN memberships m ON m.workspace_id = d.workspace_id
+      WHERE d.id = marketing_environment.department_id
+        AND m.user_id = auth.uid()
+        AND m.status = 'active'
+    )
+  );
+
+-- ─── 4. Indexes ───────────────────────────────────────────────────────────────
+CREATE INDEX IF NOT EXISTS idx_design_environment_dept      ON design_environment(department_id);
+CREATE INDEX IF NOT EXISTS idx_dev_environment_dept         ON development_environment(department_id);
+CREATE INDEX IF NOT EXISTS idx_marketing_environment_dept   ON marketing_environment(department_id);
