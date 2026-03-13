@@ -39,17 +39,11 @@ CREATE POLICY "dept_workspace_read" ON departments
       SELECT workspace_id FROM memberships
       WHERE user_id = auth.uid() AND status = 'active'
     )
-    OR organization_id IN (
-      SELECT id FROM organizations WHERE owner_id = auth.uid()
-    )
   );
 
 CREATE POLICY "dept_workspace_write" ON departments
   FOR ALL USING (
     workspace_id IN (SELECT id FROM workspaces WHERE owner_id = auth.uid())
-    OR organization_id IN (
-      SELECT id FROM organizations WHERE owner_id = auth.uid()
-    )
   );
 
 -- ── 4. Seed Design / Development / Marketing for all workspaces ─────────────
