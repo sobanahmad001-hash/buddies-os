@@ -36,6 +36,8 @@ function maskConfig(config: Record<string, string>): Record<string, string> {
 }
 
 // GET /api/integrations[?type=]
+// Tokens are stored raw in the DB (RLS protects them server-side).
+// We mask secrets in the response so they're never exposed to the browser.
 export async function GET(req: NextRequest) {
   const supabase = await sb();
   const { data: { user } } = await supabase.auth.getUser();
@@ -53,11 +55,19 @@ export async function GET(req: NextRequest) {
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ integrations: data ?? [] });
+  // Mask secrets in response — raw tokens stay in DB only
+  const safe = (data ?? []).map((row: any) => ({
+    ...row,
+    config: maskConfig(row.config ?? {}),
+  }));
+
+  return NextResponse.json({ integrations: safe });
 }
 
 // POST /api/integrations
 // Body: { type, name, config: { ... raw secrets ... } }
+// Raw tokens are stored in DB (protected by RLS + server-side only).
+// The GET response masks them — they are never returned to the browser.
 export async function POST(req: NextRequest) {
   const supabase = await sb();
   const { data: { user } } = await supabase.auth.getUser();
@@ -70,15 +80,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "type and name are required" }, { status: 400 });
   }
 
-  // Mask secrets before persisting
-  const safeConfig = maskConfig(config);
-
+  // Store raw config — tokens are usable by server-side execute route.
+  // RLS ensures only this user can read their own integrations.
   const { data, error } = await supabase
     .from("integrations")
-    .insert({ user_id: user.id, type: type.trim(), name: name.trim(), config: safeConfig })
+    .insert({ user_id: user.id, type: type.trim(), name: name.trim(), config })
     .select("id, type, name, config, status, created_at")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ integration: data }, { status: 201 });
+
+  // Return masked config to client
+  return NextResponse.json({
+    integration: { ...data, config: maskConfig(data.config ?? {}) },
+  }, { status: 201 });
 }

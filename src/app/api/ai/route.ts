@@ -102,11 +102,15 @@ export async function POST(req: NextRequest) {
       if (!data?.length) return "";
       const lines = data.map((i: any) => {
         const meta: string[] = [];
-        if (i.config?.org_or_user) meta.push(`org/user: ${i.config.org_or_user}`);
-        if (i.config?.repo_url)    meta.push(`url: ${i.config.repo_url}`);
-        if (i.config?.project_url) meta.push(`url: ${i.config.project_url}`);
-        if (i.config?.team_slug)   meta.push(`team: ${i.config.team_slug}`);
-        if (i.config?.channel)     meta.push(`channel: ${i.config.channel}`);
+        if (i.config?.org_or_user)   meta.push(`org/user: ${i.config.org_or_user}`);
+        if (i.config?.repo_url)      meta.push(`repo: ${i.config.repo_url}`);
+        if (i.config?.project_url)   meta.push(`project: ${i.config.project_url}`);
+        if (i.config?.team_slug)     meta.push(`team: ${i.config.team_slug}`);
+        if (i.config?.project_name)  meta.push(`project: ${i.config.project_name}`);
+        if (i.config?.channel)       meta.push(`channel: ${i.config.channel}`);
+        if (i.config?.team_name)     meta.push(`team: ${i.config.team_name}`);
+        if (i.config?.database_id)   meta.push(`db: ${i.config.database_id}`);
+        // note: tokens/keys are never included in AI context
         return `- ${i.type.toUpperCase()}: ${i.name}${meta.length ? ` (${meta.join(", ")})` : ""}`;
       });
       return "\nCONNECTED INTEGRATIONS:\n" + lines.join("\n");

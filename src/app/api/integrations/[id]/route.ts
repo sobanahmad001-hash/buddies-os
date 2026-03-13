@@ -37,7 +37,24 @@ export async function DELETE(
   return NextResponse.json({ success: true });
 }
 
-// PATCH /api/integrations/[id]  — update name or status
+/** Mask a secret string: show first 4 + last 4, hide the rest */
+function maskSecret(val: string): string {
+  if (!val || val.length <= 8) return "****";
+  return val.slice(0, 4) + "****" + val.slice(-4);
+}
+function maskConfig(config: Record<string, string>): Record<string, string> {
+  const masked: Record<string, string> = {};
+  for (const [k, v] of Object.entries(config)) {
+    if (typeof v === "string" && /key|token|secret|password/i.test(k)) {
+      masked[k] = maskSecret(v);
+    } else {
+      masked[k] = v;
+    }
+  }
+  return masked;
+}
+
+// PATCH /api/integrations/[id]  — update name, status, or re-save config with fresh tokens
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -51,6 +68,8 @@ export async function PATCH(
   const updates: Record<string, unknown> = {};
   if (body.name !== undefined)   updates.name   = body.name;
   if (body.status !== undefined) updates.status = body.status;
+  // Allow re-saving config (e.g. to update a token) — stored raw, masked in response
+  if (body.config !== undefined) updates.config = body.config;
 
   const { data, error } = await supabase
     .from("integrations")
@@ -61,5 +80,5 @@ export async function PATCH(
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ integration: data });
+  return NextResponse.json({ integration: { ...data, config: maskConfig(data.config ?? {}) } });
 }
