@@ -49,9 +49,15 @@ export default function DeptProjectsPage() {
         await seedDepartments(true);
         return;
       }
+      // Still not found after seed — show the error/button
+      setSeedError(
+        "Department could not be initialized. The RLS policies may be missing. " +
+        "Run supabase/migrations/20250111_fix_dept_workspace_seeding.sql in your Supabase SQL Editor."
+      );
       setLoading(false);
       return;
     }
+    setSeedError("");
     setDeptId(d.id);
     await loadProjects(d.id);
   }
@@ -65,16 +71,17 @@ export default function DeptProjectsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ workspace_id: activeWorkspace.id }),
       });
+      const j = await res.json().catch(() => ({}));
       if (res.ok) {
         await init(true);
       } else {
-        const j = await res.json().catch(() => ({}));
-        if (!auto) setSeedError(j.error ?? "Seeding failed. Run the SQL migration in Supabase.");
-        else setLoading(false);
+        const msg = j.error ?? "Seeding failed. Run supabase/migrations/20250111_fix_dept_workspace_seeding.sql in your Supabase SQL Editor.";
+        setSeedError(msg);
+        setLoading(false);
       }
     } catch {
-      if (!auto) setSeedError("Seeding failed. Run sql/fix-departments-dev.sql in Supabase SQL Editor.");
-      else setLoading(false);
+      setSeedError("Seeding failed. Run supabase/migrations/20250111_fix_dept_workspace_seeding.sql in your Supabase SQL Editor.");
+      setLoading(false);
     } finally {
       if (!auto) setSeeding(false);
     }

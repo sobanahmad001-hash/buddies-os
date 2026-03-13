@@ -1,6 +1,8 @@
--- Migration 20250111: Fix departments workspace seeding and RLS
--- Idempotent — safe to run multiple times.
+-- Migration 20250111: Restore departments RLS policies and seed defaults
+-- Wrapped in a transaction — either ALL changes apply or NONE do.
+-- Safe to run after a failed previous attempt.
 -- ═══════════════════════════════════════════════════════════════════════════
+BEGIN;
 
 -- ── 1. Ensure columns exist ─────────────────────────────────────────────────
 ALTER TABLE departments
@@ -21,17 +23,16 @@ END $$;
 
 CREATE INDEX IF NOT EXISTS idx_departments_workspace_slug ON departments(workspace_id, slug);
 
--- ── 3. Refresh RLS policies ─────────────────────────────────────────────────
+-- ── 3. Restore RLS policies (dropped by a previously failed migration run) ──
 ALTER TABLE departments ENABLE ROW LEVEL SECURITY;
 
--- Drop old org-based policies (they block workspace-based rows from being seen)
+-- Drop everything first so we get a clean slate
 DROP POLICY IF EXISTS "dept_members_read"    ON departments;
 DROP POLICY IF EXISTS "dept_owner_write"     ON departments;
-
--- Drop and replace workspace policies to ensure they're up-to-date
 DROP POLICY IF EXISTS "dept_workspace_read"  ON departments;
 DROP POLICY IF EXISTS "dept_workspace_write" ON departments;
 
+-- Workspace owners and active members can read departments
 CREATE POLICY "dept_workspace_read" ON departments
   FOR SELECT USING (
     workspace_id IN (SELECT id FROM workspaces WHERE owner_id = auth.uid())
@@ -41,6 +42,7 @@ CREATE POLICY "dept_workspace_read" ON departments
     )
   );
 
+-- Only workspace owners can create / update / delete departments
 CREATE POLICY "dept_workspace_write" ON departments
   FOR ALL USING (
     workspace_id IN (SELECT id FROM workspaces WHERE owner_id = auth.uid())
@@ -52,24 +54,21 @@ SELECT w.id, 'Design', 'design', '#8B5CF6'
 FROM workspaces w
 WHERE NOT EXISTS (
   SELECT 1 FROM departments d WHERE d.workspace_id = w.id AND d.slug = 'design'
-)
-ON CONFLICT (workspace_id, slug) DO NOTHING;
+);
 
 INSERT INTO departments (workspace_id, name, slug, color)
 SELECT w.id, 'Development', 'development', '#3B82F6'
 FROM workspaces w
 WHERE NOT EXISTS (
   SELECT 1 FROM departments d WHERE d.workspace_id = w.id AND d.slug = 'development'
-)
-ON CONFLICT (workspace_id, slug) DO NOTHING;
+);
 
 INSERT INTO departments (workspace_id, name, slug, color)
 SELECT w.id, 'Marketing', 'marketing', '#10B981'
 FROM workspaces w
 WHERE NOT EXISTS (
   SELECT 1 FROM departments d WHERE d.workspace_id = w.id AND d.slug = 'marketing'
-)
-ON CONFLICT (workspace_id, slug) DO NOTHING;
+);
 
 -- ── 5. Backfill slugs / colors on any old rows ──────────────────────────────
 UPDATE departments SET slug = 'design'      WHERE slug IS NULL AND LOWER(name) LIKE '%design%';
@@ -79,3 +78,5 @@ UPDATE departments SET slug = 'marketing'   WHERE slug IS NULL AND LOWER(name) L
 UPDATE departments SET color = '#8B5CF6' WHERE slug = 'design'      AND (color IS NULL OR color = '');
 UPDATE departments SET color = '#3B82F6' WHERE slug = 'development' AND (color IS NULL OR color = '');
 UPDATE departments SET color = '#10B981' WHERE slug = 'marketing'   AND (color IS NULL OR color = '');
+
+COMMIT;

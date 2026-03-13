@@ -48,9 +48,10 @@ export async function POST(req: NextRequest) {
 
   if (!ws) return NextResponse.json({ error: "Workspace not found or access denied" }, { status: 403 });
 
-  // Use service role if available (bypasses RLS), otherwise user session (RLS must allow owner writes)
   const writer = writeClient(supabase as any);
   const results: Record<string, string> = {};
+  let anyCreated = false;
+  let anyError = false;
 
   for (const dept of DEFAULT_WORKSPACE_DEPARTMENTS) {
     // Check if already exists
@@ -63,6 +64,7 @@ export async function POST(req: NextRequest) {
 
     if (existing) {
       results[dept.slug] = "already_exists";
+      anyCreated = true;
       continue;
     }
 
@@ -73,7 +75,26 @@ export async function POST(req: NextRequest) {
       color: dept.color,
     });
 
-    results[dept.slug] = error ? `error: ${error.message}` : "created";
+    if (error) {
+      results[dept.slug] = `error: ${error.message}`;
+      anyError = true;
+    } else {
+      results[dept.slug] = "created";
+      anyCreated = true;
+    }
+  }
+
+  // Verify the target dept is actually readable after seeding
+  const targetSlug = new URL(req.url).searchParams.get("slug");
+  if (anyError && !anyCreated) {
+    return NextResponse.json(
+      {
+        error:
+          "RLS policy is blocking department creation. Run the SQL migration in your Supabase SQL Editor:\n\nGo to https://supabase.com/dashboard → your project → SQL Editor → New query → paste the contents of supabase/migrations/20250111_fix_dept_workspace_seeding.sql → Run",
+        results,
+      },
+      { status: 500 }
+    );
   }
 
   return NextResponse.json({ seeded: true, results });

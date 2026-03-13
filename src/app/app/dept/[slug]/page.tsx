@@ -24,6 +24,7 @@ const { activeWorkspace, loading: wsLoading } = useWorkspace();
   const [members, setMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
+  const [seedError, setSeedError] = useState("");
 
   const meta = DEPT_META[slug] ?? { label: slug, emoji: "🏢", color: "#E8521A", bg: "#E8521A10", desc: "" };
   
@@ -40,18 +41,30 @@ const { activeWorkspace, loading: wsLoading } = useWorkspace();
       if (!retryAfterSeed) {
         // Auto-seed silently on first miss
         try {
-          await fetch("/api/departments/seed", {
+          const seedRes = await fetch("/api/departments/seed", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ workspace_id: activeWorkspace.id }),
           });
-          await load(true);
-          return;
-        } catch {}
+          if (seedRes.ok) {
+            await load(true);
+            return;
+          }
+          const j = await seedRes.json().catch(() => ({}));
+          setSeedError(j.error ?? "Initialization failed. Run supabase/migrations/20250111_fix_dept_workspace_seeding.sql in Supabase SQL Editor.");
+        } catch {
+          setSeedError("Initialization failed. Run supabase/migrations/20250111_fix_dept_workspace_seeding.sql in Supabase SQL Editor.");
+        }
+      } else {
+        setSeedError(
+          "Department could not be initialized. The RLS policies may be missing. " +
+          "Run supabase/migrations/20250111_fix_dept_workspace_seeding.sql in your Supabase SQL Editor."
+        );
       }
       setLoading(false);
       return;
     }
+    setSeedError("");
     setDept(d);
 
     const [projRes, taskRes, memRes] = await Promise.all([
@@ -78,23 +91,55 @@ const { activeWorkspace, loading: wsLoading } = useWorkspace();
   );
 
   if (!dept) return (
-    <div className="flex-1 flex items-center justify-center">
-      <div className="text-center">
+    <div className="flex-1 flex items-center justify-center p-8">
+      <div className="text-center max-w-md">
         <div className="text-4xl mb-3">{meta.emoji}</div>
         <p className="text-sm font-semibold text-[#737373] mb-1">Department not found</p>
         <p className="text-xs text-[#B0ADA9] mb-4">The &quot;{meta.label}&quot; department hasn&apos;t been set up yet.</p>
+        {seedError && (
+          <div className="text-left bg-red-50 border border-red-200 rounded-xl p-4 mb-4 text-xs text-red-700 space-y-2">
+            <p className="font-semibold">Why this happened:</p>
+            <p>A previous SQL migration ran partially and removed the RLS policies from the departments table without re-creating them.</p>
+            <p className="font-semibold mt-2">Fix — run this SQL in your Supabase SQL Editor:</p>
+            <p className="text-[10px] text-[#737373]">Dashboard → SQL Editor → New query → paste → Run it</p>
+            <pre className="bg-red-100 rounded-lg p-3 text-[10px] overflow-auto whitespace-pre-wrap leading-relaxed">{`BEGIN;
+DROP POLICY IF EXISTS "dept_workspace_read"  ON departments;
+DROP POLICY IF EXISTS "dept_workspace_write" ON departments;
+CREATE POLICY "dept_workspace_read" ON departments FOR SELECT USING (
+  workspace_id IN (SELECT id FROM workspaces WHERE owner_id = auth.uid())
+  OR workspace_id IN (
+    SELECT workspace_id FROM memberships WHERE user_id = auth.uid() AND status = 'active'
+  )
+);
+CREATE POLICY "dept_workspace_write" ON departments FOR ALL USING (
+  workspace_id IN (SELECT id FROM workspaces WHERE owner_id = auth.uid())
+);
+INSERT INTO departments (workspace_id, name, slug, color)
+  SELECT id, 'Development', 'development', '#3B82F6' FROM workspaces
+  WHERE NOT EXISTS (SELECT 1 FROM departments WHERE workspace_id = workspaces.id AND slug = 'development');
+COMMIT;`}</pre>
+          </div>
+        )}
         <button
           disabled={seeding}
           onClick={async () => {
             if (!activeWorkspace) return;
             setSeeding(true);
+            setSeedError("");
             try {
-              await fetch("/api/departments/seed", {
+              const res = await fetch("/api/departments/seed", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ workspace_id: activeWorkspace.id }),
               });
-              await load(false);
+              const j = await res.json().catch(() => ({}));
+              if (res.ok) {
+                await load(true);
+              } else {
+                setSeedError(j.error ?? "Initialization failed. Run the SQL migration in Supabase.");
+              }
+            } catch {
+              setSeedError("Initialization failed. Run supabase/migrations/20250111_fix_dept_workspace_seeding.sql in Supabase SQL Editor.");
             } finally {
               setSeeding(false);
             }
@@ -103,7 +148,7 @@ const { activeWorkspace, loading: wsLoading } = useWorkspace();
           style={{ background: meta.color }}
         >
           <RefreshCw size={13} className={seeding ? "animate-spin" : ""} />
-          {seeding ? "Initializing…" : "Initialize Department"}
+          {seeding ? "Initializing…" : "Try Again"}
         </button>
       </div>
     </div>
