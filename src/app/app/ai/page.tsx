@@ -14,6 +14,7 @@ import SearchModal from "@/components/SearchModal";
 import WebSearchButton from "@/components/WebSearchButton";
 import FileUpload from "@/components/FileUpload";
 import ApprovalModal, { PendingAction } from "@/components/ApprovalModal";
+import DocumentCard from "@/components/DocumentCard";
 
 // ── Markdown renderer ─────────────────────────────────────────────────────────
 function renderMarkdown(text: string): React.ReactNode[] {
@@ -153,7 +154,7 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
   );
 }
 
-interface Message { role: "user" | "assistant"; content: string; ts?: string; contextUsed?: boolean; isCommand?: boolean; webSearchUsed?: boolean; images?: string[]; }
+interface Message { role: "user" | "assistant"; content: string; ts?: string; contextUsed?: boolean; isCommand?: boolean; webSearchUsed?: boolean; images?: string[]; document?: { title: string; content: string }; }
 interface Session { id: string; title: string; created_at: string; messages?: Message[]; }
 
 function groupSessions(sessions: Session[]) {
@@ -240,6 +241,8 @@ export default function AIPage() {
       content: data.result ?? "✅ Action completed.",
       ts: new Date().toISOString(),
       isCommand: true,
+      // Carry document payload if returned (generate_document action)
+      document: data.document ?? undefined,
     };
     setMessages(prev => {
       const updated = [...prev, resultMsg];
@@ -858,6 +861,10 @@ export default function AIPage() {
                                   </div>
                                 ) : (
                                   <div className="prose-sm">{renderMarkdown(msg.content)}</div>
+                                )}
+                                {/* Document card — shown when AI generated a document */}
+                                {msg.document && (
+                                  <DocumentCard title={msg.document.title} content={msg.document.content} />
                                 )}
                                 {group.role === "assistant" && msg.contextUsed !== undefined && (
                                   <div className="mt-3 pt-2.5 border-t border-[#F0EDE9] flex items-center gap-3">

@@ -19,7 +19,10 @@ interface Props {
 }
 
 const ACTION_META: Record<string, { label: string; icon: any; color: string; bg: string }> = {
+  "app.create_project":      { label: "Create Project",        icon: FolderKanban, color: "#6366F1", bg: "#EEF2FF" },
+  "app.generate_document":   { label: "Generate Document",     icon: FileText,     color: "#E8521A", bg: "#FFF4EF" },
   "app.create_task":         { label: "Create Task",           icon: ListTodo,     color: "#3B82F6", bg: "#EFF6FF" },
+  "app.complete_task":       { label: "Complete Task",         icon: CheckCircle2, color: "#10B981", bg: "#ECFDF5" },
   "app.create_decision":     { label: "Log Decision",          icon: Scale,        color: "#8B5CF6", bg: "#F5F3FF" },
   "app.update_project":      { label: "Update Project",        icon: FolderKanban, color: "#10B981", bg: "#ECFDF5" },
   "app.add_project_update":  { label: "Add Project Update",    icon: FileText,     color: "#F59E0B", bg: "#FFFBEB" },

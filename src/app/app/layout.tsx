@@ -4,9 +4,9 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import {
-  LayoutDashboard, Bot, FolderKanban, Scale, ShieldCheck,
-  SunMedium, Users, Search, LogOut, FlaskConical, X, Building2,
-  BarChart2, ChevronDown, ChevronRight, UserCircle, Layers, Plus, BookOpen, Plug,
+  LayoutDashboard, Bot, FolderKanban,
+  Users, Search, LogOut, X, Building2,
+  BarChart2, ChevronDown, ChevronRight, UserCircle, Layers, Plus, Plug,
   Palette, Code2, Megaphone
 } from "lucide-react";
 import { WorkspaceProvider } from '@/context/WorkspaceContext';
@@ -15,16 +15,11 @@ import BottomNav from '@/components/BottomNav';
 
 // ── Owner-level nav items ──────────────────────────────────────────────────────
 const ownerItems = [
-  { to: "/app",             icon: LayoutDashboard, label: "Dashboard" },
-  { to: "/app/ai",          icon: Bot,             label: "AI Assistant" },
-  { to: "/app/documents",   icon: BookOpen,        label: "Documents" },
-  { to: "/app/projects",    icon: FolderKanban,    label: "Projects" },
+  { to: "/app",              icon: LayoutDashboard, label: "Dashboard" },
+  { to: "/app/ai",           icon: Bot,             label: "AI Assistant" },
+  { to: "/app/projects",     icon: FolderKanban,    label: "Projects" },
   { to: "/app/integrations", icon: Plug,            label: "Integrations" },
-  { to: "/app/decisions",   icon: Scale,           label: "Decisions" },
-  { to: "/app/rules",       icon: ShieldCheck,     label: "Rules" },
-  { to: "/app/daily-check", icon: SunMedium,       label: "Daily Check" },
-  { to: "/app/research",    icon: FlaskConical,    label: "Research" },
-  { to: "/app/search",      icon: Search,          label: "Search" },
+  { to: "/app/search",       icon: Search,          label: "Search" },
 ];
 
 // ── Workspace-level items ──────────────────────────────────────────────────────

@@ -28,6 +28,66 @@ export async function POST(req: NextRequest) {
 
   // ── In-app actions (fully executable) ────────────────────────────────────────
 
+  // app.generate_document — returns content to client for save/download; never writes to DB here
+  if (type === "app.generate_document") {
+    const { title, content } = params;
+    if (!title?.trim()) return NextResponse.json({ error: "title required" }, { status: 400 });
+    return NextResponse.json({
+      success: true,
+      result: `📄 Document ready: **${title}**\nChoose to add it to a project or download below.`,
+      document: { title: String(title).trim(), content: String(content ?? "") },
+    });
+  }
+
+  if (type === "app.create_project") {
+    const { name, description } = params;
+    if (!name?.trim()) return NextResponse.json({ error: "name required" }, { status: 400 });
+
+    // Return existing if already exists
+    const { data: existing } = await supabase.from("projects")
+      .select("id, name, status").eq("user_id", user.id).ilike("name", name.trim()).limit(1);
+    if (existing?.length) {
+      return NextResponse.json({
+        success: true,
+        result: `ℹ️ Project **${existing[0].name}** already exists`,
+        data: existing[0],
+      });
+    }
+
+    const { data, error } = await supabase.from("projects").insert({
+      user_id: user.id,
+      name: name.trim(),
+      description: description?.trim() ?? null,
+      status: "active",
+      tags: [],
+    }).select("id, name, status").single();
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({
+      success: true,
+      result: `✅ Project **${data.name}** created`,
+      data,
+    });
+  }
+
+  if (type === "app.complete_task") {
+    const { task_id, title } = params;
+    if (!task_id) return NextResponse.json({ error: "task_id required" }, { status: 400 });
+
+    const { data, error } = await supabase.from("project_tasks")
+      .update({ status: "done", updated_at: new Date().toISOString() })
+      .eq("id", task_id)
+      .eq("user_id", user.id)
+      .select("id, title, status").single();
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({
+      success: true,
+      result: `✅ Task marked complete: **${data.title ?? title ?? task_id}**`,
+      data,
+    });
+  }
+
   if (type === "app.create_task") {
     const { title, project_id, priority, due_date } = params;
     if (!title?.trim()) return NextResponse.json({ error: "title required" }, { status: 400 });
@@ -100,7 +160,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (type === "app.add_project_update") {
-    const { project_id, content, update_type } = params;
+    const { project_id, content, update_type, next_actions } = params;
     if (!project_id || !content?.trim()) return NextResponse.json({ error: "project_id and content required" }, { status: 400 });
 
     const { data, error } = await supabase.from("project_updates").insert({
@@ -108,12 +168,13 @@ export async function POST(req: NextRequest) {
       user_id: user.id,
       content: content.trim(),
       update_type: update_type ?? "progress",
+      next_actions: next_actions ?? null,
     }).select("id").single();
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({
       success: true,
-      result: `✅ Project update added (${update_type ?? "progress"})`,
+      result: `✅ Project update logged (${update_type ?? "progress"})${next_actions ? `\n→ Next: ${next_actions}` : ""}`,
       data,
     });
   }

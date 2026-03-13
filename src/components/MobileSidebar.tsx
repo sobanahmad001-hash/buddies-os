@@ -1,19 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { Menu, X, LayoutDashboard, Bot, FolderKanban, Scale, ShieldCheck, SunMedium, FlaskConical, Users, Search, Palette, Code2, Megaphone, BarChart2, UserCircle } from 'lucide-react';
+import { Menu, X, LayoutDashboard, Bot, FolderKanban, Plug, Users, Search, Palette, Code2, Megaphone, BarChart2, UserCircle } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const ownerLinks = [
-  { href: '/app',            icon: LayoutDashboard, label: 'Dashboard' },
-  { href: '/app/ai',         icon: Bot,             label: 'AI Assistant' },
-  { href: '/app/projects',   icon: FolderKanban,    label: 'Projects' },
-  { href: '/app/decisions',  icon: Scale,           label: 'Decisions' },
-  { href: '/app/rules',      icon: ShieldCheck,     label: 'Rules' },
-  { href: '/app/daily-check',icon: SunMedium,       label: 'Daily Check' },
-  { href: '/app/research',   icon: FlaskConical,    label: 'Research' },
-  { href: '/app/search',     icon: Search,          label: 'Search' },
+  { href: '/app',              icon: LayoutDashboard, label: 'Dashboard' },
+  { href: '/app/ai',           icon: Bot,             label: 'AI Assistant' },
+  { href: '/app/projects',     icon: FolderKanban,    label: 'Projects' },
+  { href: '/app/integrations', icon: Plug,            label: 'Integrations' },
+  { href: '/app/search',       icon: Search,          label: 'Search' },
 ];
 
 const workspaceLinks = [
