@@ -340,29 +340,52 @@ export default function IntegrationsPage() {
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [loading, setLoading] = useState(true);
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+
+  function showToast(msg: string, ok: boolean) {
+    setToast({ msg, ok });
+    setTimeout(() => setToast(null), 5000);
+  }
 
   const fetchIntegrations = useCallback(async () => {
     setLoading(true);
-    const res = await fetch("/api/integrations").then(r => r.json()).catch(() => ({}));
-    setIntegrations(res.integrations ?? []);
-    setWorkspaceId(res.workspace_id ?? null);
+    setFetchError(null);
+    try {
+      const r = await fetch("/api/integrations");
+      const res = await r.json();
+      if (!r.ok) {
+        setFetchError(res.error ?? `Error ${r.status}`);
+      } else {
+        setIntegrations(res.integrations ?? []);
+        setWorkspaceId(res.workspace_id ?? null);
+      }
+    } catch (e: any) {
+      setFetchError(e.message ?? "Network error");
+    }
     setLoading(false);
   }, []);
 
   useEffect(() => { fetchIntegrations(); }, [fetchIntegrations]);
 
   async function addIntegration(type: string, name: string, config: Record<string, string>) {
-    const res = await fetch("/api/integrations", {
+    const r = await fetch("/api/integrations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ type, name, config, workspace_id: workspaceId }),
-    }).then(r => r.json());
-    if (res.integration) setIntegrations(prev => [res.integration, ...prev]);
+    });
+    const res = await r.json();
+    if (!r.ok) throw new Error(res.error ?? `Server error ${r.status}`);
+    // Re-fetch from server to confirm it was actually persisted
+    await fetchIntegrations();
+    showToast(`${name} connected successfully`, true);
   }
 
   async function deleteIntegration(id: string) {
-    await fetch(`/api/integrations/${id}`, { method: "DELETE" });
-    setIntegrations(prev => prev.filter(i => i.id !== id));
+    const r = await fetch(`/api/integrations/${id}`, { method: "DELETE" });
+    if (r.ok) {
+      setIntegrations(prev => prev.filter(i => i.id !== id));
+    }
   }
 
   const totalConnected = INTEGRATION_DEFS.reduce((acc, def) => {
@@ -371,6 +394,25 @@ export default function IntegrationsPage() {
 
   return (
     <div className="min-h-screen bg-[#FAF8F5] px-6 py-8 max-w-4xl mx-auto">
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-[13px] font-medium ${
+          toast.ok ? "bg-[#D1FAE5] text-[#065F46] border border-[#A7F3D0]" : "bg-[#FEE2E2] text-[#991B1B] border border-[#FECACA]"
+        }`}>
+          {toast.ok ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
+          {toast.msg}
+        </div>
+      )}
+
+      {/* Fetch error banner */}
+      {fetchError && (
+        <div className="mb-4 flex items-center gap-2 p-3 rounded-xl bg-[#FEF2F2] border border-[#FECACA] text-[12px] text-[#991B1B]">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span><strong>Could not load integrations:</strong> {fetchError}</span>
+          <button onClick={fetchIntegrations} className="ml-auto text-[#991B1B] underline hover:no-underline">Retry</button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-start justify-between mb-8">
         <div>
@@ -381,6 +423,11 @@ export default function IntegrationsPage() {
           <p className="text-[13px] text-[#8A8A8A]">
             Connect external tools so Buddies can assist across your entire stack.
           </p>
+          {!loading && !workspaceId && (
+            <p className="mt-1 text-[11px] text-red-500 flex items-center gap-1">
+              <AlertCircle className="w-3 h-3" /> No workspace found — make sure you have an active workspace.
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-3">
           {totalConnected > 0 && (
