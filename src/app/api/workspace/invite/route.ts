@@ -40,3 +40,27 @@ export async function GET(req: NextRequest) {
     .eq("workspace_id", wsId).order("created_at", { ascending: false });
   return NextResponse.json({ invites: data ?? [] });
 }
+
+export async function DELETE(req: NextRequest) {
+  const supabase = await getSupabase();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+
+  const inviteId = req.nextUrl.searchParams.get("id");
+  if (!inviteId) return NextResponse.json({ error: "invite id required" }, { status: 400 });
+
+  // Only allow the user who created the invite (or workspace owner) to revoke it
+  const { data: invite } = await supabase.from("workspace_invites").select("invited_by, workspace_id")
+    .eq("id", inviteId).single();
+  if (!invite) return NextResponse.json({ error: "Invite not found" }, { status: 404 });
+
+  const { data: ws } = await supabase.from("workspaces").select("id")
+    .eq("id", invite.workspace_id).eq("owner_id", user.id).maybeSingle();
+
+  if (!ws && invite.invited_by !== user.id) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  await supabase.from("workspace_invites").update({ status: "cancelled" }).eq("id", inviteId);
+  return NextResponse.json({ revoked: true });
+}

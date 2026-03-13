@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useWorkspace } from "@/context/WorkspaceContext";
-import { Users, ChevronRight, Plus, Copy, Palette, Code2, Megaphone } from "lucide-react";
+import { Users, ChevronRight, Plus, Copy, Palette, Code2, Megaphone, Trash2, X } from "lucide-react";
 
 const DEPT_META: Record<string, { icon: any; color: string; bg: string; label: string }> = {
   design:      { icon: Palette,   color: "#8B5CF6", bg: "#8B5CF610", label: "Design" },
@@ -11,8 +11,8 @@ const DEPT_META: Record<string, { icon: any; color: string; bg: string; label: s
   marketing:   { icon: Megaphone, color: "#10B981", bg: "#10B98110", label: "Marketing" },
 };
 
-const ROLES = ["dept_head", "executive", "intern"];
-const ROLE_LABEL: Record<string, string> = { dept_head: "Dept Head", executive: "Executive", intern: "Intern" };
+const ROLES = ["dept_head", "executive", "member", "intern"];
+const ROLE_LABEL: Record<string, string> = { dept_head: "Dept Head", executive: "Executive", member: "Member", intern: "Intern" };
 
 export default function WorkspacePage() {
   const router = useRouter();
@@ -62,11 +62,11 @@ export default function WorkspacePage() {
 
   async function loadMembers(wsId: string) {
     const { data } = await supabase.from("memberships")
-      .select("*, departments(name, slug, color)")
+      .select("*, departments(name, slug, color), profiles(full_name, avatar_url)")
       .eq("workspace_id", wsId).neq("status", "suspended");
     const enriched = (data ?? []).map((m: any) => ({
       ...m,
-      invited_email: m.invited_email ?? (m.role === "owner" ? "sobanahmed9090@gmail.com" : m.user_id)
+      display_name: (m.profiles as any)?.full_name || m.invited_email || m.user_id || "Unknown",
     }));
     setMembers(enriched);
   }
@@ -84,9 +84,11 @@ export default function WorkspacePage() {
     const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
     await supabase.from("workspace_invites").insert({
       workspace_id: activeWorkspace.id, invited_by: (await supabase.auth.getUser()).data.user?.id,
-      email: inviteEmail.trim(), role: inviteRole, token, status: "pending", expires_at: expires
+      email: inviteEmail.trim(), role: inviteRole, token, status: "pending", expires_at: expires,
+      ...(inviteDept ? { department_id: inviteDept } : {}),
     });
     setInviteEmail("");
+    setInviteDept("");
     setInviting(false);
     await loadInvites(activeWorkspace.id);
   }
@@ -101,6 +103,12 @@ export default function WorkspacePage() {
     if (activeWorkspace) await loadMembers(activeWorkspace.id);
   }
 
+  async function removeMember(memberId: string) {
+    if (!confirm("Remove this member from the workspace?")) return;
+    await supabase.from("memberships").update({ status: "suspended" }).eq("id", memberId);
+    if (activeWorkspace) await loadMembers(activeWorkspace.id);
+  }
+
   async function saveName() {
     if (!newName.trim() || !activeWorkspace) return;
     await supabase.from("workspaces").update({ name: newName.trim() }).eq("id", activeWorkspace.id);
@@ -110,6 +118,12 @@ export default function WorkspacePage() {
 
   function copyInviteLink(token: string) {
     navigator.clipboard.writeText(`${window.location.origin}/join?token=${token}`);
+  }
+
+  async function revokeInvite(inviteId: string) {
+    if (!confirm("Revoke this invite?")) return;
+    await fetch(`/api/workspace/invite?id=${inviteId}`, { method: "DELETE" });
+    if (activeWorkspace) await loadInvites(activeWorkspace.id);
   }
 
   const membersByDept = (deptId: string) => members.filter(m => m.department_id === deptId && m.role !== "owner");
@@ -201,8 +215,8 @@ export default function WorkspacePage() {
                     <div className="flex items-center gap-1 mt-3">
                       {dMembers.slice(0, 5).map((m: any) => (
                         <div key={m.id} className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[9px] font-bold shrink-0"
-                          style={{ backgroundColor: meta.color }} title={m.invited_email}>
-                          {(m.invited_email ?? "?")[0].toUpperCase()}
+                          style={{ backgroundColor: meta.color }} title={m.display_name}>
+                          {(m.display_name ?? "?")[0].toUpperCase()}
                         </div>
                       ))}
                       {dMembers.length > 5 && <div className="text-[10px] text-[#737373]">+{dMembers.length - 5}</div>}
@@ -257,9 +271,14 @@ export default function WorkspacePage() {
                     <div key={m.id} className="flex items-center gap-3">
                       <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
                         style={{ backgroundColor: meta.color }}>
-                        {(m.invited_email ?? "?")[0].toUpperCase()}
+                        {(m.display_name ?? "?")[0].toUpperCase()}
                       </div>
-                      <div className="flex-1 text-sm text-[#1A1A1A] truncate">{m.invited_email}</div>
+                      <div className="flex-1 min-w-0">
+                      <div className="text-sm text-[#1A1A1A] truncate font-medium">{m.display_name}</div>
+                      {m.invited_email && m.display_name !== m.invited_email && (
+                        <div className="text-[10px] text-[#B0ADA9] truncate">{m.invited_email}</div>
+                      )}
+                    </div>
                       <select value={m.role} onChange={e => updateRole(m.id, e.target.value)}
                         className="text-xs px-2 py-1 border border-[#E5E2DE] rounded-lg bg-white focus:outline-none">
                         {ROLES.map(r => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
@@ -269,6 +288,10 @@ export default function WorkspacePage() {
                         <option value="">No dept</option>
                         {departments.map(d => <option key={d.id} value={d.id}>{DEPT_META[d.slug]?.label ?? d.name}</option>)}
                       </select>
+                      <button onClick={() => removeMember(m.id)} title="Remove member"
+                        className="p-1 rounded-lg text-[#B0ADA9] hover:text-red-500 hover:bg-red-50 transition-colors">
+                        <X size={13} />
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -287,9 +310,14 @@ export default function WorkspacePage() {
                 {unassigned.map((m: any) => (
                   <div key={m.id} className="flex items-center gap-3">
                     <div className="w-7 h-7 rounded-full bg-[#E5E2DE] flex items-center justify-center text-[#737373] text-[10px] font-bold shrink-0">
-                      {(m.invited_email ?? "?")[0].toUpperCase()}
+                      {(m.display_name ?? "?")[0].toUpperCase()}
                     </div>
-                    <div className="flex-1 text-sm text-[#1A1A1A] truncate">{m.invited_email}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-[#1A1A1A] truncate font-medium">{m.display_name}</div>
+                      {m.invited_email && m.display_name !== m.invited_email && (
+                        <div className="text-[10px] text-[#B0ADA9] truncate">{m.invited_email}</div>
+                      )}
+                    </div>
                     <select value={m.role} onChange={e => updateRole(m.id, e.target.value)}
                       className="text-xs px-2 py-1 border border-[#E5E2DE] rounded-lg bg-white focus:outline-none">
                       {ROLES.map(r => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
@@ -299,6 +327,10 @@ export default function WorkspacePage() {
                       <option value="">Assign dept</option>
                       {departments.map(d => <option key={d.id} value={d.id}>{DEPT_META[d.slug]?.label ?? d.name}</option>)}
                     </select>
+                    <button onClick={() => removeMember(m.id)} title="Remove member"
+                      className="p-1 rounded-lg text-[#B0ADA9] hover:text-red-500 hover:bg-red-50 transition-colors">
+                      <X size={13} />
+                    </button>
                   </div>
                 ))}
               </div>
@@ -321,6 +353,10 @@ export default function WorkspacePage() {
                   <button onClick={() => copyInviteLink(inv.token)}
                     className="flex items-center gap-1 text-xs text-[#E8521A] hover:underline">
                     <Copy size={11} /> Copy link
+                  </button>
+                  <button onClick={() => revokeInvite(inv.id)} title="Revoke invite"
+                    className="p-1 rounded-lg text-[#B0ADA9] hover:text-red-500 hover:bg-red-50 transition-colors">
+                    <Trash2 size={12} />
                   </button>
                 </div>
               ))}
