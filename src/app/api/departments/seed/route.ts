@@ -18,11 +18,14 @@ async function userClient() {
   );
 }
 
-const adminClient = () =>
-  createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+// Use service role if available (bypasses RLS), otherwise fall back to user session
+function writeClient(userSupabase: ReturnType<typeof createServerClient>) {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (serviceKey) {
+    return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey);
+  }
+  return userSupabase;
+}
 
 // POST /api/departments/seed
 // Body: { workspace_id: string }
@@ -45,12 +48,13 @@ export async function POST(req: NextRequest) {
 
   if (!ws) return NextResponse.json({ error: "Workspace not found or access denied" }, { status: 403 });
 
-  const admin = adminClient();
+  // Use service role if available (bypasses RLS), otherwise user session (RLS must allow owner writes)
+  const writer = writeClient(supabase as any);
   const results: Record<string, string> = {};
 
   for (const dept of DEFAULT_WORKSPACE_DEPARTMENTS) {
     // Check if already exists
-    const { data: existing } = await admin
+    const { data: existing } = await writer
       .from("departments")
       .select("id")
       .eq("workspace_id", workspace_id)
@@ -62,7 +66,7 @@ export async function POST(req: NextRequest) {
       continue;
     }
 
-    const { error } = await admin.from("departments").insert({
+    const { error } = await writer.from("departments").insert({
       workspace_id,
       name: dept.name,
       slug: dept.slug,
