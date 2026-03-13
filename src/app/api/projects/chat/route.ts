@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
     .single();
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  // Load all project context in parallel
+  // Load all project context + integrations in parallel
   const [
     { data: tasks },
     { data: updates },
@@ -70,6 +70,7 @@ export async function POST(req: NextRequest) {
     { data: projectRules },
     { data: projectResearch },
     { data: chatHistory },
+    { data: integrations },
   ] = await Promise.all([
     supabase.from("project_tasks").select("title, status, priority, due_date").eq("project_id", projectId).neq("status", "cancelled"),
     supabase.from("project_updates").select("content, update_type, next_actions, created_at").eq("project_id", projectId).order("created_at", { ascending: false }).limit(20),
@@ -77,6 +78,7 @@ export async function POST(req: NextRequest) {
     supabase.from("project_rules").select("rule_text, severity, active").eq("project_id", projectId).eq("active", true),
     supabase.from("project_research").select("topic, notes, created_at").eq("project_id", projectId).order("created_at", { ascending: false }).limit(10),
     supabase.from("project_chat_messages").select("role, content").eq("project_id", projectId).order("created_at", { ascending: true }).limit(40),
+    supabase.from("integrations").select("type, name, config, status").eq("user_id", user.id).eq("status", "active"),
   ]);
 
   // Build project context block
@@ -86,11 +88,70 @@ export async function POST(req: NextRequest) {
   const ruleLines = (projectRules ?? []).map((r: any) => `- [S${r.severity}] ${r.rule_text}`).join("\n");
   const researchLines = (projectResearch ?? []).map((r: any) => `[${r.topic}] ${r.notes.slice(0, 300)}`).join("\n");
 
+  // Build integrations context block (GitHub live data + Supabase info)
+  let integrationsBlock = "";
+  for (const i of (integrations ?? [])) {
+    if (i.type === "github" && i.config?.access_token && !i.config.access_token.includes("****") && i.config?.org_or_user) {
+      try {
+        const repoName = i.config?.repo_url
+          ? i.config.repo_url.replace(/^https?:\/\/github\.com\//, "").replace(/\.git$/, "").replace(/\/$/, "")
+          : null;
+        if (repoName) {
+          const ghHeaders: Record<string, string> = {
+            Authorization: `token ${i.config.access_token}`,
+            Accept: "application/vnd.github.v3+json",
+          };
+          const [treeRes, commitsRes, issuesRes, prsRes] = await Promise.all([
+            fetch(`https://api.github.com/repos/${repoName}/git/trees/HEAD?recursive=0`, { headers: ghHeaders }),
+            fetch(`https://api.github.com/repos/${repoName}/commits?per_page=10`, { headers: ghHeaders }),
+            fetch(`https://api.github.com/repos/${repoName}/issues?state=open&per_page=10`, { headers: ghHeaders }),
+            fetch(`https://api.github.com/repos/${repoName}/pulls?state=open&per_page=5`, { headers: ghHeaders }),
+          ]);
+          const [treeData, commitsData, issuesData, prsData] = await Promise.all([
+            treeRes.ok ? treeRes.json() : null,
+            commitsRes.ok ? commitsRes.json() : null,
+            issuesRes.ok ? issuesRes.json() : null,
+            prsRes.ok ? prsRes.json() : null,
+          ]);
+
+          const topFiles = (treeData?.tree ?? [])
+            .filter((f: any) => f.type === "blob" || f.type === "tree")
+            .slice(0, 40)
+            .map((f: any) => `${f.type === "tree" ? "📁" : "📄"} ${f.path}`)
+            .join("\n");
+
+          const recentCommits = Array.isArray(commitsData)
+            ? commitsData.map((c: any) => `  - ${c.commit?.message?.split("\n")[0] ?? "?"} (${c.commit?.author?.date?.slice(0, 10) ?? "?"} by ${c.commit?.author?.name ?? "?"})`)
+                .join("\n")
+            : "";
+
+          const openIssues = Array.isArray(issuesData)
+            ? issuesData.filter((i: any) => !i.pull_request).map((i: any) => `  #${i.number}: ${i.title} [${i.state}]`).join("\n")
+            : "";
+
+          const openPRs = Array.isArray(prsData)
+            ? prsData.map((p: any) => `  #${p.number}: ${p.title} (${p.head?.ref} → ${p.base?.ref})`).join("\n")
+            : "";
+
+          integrationsBlock += `\n\nGITHUB REPO: ${repoName}\n`;
+          if (topFiles) integrationsBlock += `FILE STRUCTURE:\n${topFiles}\n`;
+          if (recentCommits) integrationsBlock += `\nRECENT COMMITS:\n${recentCommits}\n`;
+          if (openIssues) integrationsBlock += `\nOPEN ISSUES:\n${openIssues}\n`;
+          if (openPRs) integrationsBlock += `\nOPEN PULL REQUESTS:\n${openPRs}\n`;
+        }
+      } catch { /* skip if GitHub API fails */ }
+    } else if (i.type === "supabase" && i.config?.project_url) {
+      integrationsBlock += `\n\nSUPABASE PROJECT: ${i.config.project_url}\n`;
+      integrationsBlock += `Connected Supabase project for data storage and auth.\n`;
+    }
+  }
+
   const systemPrompt = `You are the dedicated AI assistant for the project "${project.name}".
 ${project.description ? `Project description: ${project.description}` : ""}
 ${project.memory ? `Project memory: ${project.memory}` : ""}
 
-You ONLY know about this specific project. Do not reference other projects or workspaces.
+You have full access to this project's data including its connected GitHub repository and Supabase database.
+You can read code files, review commits, check open issues/PRs, and help the user work on this project.
 You have full read and write capability for this project's tasks, decisions, rules, and research.
 
 ${taskLines ? `TASKS:\n${taskLines}` : "No tasks yet."}
@@ -98,8 +159,10 @@ ${updateLines ? `\nRECENT UPDATES:\n${updateLines}` : ""}
 ${decisionLines ? `\nDECISIONS:\n${decisionLines}` : ""}
 ${ruleLines ? `\nACTIVE RULES (follow these strictly):\n${ruleLines}` : ""}
 ${researchLines ? `\nRESEARCH NOTES:\n${researchLines}` : ""}
+${integrationsBlock}
 
-When the user asks you to create tasks, log decisions, add rules, or write research notes, acknowledge clearly that you've done so (the frontend will handle the actual writes via API calls from your structured response when needed).
+When the user asks you to create tasks, log decisions, add rules, or write research notes, acknowledge clearly that you've done so.
+When the user asks about code, refer to the GitHub repo structure and commits above.
 ${mode === "document" ? "\nYou are in DOCUMENT GENERATION mode. Return only the document content in clean markdown." : ""}`;
 
   // Build conversation history for context
