@@ -1,13 +1,15 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useParams } from 'next/navigation';
-import { Send, Bot, User, Plus, Trash2 } from 'lucide-react';
+import { useParams, useRouter } from 'next/navigation';
+import { Send, Bot, User, Trash2, FileText, Download } from 'lucide-react';
 
-type Message = { id?: string; role: 'user' | 'assistant'; content: string; created_at?: string };
+type Doc = { id: string; title: string; content: string };
+type Message = { id?: string; role: 'user' | 'assistant'; content: string; created_at?: string; document?: Doc };
 
 export default function ProjectAssistantPage() {
   const { id: projectId } = useParams<{ id: string }>();
+  const router = useRouter();
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input,    setInput]    = useState('');
@@ -49,7 +51,7 @@ export default function ProjectAssistantPage() {
       });
       const data = await res.json();
       if (data.reply) {
-        setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
+        setMessages(prev => [...prev, { role: 'assistant', content: data.reply, document: data.document ?? undefined }]);
       } else {
         setMessages(prev => [...prev, { role: 'assistant', content: data.error ? `Error: ${data.error}` : 'Something went wrong. Please try again.' }]);
       }
@@ -130,6 +132,26 @@ export default function ProjectAssistantPage() {
                 : 'bg-white border border-[#E5E2DE] text-[#1A1A1A] rounded-bl-sm'
             }`}>
               {msg.content}
+              {msg.document && (
+                <div className="mt-3 pt-3 border-t border-[#E5E2DE] flex items-center gap-2 flex-wrap">
+                  <FileText size={13} className="text-[#E8521A]" />
+                  <span className="text-[12px] font-semibold text-[#E8521A] flex-1 truncate">{msg.document.title}</span>
+                  <button
+                    onClick={() => router.push(`/app/projects/${projectId}/documents`)}
+                    className="text-[11px] px-2 py-0.5 bg-[#FEF3ED] text-[#E8521A] rounded-full hover:bg-[#FDBA9A] transition-colors font-semibold"
+                  >View in Documents →</button>
+                  <button
+                    onClick={() => {
+                      const blob = new Blob([`# ${msg.document!.title}\n\n${msg.document!.content}`], { type: 'text/markdown' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url; a.download = `${msg.document!.title.replace(/\s+/g, '-').toLowerCase()}.md`;
+                      a.click(); URL.revokeObjectURL(url);
+                    }}
+                    className="text-[11px] px-2 py-0.5 bg-[#F7F5F2] text-[#737373] rounded-full hover:bg-[#E5E2DE] transition-colors font-semibold flex items-center gap-1"
+                  ><Download size={10} /> Download</button>
+                </div>
+              )}
             </div>
             {msg.role === 'user' && (
               <div className="w-7 h-7 rounded-full bg-[#1A1A1A] flex items-center justify-center shrink-0 mt-0.5">

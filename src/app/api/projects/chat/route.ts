@@ -239,7 +239,71 @@ ${mode === "document" ? "\nYou are in DOCUMENT GENERATION mode. Return only the 
     }
   }
 
-  return NextResponse.json({ reply });
+  // Auto-detect document creation intent and generate + save document
+  let savedDocument: { id: string; title: string; content: string } | null = null;
+  const docIntent = /\b(create|make|write|generate|draft|produce|build)\b.{0,40}\b(document|doc|pdf|report|brief|summary|readme|spec|proposal|plan)\b/i;
+  if (mode !== "document" && docIntent.test(message)) {
+    try {
+      // Extract a clean title from the message
+      const titleMatch = message.match(/(?:about|for|on|titled?|called?|named?)\s+["']?(.{3,80})["']?/i);
+      const docTitle = titleMatch
+        ? titleMatch[1].replace(/["']/g, "").trim()
+        : message.replace(/^(create|make|write|generate|draft|produce|build)\s+(a\s+)?(document|doc|pdf|report|brief|summary|readme|spec|proposal|plan)\s*/i, "").trim().slice(0, 80) || `Document - ${new Date().toLocaleDateString()}`;
+
+      // Generate clean document content
+      const docPrompt = `Generate a well-structured, professional document for the project "${project.name}" about: ${message}.\nReturn ONLY the document content in clean markdown. No preamble, no explanation.`;
+      let docContent = "";
+      try {
+        if (process.env.ANTHROPIC_API_KEY) {
+          const docRes = await anthropic.messages.create({
+            model: "claude-haiku-4-5-20251001",
+            max_tokens: 3000,
+            system: `You generate clean markdown documents for the project "${project.name}". Return only document content, no meta-commentary.`,
+            messages: [{ role: "user", content: docPrompt }],
+          });
+          docContent = docRes.content[0].type === "text" ? docRes.content[0].text : "";
+        }
+        if (!docContent) throw new Error("no content");
+      } catch {
+        const oaiDocRes = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          max_tokens: 3000,
+          messages: [
+            { role: "system", content: `You generate clean markdown documents for the project "${project.name}". Return only document content, no meta-commentary.` },
+            { role: "user", content: docPrompt },
+          ],
+        });
+        docContent = oaiDocRes.choices[0].message.content ?? "";
+      }
+
+      if (docContent) {
+        const { data: newDoc } = await supabase.from("project_documents").insert({
+          project_id: projectId,
+          user_id: user.id,
+          title: docTitle,
+          content: docContent,
+        }).select("id, title, content").single();
+
+        if (newDoc) {
+          savedDocument = newDoc;
+          // Update the assistant reply to confirm
+          reply = `✅ Document created and saved to your Documents tab.\n\n**"${docTitle}"** — ${docContent.split("\n").filter(Boolean)[0]?.slice(0, 120) ?? ""}…`;
+          // Update the already-saved reply in DB
+          await supabase.from("project_chat_messages")
+            .update({ content: reply })
+            .eq("project_id", projectId)
+            .eq("user_id", user.id)
+            .eq("role", "assistant")
+            .order("created_at", { ascending: false })
+            .limit(1);
+        }
+      }
+    } catch (docErr: any) {
+      console.error("Document generation error:", docErr.message);
+    }
+  }
+
+  return NextResponse.json({ reply, document: savedDocument });
   } catch (err: any) {
     console.error("[project-chat] unhandled error:", err);
     return NextResponse.json({ error: err?.message ?? "Internal server error" }, { status: 500 });
