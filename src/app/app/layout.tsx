@@ -5,13 +5,14 @@ import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import {
   LayoutDashboard, Bot, FolderKanban,
-  Users, Search, LogOut, X, Building2,
-  BarChart2, ChevronDown, ChevronRight, UserCircle, Layers, Plus, Plug,
+  Users, Search, LogOut, X,
+  ChevronDown, ChevronRight, Plug,
   Palette, Code2, Megaphone
 } from "lucide-react";
 import { WorkspaceProvider } from '@/context/WorkspaceContext';
 import WorkspaceSwitcher from '@/components/WorkspaceSwitcher';
 import BottomNav from '@/components/BottomNav';
+import { useRole } from '@/hooks/useRole';
 
 // ── Owner-level nav items ──────────────────────────────────────────────────────
 const ownerItems = [
@@ -22,20 +23,12 @@ const ownerItems = [
   { to: "/app/search",       icon: Search,          label: "Search" },
 ];
 
-// ── Workspace-level items ──────────────────────────────────────────────────────
-const workspaceItems = [
-  { to: "/app/workspace",   icon: Users,           label: "Workspace" },
-  { to: "/app/clients",     icon: UserCircle,      label: "Clients" },
-  { to: "/app/marketing",   icon: BarChart2,       label: "Marketing" },
-  { to: "/app/org",         icon: Building2,       label: "Organizations" },
-];
-
-// ── Department environment items ──────────────────────────────────────────────
-const deptItems = [
-  { to: "/app/dept/design",      icon: Palette,   label: "Design" },
-  { to: "/app/dept/development", icon: Code2,     label: "Development" },
-  { to: "/app/dept/marketing",   icon: Megaphone, label: "Marketing Dept" },
-];
+// ── Dept config ────────────────────────────────────────────────────────────────
+const DEPT_NAV = [
+  { slug: "design",      icon: Palette,   label: "Design",      color: "#8B5CF6" },
+  { slug: "development", icon: Code2,     label: "Development", color: "#3B82F6" },
+  { slug: "marketing",   icon: Megaphone, label: "Marketing",   color: "#10B981" },
+] as const;
 
 function NavLink({ to, icon: Icon, label, collapsed, indent = 0, onClick }: {
   to: string; icon: any; label: string; collapsed: boolean; indent?: number; onClick?: () => void;
@@ -65,140 +58,93 @@ function SectionLabel({ label, collapsed }: { label: string; collapsed: boolean 
   );
 }
 
-function CollapsibleSection({ label, icon: Icon, children, collapsed, defaultOpen = false }: {
-  label: string; icon: any; children: React.ReactNode; collapsed: boolean; defaultOpen?: boolean;
+// ── Department expandable nav item ────────────────────────────────────────────
+function DeptNavItem({ dept, collapsed, close }: {
+  dept: typeof DEPT_NAV[number]; collapsed: boolean; close: () => void;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
-  if (collapsed) return <>{children}</>;
-  return (
-    <div>
-      <button
-        onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-2 w-full px-3 mx-0 py-[7px] pl-5 pr-3 text-[#8A8A8A] hover:text-white transition-colors text-[11px] font-semibold uppercase tracking-wider">
-        <Icon className="w-[14px] h-[14px] shrink-0" />
-        <span className="flex-1 text-left">{label}</span>
-        {open ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-      </button>
-      {open && <div className="pl-2">{children}</div>}
-    </div>
-  );
-}
-
-// ── Dynamic org-and-departments collapsible ────────────────────────────────────
-interface OrgItem { id: string; name: string; }
-interface DeptItem { id: string; name: string; slug?: string; }
-
-function OrgDeptSection({ org, collapsed, close }: { org: OrgItem; collapsed: boolean; close: () => void }) {
-  const [open, setOpen] = useState(false);
-  const [depts, setDepts] = useState<DeptItem[]>([]);
-  const [loaded, setLoaded] = useState(false);
   const pathname = usePathname();
-  const orgActive = pathname === `/app/org/${org.id}`;
+  const base = `/app/dept/${dept.slug}`;
+  const isInDept = pathname.startsWith(base);
+  const [open, setOpen] = useState(isInDept);
 
-  const toggle = async () => {
-    if (!loaded) {
-      const res = await fetch(`/api/departments?organization_id=${org.id}`);
-      const data = await res.json();
-      setDepts(data.departments ?? []);
-      setLoaded(true);
-    }
-    setOpen(v => !v);
-  };
+  // Auto-expand when navigating into this dept
+  useEffect(() => { if (isInDept) setOpen(true); }, [isInDept]);
+
+  const Icon = dept.icon;
 
   if (collapsed) {
     return (
-      <Link href={`/app/org/${org.id}`} onClick={close}
-        className={`flex items-center justify-center py-[7px] mx-2 rounded-lg transition-colors ${orgActive ? "bg-[#1E1E1E] text-white" : "text-[#8A8A8A] hover:text-white hover:bg-[#1E1E1E]"}`}
-        title={org.name}>
-        <Building2 className="w-[16px] h-[16px]" />
+      <Link href={base} onClick={close}
+        className={`flex items-center justify-center py-[7px] mx-2 rounded-lg transition-colors ${isInDept ? "bg-[#1E1E1E] text-white" : "text-[#8A8A8A] hover:text-white hover:bg-[#1E1E1E]"}`}
+        title={dept.label}>
+        <Icon className="w-[16px] h-[16px]" />
       </Link>
     );
   }
 
   return (
     <div>
-      <div className={`flex items-center pl-5 pr-2 py-[7px] mx-2 rounded-lg transition-colors ${orgActive ? "bg-[#1E1E1E] text-white" : "text-[#8A8A8A] hover:text-white hover:bg-[#1E1E1E]"}`}>
-        <Link href={`/app/org/${org.id}`} onClick={close} className="flex items-center gap-2 flex-1 min-w-0">
-          <Building2 className="w-[14px] h-[14px] shrink-0" />
-          <span className="text-[13px] leading-tight truncate">{org.name}</span>
+      <div className={`flex items-center pl-5 pr-2 py-[7px] mx-2 rounded-lg transition-colors ${isInDept ? "bg-[#1E1E1E] text-white" : "text-[#8A8A8A] hover:text-white hover:bg-[#1E1E1E]"}`}>
+        <Link href={base} onClick={close} className="flex items-center gap-2 flex-1 min-w-0">
+          <Icon className="w-[14px] h-[14px] shrink-0" style={{ color: dept.color }} />
+          <span className="text-[13px] leading-tight truncate">{dept.label}</span>
         </Link>
-        <button onClick={toggle} className="ml-1 p-0.5 rounded hover:bg-[#2E2E2E] shrink-0">
+        <button onClick={() => setOpen(v => !v)} className="ml-1 p-0.5 rounded hover:bg-[#2E2E2E] shrink-0">
           {open ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
         </button>
       </div>
       {open && (
         <div className="pl-4">
-          {depts.length === 0 ? (
-            <p className="text-[11px] text-[#3A3A3A] pl-5 py-1">No departments</p>
-          ) : (
-            depts.map(dept => (
-              <Link key={dept.id} href={`/app/org/${org.id}?dept=${dept.id}`} onClick={close}
-                className={`flex items-center gap-2 pl-5 pr-3 py-[6px] mx-2 rounded-lg text-[12px] transition-colors ${
-                  pathname === `/app/org/${org.id}` ? "text-[#8A8A8A] hover:text-white hover:bg-[#1E1E1E]" : "text-[#8A8A8A] hover:text-white hover:bg-[#1E1E1E]"
-                }`}>
-                <Layers className="w-[13px] h-[13px] shrink-0" />
-                <span className="truncate">{dept.name}</span>
+          {[
+            { label: "Overview",  to: base },
+            { label: "Assistant", to: `${base}/assistant` },
+            { label: "Projects",  to: `${base}/projects` },
+          ].map(item => {
+            const active = pathname === item.to || (item.to !== base && pathname.startsWith(item.to));
+            return (
+              <Link key={item.to} href={item.to} onClick={close}
+                className={`flex items-center pl-5 pr-3 py-[6px] mx-2 rounded-lg text-[12px] transition-colors ${active ? "text-white bg-[#1E1E1E]" : "text-[#8A8A8A] hover:text-white hover:bg-[#1E1E1E]"}`}>
+                {item.label}
               </Link>
-            ))
-          )}
+            );
+          })}
         </div>
       )}
     </div>
   );
 }
 
-// ── Dynamic Orgs section for sidebar ──────────────────────────────────────────
-function OrgsSection({ collapsed, close }: { collapsed: boolean; close: () => void }) {
-  const [orgs, setOrgs] = useState<OrgItem[]>([]);
-  const [open, setOpen] = useState(true);
-  const [loading, setLoading] = useState(true);
-  const router = useRouter();
-
-  useEffect(() => {
-    fetch("/api/organizations")
-      .then(r => r.json())
-      .then(d => { setOrgs(d.organizations ?? []); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, []);
-
-  if (collapsed) {
-    return (
-      <>
-        {orgs.map(org => (
-          <OrgDeptSection key={org.id} org={org} collapsed={collapsed} close={close} />
-        ))}
-      </>
-    );
-  }
+// ── Dept-only nav (for team members who only see their own dept) ───────────────
+function DeptOnlyNav({ slug, close }: { slug: string; close: () => void }) {
+  const pathname = usePathname();
+  const dept = DEPT_NAV.find(d => d.slug === slug);
+  const base = `/app/dept/${slug}`;
+  const label = dept?.label ?? slug.charAt(0).toUpperCase() + slug.slice(1);
+  const Icon = dept?.icon ?? Palette;
+  const color = dept?.color ?? "#E8521A";
 
   return (
-    <div>
-      <button
-        onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-2 w-full px-3 mx-0 py-[7px] pl-5 pr-3 text-[#8A8A8A] hover:text-white transition-colors text-[11px] font-semibold uppercase tracking-wider">
-        <Building2 className="w-[14px] h-[14px] shrink-0" />
-        <span className="flex-1 text-left">Organizations</span>
-        {open ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-      </button>
-      {open && (
-        <div className="pl-2">
-          {loading ? (
-            <p className="text-[11px] text-[#3A3A3A] pl-5 py-1">Loading...</p>
-          ) : orgs.length === 0 ? (
-            <button
-              onClick={() => { router.push("/app/org"); close(); }}
-              className="flex items-center gap-1.5 pl-5 pr-3 py-[6px] mx-2 rounded-lg text-[12px] text-[#8A8A8A] hover:text-white hover:bg-[#1E1E1E] transition-colors">
-              <Plus className="w-3 h-3" />
-              <span>Create organization</span>
-            </button>
-          ) : (
-            orgs.map(org => (
-              <OrgDeptSection key={org.id} org={org} collapsed={collapsed} close={close} />
-            ))
-          )}
+    <nav className="flex-1 py-2 overflow-y-auto space-y-0.5">
+      <div className="px-4 pt-4 pb-2">
+        <div className="flex items-center gap-2">
+          <Icon className="w-4 h-4 shrink-0" style={{ color }} />
+          <span className="text-[11px] font-bold tracking-[0.12em] uppercase" style={{ color }}>{label}</span>
         </div>
-      )}
-    </div>
+      </div>
+      {[
+        { label: "Overview",  to: base },
+        { label: "Assistant", to: `${base}/assistant` },
+        { label: "Projects",  to: `${base}/projects` },
+      ].map(item => {
+        const active = pathname === item.to || (item.to !== base && pathname.startsWith(item.to));
+        return (
+          <Link key={item.to} href={item.to} onClick={close}
+            className={`flex items-center gap-3 px-5 py-[7px] mx-2 rounded-lg text-[13px] transition-colors ${active ? "bg-[#1E1E1E] text-white font-medium" : "text-[#8A8A8A] hover:text-white hover:bg-[#1E1E1E]"}`}>
+            {item.label}
+          </Link>
+        );
+      })}
+    </nav>
   );
 }
 
@@ -212,6 +158,7 @@ function NavContent({
 }) {
   const router = useRouter();
   const close = () => setMobileOpen(false);
+  const { isTeamMember, departmentSlug, loading: roleLoading } = useRole();
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -248,31 +195,32 @@ function NavContent({
         <WorkspaceSwitcher />
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 py-2 overflow-y-auto space-y-0.5">
+      {/* Role-based nav */}
+      {!roleLoading && isTeamMember && departmentSlug ? (
+        // ── Team member: show only their dept ───────────────────────────────
+        <DeptOnlyNav slug={departmentSlug} close={close} />
+      ) : (
+        // ── Owner / default: show full nav ──────────────────────────────────
+        <nav className="flex-1 py-2 overflow-y-auto space-y-0.5">
 
-        {/* ── OWNER ─────────────────────────────── */}
-        <SectionLabel label="Owner" collapsed={collapsed} />
-        {ownerItems.map(item => (
-          <NavLink key={item.to} {...item} collapsed={collapsed} onClick={close} />
-        ))}
+          {/* ── OWNER ────────────────────────────────── */}
+          <SectionLabel label="Owner" collapsed={collapsed} />
+          {ownerItems.map(item => (
+            <NavLink key={item.to} {...item} collapsed={collapsed} onClick={close} />
+          ))}
 
-        {/* ── WORKSPACE ─────────────────────────── */}
-        <SectionLabel label="Workspace" collapsed={collapsed} />
-        {workspaceItems.map(item => (
-          <NavLink key={item.to} {...item} collapsed={collapsed} onClick={close} />
-        ))}
+          {/* ── WORKSPACE ────────────────────────────── */}
+          <SectionLabel label="Workspace" collapsed={collapsed} />
+          <NavLink to="/app/workspace" icon={Users} label="Workspace" collapsed={collapsed} onClick={close} />
 
-        {/* ── DEPARTMENTS ───────────────────────── */}
-        <SectionLabel label="Departments" collapsed={collapsed} />
-        {deptItems.map(item => (
-          <NavLink key={item.to} {...item} collapsed={collapsed} onClick={close} />
-        ))}
+          {/* ── DEPARTMENTS (collapsible, inline sub-items) ── */}
+          <SectionLabel label="Departments" collapsed={collapsed} />
+          {DEPT_NAV.map(dept => (
+            <DeptNavItem key={dept.slug} dept={dept} collapsed={collapsed} close={close} />
+          ))}
 
-        {/* ── ORGANIZATIONS (dynamic, from DB) ──── */}
-        <OrgsSection collapsed={collapsed} close={close} />
-
-      </nav>
+        </nav>
+      )}
 
       {/* Logout */}
       <div className="border-t border-[#1E1E1E] p-2">
