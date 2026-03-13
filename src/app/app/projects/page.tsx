@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 
 type Project = { id: string; name: string; description: string | null; status: string; priority: string | null; tags: string[] | null; updated_at: string; };
@@ -27,6 +27,13 @@ export default function ProjectsPage() {
   }
 
   useEffect(() => { load(); }, []);
+
+  async function handleDelete(id: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!confirm("Permanently delete this project and all its data? This cannot be undone.")) return;
+    await supabase.from("projects").delete().eq("id", id);
+    load();
+  }
 
   async function handleCreate() {
     if (!newName.trim()) return;
@@ -76,7 +83,15 @@ export default function ProjectsPage() {
                 className="bg-white border border-[#E5E2DE] rounded-xl p-5 cursor-pointer hover:border-[#CC785C]/40 transition-colors">
                 <div className="flex items-start justify-between mb-2">
                   <h3 className="text-[14px] font-semibold text-[#1A1A1A]">{p.name}</h3>
-                  <StatusBadge status={p.status} />
+                  <div className="flex items-center gap-2">
+                    <StatusBadge status={p.status} />
+                    {p.status === "archived" && (
+                      <button onClick={e => handleDelete(p.id, e)}
+                        className="p-1 text-[#737373] hover:text-[#EF4444] transition-colors" title="Delete project">
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
                 </div>
                 {p.description && <p className="text-[13px] text-[#737373] mb-3 leading-relaxed">{p.description}</p>}
                 {p.tags && p.tags.length > 0 && (
