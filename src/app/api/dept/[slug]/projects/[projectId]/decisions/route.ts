@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
+import { resolveDeptForUser } from "@/lib/departments";
 
 async function getClient() {
   const c = await cookies();
@@ -11,27 +12,13 @@ async function getClient() {
   );
 }
 
-async function resolveDept(supabase: any, slug: string, userId: string) {
-  const { data: ownedWs } = await supabase.from("workspaces").select("id").eq("owner_id", userId).maybeSingle();
-  if (ownedWs) {
-    const { data: dept } = await supabase.from("departments").select("*").eq("workspace_id", ownedWs.id).eq("slug", slug).maybeSingle();
-    return dept;
-  }
-  const { data: mem } = await supabase
-    .from("memberships")
-    .select("departments(id, slug, name, workspace_id)")
-    .eq("user_id", userId).eq("status", "active").maybeSingle();
-  if (!mem) return null;
-  const dept = (mem as any).departments;
-  return dept?.slug === slug ? dept : null;
-}
-
 export async function GET(req: NextRequest, { params }: { params: Promise<{ slug: string; projectId: string }> }) {
   const { slug, projectId } = await params;
   const supabase = await getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  if (!await resolveDept(supabase, slug, user.id)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const { dept } = await resolveDeptForUser(supabase, slug, user.id);
+  if (!dept) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { data } = await supabase.from("dept_project_decisions")
     .select("id, title, context, verdict, outcome, created_at, user_id, profiles(full_name)")
@@ -46,7 +33,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
   const supabase = await getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  if (!await resolveDept(supabase, slug, user.id)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const { dept } = await resolveDeptForUser(supabase, slug, user.id);
+  if (!dept) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { title, context, verdict, outcome } = await req.json();
   if (!title?.trim() || !context?.trim()) return NextResponse.json({ error: "title and context required" }, { status: 400 });
@@ -69,7 +57,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ sl
   const supabase = await getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  if (!await resolveDept(supabase, slug, user.id)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const { dept } = await resolveDeptForUser(supabase, slug, user.id);
+  if (!dept) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id, verdict, outcome } = await req.json();
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
@@ -88,7 +77,8 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ s
   const supabase = await getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  if (!await resolveDept(supabase, slug, user.id)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const { dept } = await resolveDeptForUser(supabase, slug, user.id);
+  if (!dept) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await req.json();
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });

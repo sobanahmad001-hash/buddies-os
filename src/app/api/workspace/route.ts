@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
+import { ensureDefaultWorkspaceDepartments } from "@/lib/departments";
 
 async function getSupabase() {
   const c = await cookies();
@@ -76,6 +77,13 @@ export async function POST(req: NextRequest) {
   if (memErr) {
     console.error("Membership error:", JSON.stringify(memErr));
     // Don't fail — workspace created, membership is secondary
+  }
+
+  // Keep department module usable even when SQL seed migrations were skipped.
+  try {
+    await ensureDefaultWorkspaceDepartments(supabase, ws.id);
+  } catch (e) {
+    console.warn("Department seed on workspace create failed:", e);
   }
 
   return NextResponse.json({ workspace: ws, role: "owner" });

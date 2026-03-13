@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { resolveDeptForUser } from "@/lib/departments";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -12,22 +13,6 @@ async function getClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     { cookies: { getAll() { return c.getAll(); }, setAll(s: any[]) { s.forEach(({ name, value, options }) => c.set(name, value, options)); } } }
   );
-}
-
-async function resolveDept(supabase: any, slug: string, userId: string) {
-  const { data: ownedWs } = await supabase.from("workspaces").select("id").eq("owner_id", userId).maybeSingle();
-  if (ownedWs) {
-    const { data: dept } = await supabase.from("departments").select("*").eq("workspace_id", ownedWs.id).eq("slug", slug).maybeSingle();
-    return { dept, workspaceId: ownedWs.id };
-  }
-  const { data: mem } = await supabase
-    .from("memberships")
-    .select("workspace_id, department_id, departments(id, slug, name, workspace_id)")
-    .eq("user_id", userId).eq("status", "active").maybeSingle();
-  if (!mem) return { dept: null, workspaceId: null };
-  const dept = (mem as any).departments;
-  if (!dept || dept.slug !== slug) return { dept: null, workspaceId: null };
-  return { dept, workspaceId: mem.workspace_id };
 }
 
 const DEPT_CONTEXT: Record<string, string> = {
@@ -42,7 +27,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-  const { dept } = await resolveDept(supabase, slug, user.id);
+  const { dept } = await resolveDeptForUser(supabase, slug, user.id);
   if (!dept) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { data } = await supabase.from("dept_project_chat_messages")
@@ -59,7 +44,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-  const { dept } = await resolveDept(supabase, slug, user.id);
+  const { dept } = await resolveDeptForUser(supabase, slug, user.id);
   if (!dept) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { message } = await req.json();

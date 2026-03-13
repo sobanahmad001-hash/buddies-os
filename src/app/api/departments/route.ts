@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
+import { ensureDefaultWorkspaceDepartments } from "@/lib/departments";
 
 async function sb() {
   const c = await cookies();
@@ -14,15 +15,28 @@ export async function GET(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ departments: [] });
 
+  async function seedIfOwner(workspaceId: string, onlySlug?: string) {
+    const { data: owned } = await supabase
+      .from("workspaces")
+      .select("id")
+      .eq("id", workspaceId)
+      .eq("owner_id", user.id)
+      .maybeSingle();
+    if (!owned) return;
+    await ensureDefaultWorkspaceDepartments(supabase, workspaceId, onlySlug ? [onlySlug] : undefined);
+  }
+
   // Lookup by workspace_id + optional slug (used by dept pages — bypasses client RLS)
   const workspace_id = req.nextUrl.searchParams.get("workspace_id");
   const slug = req.nextUrl.searchParams.get("slug");
   if (workspace_id && slug) {
+    try { await seedIfOwner(workspace_id, slug); } catch {}
     const { data } = await supabase.from("departments").select("*")
       .eq("workspace_id", workspace_id).eq("slug", slug).maybeSingle();
     return NextResponse.json({ department: data ?? null });
   }
   if (workspace_id) {
+    try { await seedIfOwner(workspace_id); } catch {}
     const { data } = await supabase.from("departments").select("*")
       .eq("workspace_id", workspace_id).order("name");
     return NextResponse.json({ departments: data ?? [] });

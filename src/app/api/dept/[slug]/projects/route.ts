@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
+import { resolveDeptForUser } from "@/lib/departments";
 
 async function getClient() {
   const c = await cookies();
@@ -11,31 +12,13 @@ async function getClient() {
   );
 }
 
-async function resolveDept(supabase: any, slug: string, userId: string) {
-  // Owner: any dept in their workspace
-  const { data: ownedWs } = await supabase.from("workspaces").select("id").eq("owner_id", userId).maybeSingle();
-  if (ownedWs) {
-    const { data: dept } = await supabase.from("departments").select("*").eq("workspace_id", ownedWs.id).eq("slug", slug).maybeSingle();
-    return { dept, workspaceId: ownedWs.id };
-  }
-  // Member: only their assigned dept
-  const { data: mem } = await supabase
-    .from("memberships")
-    .select("workspace_id, department_id, departments(id, slug, name, workspace_id)")
-    .eq("user_id", userId).eq("status", "active").maybeSingle();
-  if (!mem) return { dept: null, workspaceId: null };
-  const dept = (mem as any).departments;
-  if (!dept || dept.slug !== slug) return { dept: null, workspaceId: null };
-  return { dept, workspaceId: mem.workspace_id };
-}
-
 export async function GET(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const supabase = await getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-  const { dept } = await resolveDept(supabase, slug, user.id);
+  const { dept } = await resolveDeptForUser(supabase, slug, user.id);
   if (!dept) return NextResponse.json({ error: "Department not found or access denied" }, { status: 403 });
 
   const { data } = await supabase
@@ -51,7 +34,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-  const { dept, workspaceId } = await resolveDept(supabase, slug, user.id);
+  const { dept, workspaceId } = await resolveDeptForUser(supabase, slug, user.id);
   if (!dept) return NextResponse.json({ error: "Department not found or access denied" }, { status: 403 });
 
   const { name, description } = await req.json();

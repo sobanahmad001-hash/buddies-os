@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
+import { resolveDeptProjectForUser } from "@/lib/departments";
 
 async function getClient() {
   const c = await cookies();
@@ -11,32 +12,13 @@ async function getClient() {
   );
 }
 
-async function resolveDeptProject(supabase: any, slug: string, projectId: string, userId: string) {
-  const { data: ownedWs } = await supabase.from("workspaces").select("id").eq("owner_id", userId).maybeSingle();
-  let workspaceId: string | null = null;
-  if (ownedWs) {
-    workspaceId = ownedWs.id;
-  } else {
-    const { data: mem } = await supabase
-      .from("memberships")
-      .select("workspace_id, department_id, departments(slug)")
-      .eq("user_id", userId).eq("status", "active").maybeSingle();
-    if (!mem || (mem as any).departments?.slug !== slug) return null;
-    workspaceId = mem.workspace_id;
-  }
-  const { data: dept } = await supabase.from("departments").select("id").eq("workspace_id", workspaceId).eq("slug", slug).maybeSingle();
-  if (!dept) return null;
-  const { data: project } = await supabase.from("dept_projects").select("*").eq("id", projectId).eq("dept_id", dept.id).maybeSingle();
-  return project ?? null;
-}
-
 export async function GET(req: NextRequest, { params }: { params: Promise<{ slug: string; projectId: string }> }) {
   const { slug, projectId } = await params;
   const supabase = await getClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-  const project = await resolveDeptProject(supabase, slug, projectId, user.id);
+  const project = await resolveDeptProjectForUser(supabase, slug, projectId, user.id);
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const [taskRes, updateRes, memberRes] = await Promise.all([
@@ -59,7 +41,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ slug
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-  const project = await resolveDeptProject(supabase, slug, projectId, user.id);
+  const project = await resolveDeptProjectForUser(supabase, slug, projectId, user.id);
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await req.json();
@@ -78,7 +60,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ s
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-  const project = await resolveDeptProject(supabase, slug, projectId, user.id);
+  const project = await resolveDeptProjectForUser(supabase, slug, projectId, user.id);
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const { error } = await supabase.from("dept_projects").delete().eq("id", projectId);
