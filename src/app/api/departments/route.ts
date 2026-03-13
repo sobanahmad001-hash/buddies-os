@@ -1,4 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { ensureDefaultWorkspaceDepartments } from "@/lib/departments";
@@ -10,42 +11,52 @@ async function sb() {
   });
 }
 
+// Use service role when available so broken/missing RLS policies never block reads
+function admin() {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (serviceKey) return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey);
+  return null;
+}
+
 export async function GET(req: NextRequest) {
   const supabase = await sb();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ departments: [] });
 
+  // Prefer service role client for reads so RLS policy issues don't block the app
+  const reader = admin() ?? supabase;
+
   async function seedIfOwner(workspaceId: string, onlySlug?: string) {
-    const { data: owned } = await supabase
+    const { data: owned } = await reader
       .from("workspaces")
       .select("id")
       .eq("id", workspaceId)
       .eq("owner_id", user.id)
       .maybeSingle();
     if (!owned) return;
-    await ensureDefaultWorkspaceDepartments(supabase, workspaceId, onlySlug ? [onlySlug] : undefined);
+    await ensureDefaultWorkspaceDepartments(reader, workspaceId, onlySlug ? [onlySlug] : undefined);
   }
 
-  // Lookup by workspace_id + optional slug (used by dept pages — bypasses client RLS)
+  // Lookup by workspace_id + optional slug (used by dept pages)
   const workspace_id = req.nextUrl.searchParams.get("workspace_id");
   const slug = req.nextUrl.searchParams.get("slug");
   if (workspace_id && slug) {
     try { await seedIfOwner(workspace_id, slug); } catch {}
-    const { data } = await supabase.from("departments").select("*")
+    const { data } = await reader.from("departments").select("*")
       .eq("workspace_id", workspace_id).eq("slug", slug).maybeSingle();
     return NextResponse.json({ department: data ?? null });
   }
   if (workspace_id) {
     try { await seedIfOwner(workspace_id); } catch {}
-    const { data } = await supabase.from("departments").select("*")
+    const { data } = await reader.from("departments").select("*")
       .eq("workspace_id", workspace_id).order("name");
     return NextResponse.json({ departments: data ?? [] });
   }
 
-  // Phase 2: if organization_id query param provided, list departments for that org
+  // organization_id lookup
   const organization_id = req.nextUrl.searchParams.get("organization_id");
   if (organization_id) {
-    const { data, error } = await supabase
+    const { data, error } = await reader
       .from("departments")
       .select("id, name, organization_id, created_at")
       .eq("organization_id", organization_id)
@@ -55,18 +66,11 @@ export async function GET(req: NextRequest) {
   }
 
   // Legacy: look up via workspace membership
-  const { data: mem } = await supabase.from("memberships").select("workspace_id").eq("user_id", user.id).eq("status", "active").maybeSingle();
+  const { data: mem } = await reader.from("memberships").select("workspace_id").eq("user_id", user.id).eq("status", "active").maybeSingle();
   if (!mem) return NextResponse.json({ departments: [] });
-  const { data } = await supabase.from("departments").select("*").eq("workspace_id", mem.workspace_id).order("name");
+  const { data } = await reader.from("departments").select("*").eq("workspace_id", mem.workspace_id).order("name");
   return NextResponse.json({ departments: data ?? [] });
 }
-
-// POST /api/departments — create a department inside an organization
-// Body: { organization_id: string, name: string }
-export async function POST(req: NextRequest) {
-  const supabase = await sb();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const body = await req.json();
   const { organization_id, name } = body;

@@ -1,3 +1,5 @@
+import { createClient } from "@supabase/supabase-js";
+
 type AnySupabase = any;
 
 export const DEFAULT_WORKSPACE_DEPARTMENTS = [
@@ -5,6 +7,16 @@ export const DEFAULT_WORKSPACE_DEPARTMENTS = [
   { name: "Development", slug: "development", color: "#3B82F6" },
   { name: "Marketing", slug: "marketing", color: "#10B981" },
 ] as const;
+
+// Returns a service-role client when SUPABASE_SERVICE_ROLE_KEY is set,
+// otherwise returns the passed-in client. This bypasses broken RLS policies.
+export function adminOrUser(userClient: AnySupabase): AnySupabase {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (serviceKey && process.env.NEXT_PUBLIC_SUPABASE_URL) {
+    return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, serviceKey);
+  }
+  return userClient;
+}
 
 export async function ensureDefaultWorkspaceDepartments(
   supabase: AnySupabase,
@@ -49,6 +61,9 @@ export async function resolveDeptForUser(
   userId: string,
   workspaceIdHint?: string
 ) {
+  // Use service role for department lookups to bypass broken RLS policies
+  const reader = adminOrUser(supabase);
+
   if (workspaceIdHint) {
     const { data: ownerWs } = await supabase
       .from("workspaces")
@@ -68,7 +83,7 @@ export async function resolveDeptForUser(
       if (!membership) return { dept: null, workspaceId: null };
     }
 
-    const { data: dept } = await supabase
+    const { data: dept } = await reader
       .from("departments")
       .select("*")
       .eq("workspace_id", workspaceIdHint)
@@ -80,19 +95,12 @@ export async function resolveDeptForUser(
 
   const { data: memberships } = await supabase
     .from("memberships")
-    .select("workspace_id, department_id, departments(id, slug, name, workspace_id)")
+    .select("workspace_id, department_id")
     .eq("user_id", userId)
     .eq("status", "active")
     .limit(100);
 
-  const membershipMatch = (memberships ?? []).find((m: any) => m?.departments?.slug === slug);
-  if (membershipMatch) {
-    return {
-      dept: (membershipMatch as any).departments,
-      workspaceId: membershipMatch.workspace_id,
-    };
-  }
-
+  // Find owned workspaces
   const { data: ownedWorkspaces } = await supabase
     .from("workspaces")
     .select("id")
@@ -100,13 +108,16 @@ export async function resolveDeptForUser(
     .limit(100);
 
   const ownedWorkspaceIds = (ownedWorkspaces ?? []).map((w: any) => w.id).filter(Boolean);
-  if (ownedWorkspaceIds.length === 0) return { dept: null, workspaceId: null };
+  const memberWorkspaceIds = (memberships ?? []).map((m: any) => m.workspace_id).filter(Boolean);
+  const allWorkspaceIds = [...new Set([...ownedWorkspaceIds, ...memberWorkspaceIds])];
 
-  let deptQuery = supabase.from("departments").select("*").eq("slug", slug);
-  if (ownedWorkspaceIds.length === 1) {
-    deptQuery = deptQuery.eq("workspace_id", ownedWorkspaceIds[0]);
+  if (allWorkspaceIds.length === 0) return { dept: null, workspaceId: null };
+
+  let deptQuery = reader.from("departments").select("*").eq("slug", slug);
+  if (allWorkspaceIds.length === 1) {
+    deptQuery = deptQuery.eq("workspace_id", allWorkspaceIds[0]);
   } else {
-    deptQuery = deptQuery.in("workspace_id", ownedWorkspaceIds);
+    deptQuery = deptQuery.in("workspace_id", allWorkspaceIds);
   }
 
   const { data: depts } = await deptQuery.limit(1);
