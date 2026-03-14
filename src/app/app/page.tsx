@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Loader2, Sparkles, AlertTriangle, Info, AlertCircle, TrendingUp, Scale, Brain, Activity, CheckSquare, Users, FolderKanban, ChevronRight } from "lucide-react";
+import { Loader2, Sparkles, AlertTriangle, Info, AlertCircle, TrendingUp, Scale, Brain, Activity, CheckSquare, Users, FolderKanban } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import ReactMarkdown from "react-markdown";
 
@@ -41,9 +41,7 @@ function MomentumBar({ value, max }: { value: number; max: number }) {
 export default function DashboardPage() {
   const router = useRouter();
   
-  const [ankaStats, setAnkaStats] = useState<{dept: string; slug: string; color: string; inProgress: number; todo: number; bugs: number; campaigns: number}[]>([]);
-
-const [projects, setProjects] = useState<Project[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [decisions, setDecisions] = useState<Decision[]>([]);
   const [insights, setInsights] = useState<Insight[]>([]);
   const [predictions, setPredictions] = useState<any[]>([]);
@@ -53,8 +51,6 @@ const [projects, setProjects] = useState<Project[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
   const [alertsLoading, setAlertsLoading] = useState(true);
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [teamActivity, setTeamActivity] = useState<ActivityItem[]>([]);
-  const [workspaceName, setWorkspaceName] = useState<string | null>(null);
   const [commandInput, setCommandInput] = useState("");
   const [summary, setSummary] = useState("");
   const [summaryLoading, setSummaryLoading] = useState(false);
@@ -97,7 +93,6 @@ const [projects, setProjects] = useState<Project[]>([]);
 
       // Load open tasks and team activity in parallel
       fetch("/api/projects/tasks").then(r => r.json()).then(d => setTasks((d.tasks ?? []).filter((t: Task) => t.status !== "done")));
-      fetch("/api/workspace/activity").then(r => r.json()).then(d => { setTeamActivity(d.updates ?? []); if (d.workspaceName) setWorkspaceName(d.workspaceName); });
 
       // Generate fresh insights if we have behavior data
       if (behavLogs && behavLogs.length >= 3 && ins && ins.length === 0) {
@@ -152,34 +147,7 @@ const [projects, setProjects] = useState<Project[]>([]);
   const taskGroups = Object.values(tasksByProject).sort((a, b) => b.items.length - a.items.length);
 
 
-  useEffect(() => {
-    async function loadAnkaStats() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data: ws } = await supabase.from("workspaces").select("id").eq("owner_id", user.id).maybeSingle();
-      if (!ws) return;
-      const { data: depts } = await supabase.from("departments").select("*").eq("workspace_id", ws.id);
-      if (!depts) return;
-      const stats = await Promise.all(depts.map(async (d: any) => {
-        const [tRes, aRes] = await Promise.all([
-          supabase.from("project_tasks").select("status").eq("department_id", d.id).neq("status", "cancelled"),
-          supabase.from("department_activity").select("activity_type").eq("department_id", d.id),
-        ]);
-        const tasks = tRes.data ?? [];
-        const activity = aRes.data ?? [];
-        const colorMap: Record<string,string> = { design: "#8B5CF6", development: "#3B82F6", marketing: "#10B981" };
-        return {
-          dept: d.name, slug: d.slug, color: colorMap[d.slug] ?? "#E8521A",
-          inProgress: tasks.filter((t: any) => t.status === "in_progress").length,
-          todo: tasks.filter((t: any) => t.status === "todo").length,
-          bugs: activity.filter((a: any) => a.activity_type === "bug").length,
-          campaigns: activity.filter((a: any) => a.activity_type === "campaign").length,
-        };
-      }));
-      setAnkaStats(stats);
-    }
-    loadAnkaStats();
-  }, []);
+
 
   return (
     <div className="flex-1 overflow-auto">
@@ -443,45 +411,7 @@ const [projects, setProjects] = useState<Project[]>([]);
           </div>
         )}
 
-        {/* ── TEAM / AGENT ACTIVITY FEED ─────────────────────────── */}
-        <div className="mt-4 bg-white border border-[#E5E2DE] rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Users size={13} className="text-[#2C5F8A]" />
-            <h2 className="text-[12px] font-semibold text-[#1A1A1A] uppercase tracking-wide">
-              {workspaceName ? `${workspaceName} Activity` : "Recent Activity"}
-            </h2>
-            <span className="text-[10px] text-[#737373] ml-auto">updates · tasks</span>
-          </div>
-          {teamActivity.length === 0 ? (
-            <p className="text-[12px] text-[#737373]">No activity yet. Start logging updates or tasks from the AI Assistant.</p>
-          ) : (
-            <div className="space-y-0">
-              {teamActivity.slice(0, 15).map(item => (
-                <div key={item.id} className="flex items-start gap-3 py-2.5 border-b border-[#F7F5F2] last:border-0">
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 ${item.is_own ? "bg-[#E8521A] text-white" : "bg-[#DBEAFE] text-[#2C5F8A]"}`}>
-                    {(item.author || "?")[0].toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-[11px] font-semibold text-[#1A1A1A]">{item.is_own ? "You" : item.author}</span>
-                      <span className="text-[11px] text-[#737373]">
-                        {item.kind === "task" ? "added task" : `logged ${item.update_type ?? "update"}`}
-                      </span>
-                      {item.project && (
-                        <>
-                          <span className="text-[11px] text-[#737373]">in</span>
-                          <span className="text-[11px] font-medium text-[#404040]">{item.project}</span>
-                        </>
-                      )}
-                    </div>
-                    <p className="text-[12px] text-[#404040] truncate mt-0.5">{item.content}</p>
-                  </div>
-                  <span className="text-[10px] text-[#737373] shrink-0 mt-0.5">{timeAgo(item.created_at)}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+
 
         {/* Quick Command */}
         <div className="mt-5 pt-4 border-t border-[#E5E2DE]">
@@ -496,35 +426,7 @@ const [projects, setProjects] = useState<Project[]>([]);
           </div>
         </div>
 
-        {/* ANKA Team Card */}
-        {ankaStats.length > 0 && (
-          <Link href="/app/workspace" className="block">
-            <div className="bg-[#0F0F0F] rounded-2xl p-5 hover:bg-[#1A1A1A] transition-colors cursor-pointer group">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <div className="text-white font-bold text-sm tracking-tight">ANKA <span className="text-[#E8521A]">SPHERE</span></div>
-                  <div className="text-[#525252] text-[10px]">Team pulse</div>
-                </div>
-                <ChevronRight size={14} className="text-[#525252] group-hover:text-white transition-colors" />
-              </div>
-              <div className="space-y-2.5">
-                {ankaStats.map(s => (
-                  <div key={s.slug} className="flex items-center gap-3">
-                    <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
-                    <div className="flex-1 text-[11px] text-[#8A8A8A]">{s.dept}</div>
-                    <div className="flex items-center gap-3 text-[10px]">
-                      {s.inProgress > 0 && <span style={{ color: s.color }}>{s.inProgress} active</span>}
-                      {s.todo > 0 && <span className="text-[#525252]">{s.todo} queued</span>}
-                      {s.bugs > 0 && <span className="text-red-400">{s.bugs} bugs</span>}
-                      {s.campaigns > 0 && <span className="text-[#10B981]">{s.campaigns} campaigns</span>}
-                      {s.inProgress === 0 && s.todo === 0 && <span className="text-[#3A3A3A]">no activity</span>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </Link>
-        )}
+
       </div>
     </div>
   );

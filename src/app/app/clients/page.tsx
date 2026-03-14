@@ -1,6 +1,5 @@
 'use client';
 
-import { useWorkspace } from '@/context/WorkspaceContext';
 import { createClient } from '@/lib/supabase/client';
 import { useEffect, useState } from 'react';
 import { Briefcase, Plus, Search, Building2 } from 'lucide-react';
@@ -17,8 +16,8 @@ interface Client {
   stages_total?: number;
 }
 
-export default function WorkspaceClientsPage() {
-  const { activeWorkspace, loading: wsLoading } = useWorkspace();
+export default function ClientsPage() {
+  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -28,21 +27,27 @@ export default function WorkspaceClientsPage() {
   const supabase = createClient();
 
   useEffect(() => {
-    if (!activeWorkspace) return;
-    fetchClients();
-  }, [activeWorkspace]);
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) { setLoading(false); return; }
+      supabase.from('workspaces').select('id').eq('owner_id', user.id).maybeSingle()
+        .then(({ data }) => {
+          setWorkspaceId(data?.id ?? null);
+        });
+    });
+  }, []);
 
-  async function fetchClients() {
-    if (!activeWorkspace) return;
+  useEffect(() => {
+    if (workspaceId === null) return;
+    if (!workspaceId) { setLoading(false); return; }
+    fetchClients(workspaceId);
+  }, [workspaceId]);
+
+  async function fetchClients(wsId: string) {
     setLoading(true);
-
     const { data, error } = await supabase
       .from('clients')
-      .select(`
-        id, name, industry, status, workspace_id, created_at,
-        client_stages(id, status)
-      `)
-      .eq('workspace_id', activeWorkspace.id)
+      .select(`id, name, industry, status, workspace_id, created_at, client_stages(id, status)`)
+      .eq('workspace_id', wsId)
       .order('created_at', { ascending: false });
 
     if (!error && data) {
@@ -58,7 +63,7 @@ export default function WorkspaceClientsPage() {
 
   async function handleAddClient(e: React.FormEvent) {
     e.preventDefault();
-    if (!newName.trim() || !activeWorkspace) return;
+    if (!newName.trim() || !workspaceId) return;
 
     const res = await fetch('/api/clients', {
       method: 'POST',
@@ -66,7 +71,7 @@ export default function WorkspaceClientsPage() {
       body: JSON.stringify({
         name: newName.trim(),
         industry: newIndustry.trim() || null,
-        workspace_id: activeWorkspace.id,
+        workspace_id: workspaceId,
       }),
     });
 
@@ -74,7 +79,7 @@ export default function WorkspaceClientsPage() {
       setNewName('');
       setNewIndustry('');
       setShowForm(false);
-      fetchClients();
+      fetchClients(workspaceId);
     }
   }
 
@@ -83,12 +88,8 @@ export default function WorkspaceClientsPage() {
     (c.industry && c.industry.toLowerCase().includes(search.toLowerCase()))
   );
 
-  if (wsLoading) {
-    return <div className="p-6 text-white/40">Loading workspace...</div>;
-  }
-
-  if (!activeWorkspace) {
-    return <div className="p-6 text-white/40">No workspace selected</div>;
+  if (loading) {
+    return <div className="p-6 text-white/40">Loading clients...</div>;
   }
 
   return (
@@ -99,10 +100,7 @@ export default function WorkspaceClientsPage() {
             <Briefcase className="w-6 h-6" />
             Clients
           </h1>
-          <p className="text-white/40 text-sm mt-1">
-            <Building2 className="w-3.5 h-3.5 inline mr-1" />
-            {activeWorkspace.name}
-          </p>
+          <p className="text-white/40 text-sm mt-1">Your personal client list</p>
         </div>
         <button
           onClick={() => setShowForm(!showForm)}
@@ -114,7 +112,7 @@ export default function WorkspaceClientsPage() {
       </div>
 
       {showForm && (
-        <div className="mb-6 p-4 bg-white/5 rounded-lg border border-white/10 flex gap-3 items-end">
+        <form onSubmit={handleAddClient} className="mb-6 p-4 bg-white/5 rounded-lg border border-white/10 flex gap-3 items-end">
           <div className="flex-1">
             <label className="text-xs text-white/40 block mb-1">Client Name</label>
             <input
@@ -134,13 +132,10 @@ export default function WorkspaceClientsPage() {
               className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
             />
           </div>
-          <button
-            onClick={handleAddClient}
-            className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white text-sm rounded-lg"
-          >
+          <button type="submit" className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white text-sm rounded-lg">
             Save
           </button>
-        </div>
+        </form>
       )}
 
       <div className="relative mb-4">
@@ -153,22 +148,18 @@ export default function WorkspaceClientsPage() {
         />
       </div>
 
-      {loading ? (
-        <div className="text-white/40 py-8 text-center">Loading clients...</div>
-      ) : filtered.length === 0 ? (
+      {filtered.length === 0 ? (
         <div className="text-center py-12 text-white/30">
           <Briefcase className="w-12 h-12 mx-auto mb-3 opacity-50" />
           <p className="text-lg font-medium">No clients yet</p>
-          <p className="text-sm mt-1">Add your first client to {activeWorkspace.name}</p>
+          <p className="text-sm mt-1">Add your first client above</p>
         </div>
       ) : (
         <div className="space-y-2">
           {filtered.map(client => {
             const total = client.stages_total ?? 0;
             const completed = client.stages_completed ?? 0;
-            const pct = total > 0
-              ? Math.round((completed / total) * 100)
-              : 0;
+            const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
             return (
               <Link
                 key={client.id}
@@ -182,15 +173,13 @@ export default function WorkspaceClientsPage() {
                       <span className="text-xs text-white/40">{client.industry}</span>
                     )}
                   </div>
-                  <div className="text-right">
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${
-                      client.status === 'active' ? 'bg-green-500/20 text-green-400' :
-                      client.status === 'onboarding' ? 'bg-yellow-500/20 text-yellow-400' :
-                      'bg-white/10 text-white/40'
-                    }`}>
-                      {client.status}
-                    </span>
-                  </div>
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${
+                    client.status === 'active' ? 'bg-green-500/20 text-green-400' :
+                    client.status === 'onboarding' ? 'bg-yellow-500/20 text-yellow-400' :
+                    'bg-white/10 text-white/40'
+                  }`}>
+                    {client.status}
+                  </span>
                 </div>
                 {total > 0 && (
                   <div className="mt-2">
@@ -199,10 +188,7 @@ export default function WorkspaceClientsPage() {
                       <span>{completed}/{total} ({pct}%)</span>
                     </div>
                     <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-blue-500 rounded-full transition-all"
-                        style={{ width: `${pct}%` }}
-                      />
+                      <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
                     </div>
                   </div>
                 )}
