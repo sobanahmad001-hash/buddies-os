@@ -1,6 +1,6 @@
 'use client';
 
-import { LayoutDashboard, Bot, FolderKanban, Plug, Search } from 'lucide-react';
+import { LayoutDashboard, Bot, FolderKanban, Activity, Search } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -8,7 +8,7 @@ const links = [
   { href: '/app',              icon: LayoutDashboard, label: 'Home' },
   { href: '/app/ai',           icon: Bot,             label: 'AI' },
   { href: '/app/projects',     icon: FolderKanban,    label: 'Projects' },
-  { href: '/app/integrations', icon: Plug,            label: 'Integrations' },
+  { href: '/app/daily-check',  icon: Activity,        label: 'Check-in' },
   { href: '/app/search',       icon: Search,          label: 'Search' },
 ];
 

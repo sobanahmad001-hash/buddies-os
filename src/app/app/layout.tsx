@@ -7,19 +7,23 @@ import {
   LayoutDashboard, Bot, FolderKanban,
   Search, LogOut, X, Users,
   FileText, BookOpen, Scale, Shield,
+  Activity, Terminal, Plug,
 } from "lucide-react";
 import BottomNav from "@/components/BottomNav";
 
 const NAV_ITEMS = [
-  { to: "/app",           icon: LayoutDashboard, label: "Dashboard" },
-  { to: "/app/ai",        icon: Bot,             label: "AI Assistant" },
-  { to: "/app/projects",  icon: FolderKanban,    label: "Projects" },
-  { to: "/app/clients",   icon: Users,           label: "Clients" },
-  { to: "/app/decisions", icon: Scale,           label: "Decisions" },
-  { to: "/app/documents", icon: FileText,        label: "Documents" },
-  { to: "/app/research",  icon: BookOpen,        label: "Research" },
-  { to: "/app/rules",     icon: Shield,          label: "Rules" },
-  { to: "/app/search",    icon: Search,          label: "Search" },
+  { to: "/app",              icon: LayoutDashboard, label: "Dashboard" },
+  { to: "/app/ai",           icon: Bot,             label: "AI Assistant" },
+  { to: "/app/projects",     icon: FolderKanban,    label: "Projects" },
+  { to: "/app/clients",      icon: Users,           label: "Clients" },
+  { to: "/app/daily-check",  icon: Activity,        label: "Daily Check" },
+  { to: "/app/decisions",    icon: Scale,           label: "Decisions" },
+  { to: "/app/documents",    icon: FileText,        label: "Documents" },
+  { to: "/app/research",     icon: BookOpen,        label: "Research" },
+  { to: "/app/rules",        icon: Shield,          label: "Rules" },
+  { to: "/app/command",      icon: Terminal,        label: "Command" },
+  { to: "/app/integrations", icon: Plug,            label: "Integrations" },
+  { to: "/app/search",       icon: Search,          label: "Search" },
 ];
 
 function NavLink({ to, icon: Icon, label, collapsed, onClick }: {

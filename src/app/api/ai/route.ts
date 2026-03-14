@@ -34,145 +34,185 @@ export async function POST(req: NextRequest) {
   const sessionSummary: string = body.sessionSummary ?? "";
   const contextNote: string = body.contextNote ?? "";
 
-  // ── Web search (Tavily) ───────────────────────────────────────
+  // ── ALL CONTEXT IN PARALLEL ──────────────────────────────────
+  // Everything fires at once: DB queries, web search, client context, integrations, learning data
   let webSearchBlock = "";
   let webSearchUsed = false;
-  if (detectWebSearchIntent(lastMessage) && process.env.TAVILY_API_KEY) {
-    try {
-      const origin = req.nextUrl.origin;
-      const searchRes = await fetch(`${origin}/api/web-search`, {
+
+  // Fire web search, DB, clients, integrations, and learning context ALL in parallel
+  const webSearchPromise = (detectWebSearchIntent(lastMessage) && process.env.TAVILY_API_KEY)
+    ? fetch(`${req.nextUrl.origin}/api/web-search`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: lastMessage }),
-      });
-      if (searchRes.ok) {
-        const searchData = await searchRes.json();
-        if (searchData.answer || searchData.results?.length) {
-          webSearchUsed = true;
-          webSearchBlock = `\n\nWEB SEARCH RESULTS (live data):\n${searchData.answer ?? ""}\n\nSOURCES:\n${
-            (searchData.results ?? []).map((r: any) => `- ${r.title}: ${r.url}`).join("\n")
-          }`;
-        }
-      }
-    } catch (e) {
-      console.error("Web search failed:", e);
-    }
-  }
+      }).then(r => r.ok ? r.json() : null).catch(() => null)
+    : Promise.resolve(null);
 
-  const [  
-    { data: projects }, { data: updates }, { data: decisions },
-    { data: rules }, { data: logs }, { data: recentSessions },
-    { data: allTasks }
-  ] = contextEnabled ? await Promise.all([
+  const dbPromise = contextEnabled ? Promise.all([
     supabase.from("projects").select("id, name, description, status, memory").eq("user_id", user.id).eq("status", "active"),
     supabase.from("project_updates").select("content, next_actions, update_type, created_at, project_id").eq("user_id", user.id).order("created_at", { ascending: false }).limit(20),
-    supabase.from("decisions").select("context, verdict, probability, outcome_rating, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(10),
+    supabase.from("decisions").select("context, verdict, probability, outcome_rating, prediction_accuracy, created_at, closed_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(15),
     supabase.from("rules").select("rule_text, severity, active").eq("user_id", user.id).eq("active", true),
-    supabase.from("behavior_logs").select("mood_tag, stress, sleep_hours, notes, timestamp").eq("user_id", user.id).order("timestamp", { ascending: false }).limit(7),
+    supabase.from("behavior_logs").select("mood_tag, stress, sleep_hours, cognitive_score, notes, timestamp").eq("user_id", user.id).order("timestamp", { ascending: false }).limit(7),
     supabase.from("ai_sessions").select("messages, updated_at").eq("user_id", user.id).order("updated_at", { ascending: false }).limit(3),
     supabase.from("project_tasks").select("id, title, status, priority, due_date, project_id").eq("user_id", user.id).neq("status", "cancelled").order("priority", { ascending: true }).limit(50),
-  ]) : [
+  ]) : Promise.resolve([
     { data: null }, { data: null }, { data: null },
     { data: null }, { data: null }, { data: null }, { data: null },
-  ];
+  ] as any);
 
-  // Fetch client context for owner
-  const clientContextBlock = contextEnabled ? await (async () => {
+  // Learning loop: pull decision outcomes and training logs so AI compounds on past accuracy
+  const learningPromise = contextEnabled ? Promise.all([
+    supabase.from("decisions").select("context, verdict, probability, outcome_rating, prediction_accuracy").eq("user_id", user.id).not("outcome_rating", "is", null).order("created_at", { ascending: false }).limit(10),
+    supabase.from("training_logs").select("intent_detected, confidence_score, was_confirmed").eq("user_id", user.id).order("created_at", { ascending: false }).limit(20),
+    supabase.from("insights").select("summary, insight_type, strength").eq("user_id", user.id).eq("strength", "strong").order("generated_on", { ascending: false }).limit(5),
+    supabase.from("research_sessions").select("topic, status, created_at").eq("user_id", user.id).eq("status", "complete").order("created_at", { ascending: false }).limit(5),
+  ]).catch(() => [{ data: null }, { data: null }, { data: null }, { data: null }] as any)
+    : Promise.resolve([{ data: null }, { data: null }, { data: null }, { data: null }] as any);
+
+  // Client context (runs in parallel with everything else)
+  const clientPromise = contextEnabled ? (async () => {
     try {
       const { data: ws } = await supabase.from("workspaces").select("id").eq("owner_id", user.id).maybeSingle();
       if (!ws) return "";
       const { data: clients } = await supabase.from("clients").select("id, name, status").eq("workspace_id", ws.id).eq("status", "active");
       if (!clients?.length) return "";
-      const summaries = await Promise.all(clients.map(async (c: any) => {
-        const { data: stages } = await supabase.from("client_stages").select("stage_name, status, department").eq("client_id", c.id);
-        const done = stages?.filter((s: any) => s.status === "done").length ?? 0;
-        const inProgress = stages?.filter((s: any) => s.status === "in_progress") ?? [];
-        return `${c.name}: ${done}/${stages?.length ?? 14} stages done${inProgress.length > 0 ? ". In progress: " + inProgress.map((s: any) => s.stage_name).join(", ") : ""}`;
-      }));
+      // Fetch ALL stages in one query instead of N+1
+      const clientIds = clients.map((c: any) => c.id);
+      const { data: allStages } = await supabase.from("client_stages").select("client_id, stage_name, status, department").in("client_id", clientIds);
+      const stagesByClient: Record<string, any[]> = {};
+      (allStages ?? []).forEach((s: any) => { (stagesByClient[s.client_id] ??= []).push(s); });
+      const summaries = clients.map((c: any) => {
+        const stages = stagesByClient[c.id] ?? [];
+        const done = stages.filter(s => s.status === "done").length;
+        const inProgress = stages.filter(s => s.status === "in_progress");
+        return `${c.name}: ${done}/${stages.length || 14} stages done${inProgress.length ? ". In progress: " + inProgress.map(s => s.stage_name).join(", ") : ""}`;
+      });
       return "\nACTIVE CLIENTS:\n" + summaries.join("\n");
     } catch { return ""; }
-  })() : "";
+  })() : Promise.resolve("");
 
-  // Fetch connected integrations (GitHub repos, Supabase projects, etc.)
-  // For GitHub integrations with an access token, also fetch repo tree/README for richer context
-  const integrationsBlock = await (async () => {
+  // Integrations (with 3s timeout on GitHub API calls)
+  const integrationsPromise = (async () => {
     try {
       const { data } = await supabase
-        .from("integrations")
-        .select("type, name, config, status")
-        .eq("user_id", user.id)
-        .eq("status", "active");
+        .from("integrations").select("type, name, config, status")
+        .eq("user_id", user.id).eq("status", "active");
       if (!data?.length) return "";
 
       const lines: string[] = [];
       const repoContextLines: string[] = [];
 
-      for (const i of data) {
+      const ghFetches = data.map(async (i: any) => {
         const meta: string[] = [];
-        if (i.config?.org_or_user)   meta.push(`org/user: ${i.config.org_or_user}`);
-        if (i.config?.repo_url)      meta.push(`repo: ${i.config.repo_url}`);
-        if (i.config?.project_url)   meta.push(`project: ${i.config.project_url}`);
-        if (i.config?.team_slug)     meta.push(`team: ${i.config.team_slug}`);
-        if (i.config?.project_name)  meta.push(`project: ${i.config.project_name}`);
-        if (i.config?.channel)       meta.push(`channel: ${i.config.channel}`);
-        if (i.config?.team_name)     meta.push(`team: ${i.config.team_name}`);
-        if (i.config?.database_id)   meta.push(`db: ${i.config.database_id}`);
-        // note: tokens/keys are never included in AI context
+        if (i.config?.org_or_user)  meta.push(`org/user: ${i.config.org_or_user}`);
+        if (i.config?.repo_url)     meta.push(`repo: ${i.config.repo_url}`);
+        if (i.config?.project_url)  meta.push(`project: ${i.config.project_url}`);
+        if (i.config?.team_slug)    meta.push(`team: ${i.config.team_slug}`);
+        if (i.config?.project_name) meta.push(`project: ${i.config.project_name}`);
+        if (i.config?.channel)      meta.push(`channel: ${i.config.channel}`);
+        if (i.config?.team_name)    meta.push(`team: ${i.config.team_name}`);
+        if (i.config?.database_id)  meta.push(`db: ${i.config.database_id}`);
         lines.push(`- ${i.type.toUpperCase()}: ${i.name}${meta.length ? ` (${meta.join(", ")})` : ""}`);
 
-        // For GitHub: fetch repo tree + recent commits for structure context
         if (i.type === "github" && i.config?.access_token && !i.config.access_token.includes("****") && i.config?.org_or_user) {
           try {
-            const repoName = i.config?.repo_url
-              ? i.config.repo_url.replace(/^https?:\/\/github\.com\//, "").replace(/\.git$/, "")
-              : null;
-            if (repoName) {
-              const headers: Record<string, string> = {
-                Authorization: `token ${i.config.access_token}`,
-                Accept: "application/vnd.github.v3+json",
-              };
-              // Fetch top-level tree and recent commits in parallel
+            const repoName = i.config?.repo_url?.replace(/^https?:\/\/github\.com\//, "").replace(/\.git$/, "");
+            if (!repoName) return;
+            const headers = { Authorization: `token ${i.config.access_token}`, Accept: "application/vnd.github.v3+json" };
+            // 3s timeout so GitHub never blocks the response
+            const ctrl = new AbortController();
+            const timer = setTimeout(() => ctrl.abort(), 3000);
+            try {
               const [treeRes, commitsRes] = await Promise.all([
-                fetch(`https://api.github.com/repos/${repoName}/git/trees/HEAD?recursive=0`, { headers }),
-                fetch(`https://api.github.com/repos/${repoName}/commits?per_page=5`, { headers }),
+                fetch(`https://api.github.com/repos/${repoName}/git/trees/HEAD?recursive=0`, { headers, signal: ctrl.signal }),
+                fetch(`https://api.github.com/repos/${repoName}/commits?per_page=5`, { headers, signal: ctrl.signal }),
               ]);
+              clearTimeout(timer);
               const treeData = treeRes.ok ? await treeRes.json() : null;
               const commitsData = commitsRes.ok ? await commitsRes.json() : null;
-
-              const topFiles = (treeData?.tree ?? [])
-                .filter((f: any) => f.type === "blob" || f.type === "tree")
-                .slice(0, 30)
-                .map((f: any) => `${f.type === "tree" ? "📁" : "📄"} ${f.path}`)
-                .join(", ");
-
+              const topFiles = (treeData?.tree ?? []).filter((f: any) => f.type === "blob" || f.type === "tree").slice(0, 30)
+                .map((f: any) => `${f.type === "tree" ? "📁" : "📄"} ${f.path}`).join(", ");
               const recentCommits = Array.isArray(commitsData)
                 ? commitsData.map((c: any) => `  - ${c.commit?.message?.split("\n")[0] ?? "?"} (${c.commit?.author?.date?.slice(0, 10) ?? "?"})`)
-                    .join("\n")
-                : "";
-
+                    .join("\n") : "";
               if (topFiles || recentCommits) {
-                repoContextLines.push(
-                  `\nGITHUB REPO STRUCTURE (${repoName}):\nRoot: ${topFiles || "n/a"}` +
-                  (recentCommits ? `\nRecent commits:\n${recentCommits}` : "")
-                );
+                repoContextLines.push(`\nGITHUB REPO STRUCTURE (${repoName}):\nRoot: ${topFiles || "n/a"}` +
+                  (recentCommits ? `\nRecent commits:\n${recentCommits}` : ""));
               }
-            }
-          } catch { /* skip if GitHub API fails */ }
+            } catch { clearTimeout(timer); }
+          } catch { /* skip */ }
         }
-      }
-
+      });
+      await Promise.all(ghFetches);
       return "\nCONNECTED INTEGRATIONS:\n" + lines.join("\n") + repoContextLines.join("");
     } catch { return ""; }
   })();
 
-  // Department context removed (workspace module removed)
+  // ── AWAIT ALL PARALLEL WORK ────────────────────────────────────
+  const [
+    dbResults, searchData, clientContextBlock, integrationsBlock,
+    learningResults
+  ] = await Promise.all([
+    dbPromise, webSearchPromise, clientPromise, integrationsPromise, learningPromise
+  ]);
+
+  const [
+    { data: projects }, { data: updates }, { data: decisions },
+    { data: rules }, { data: logs }, { data: recentSessions },
+    { data: allTasks }
+  ]: any[] = dbResults;
+
+  const [
+    { data: closedDecisions }, { data: trainingLogs },
+    { data: strongInsights }, { data: recentResearch }
+  ]: any[] = learningResults;
+
+  if (searchData?.answer || searchData?.results?.length) {
+    webSearchUsed = true;
+    webSearchBlock = `\n\nWEB SEARCH RESULTS (live data):\n${searchData.answer ?? ""}\n\nSOURCES:\n${
+      (searchData.results ?? []).map((r: any) => `- ${r.title}: ${r.url}`).join("\n")}`;
+  }
+
+  // Build learning context so AI compounds on past accuracy
+  const learningBlock = (() => {
+    const parts: string[] = [];
+    // Decision outcome history — AI learns from what worked
+    const rated = (closedDecisions ?? []).filter((d: any) => d.outcome_rating);
+    if (rated.length) {
+      const avg = rated.filter((d: any) => d.prediction_accuracy != null);
+      parts.push(`DECISION TRACK RECORD (${rated.length} rated):${
+        avg.length ? ` avg accuracy: ${Math.round(avg.reduce((a: number, d: any) => a + d.prediction_accuracy, 0) / avg.length)}%` : ""
+      }\n${rated.slice(0, 5).map((d: any) => `- ${d.verdict?.toUpperCase()}: "${d.context?.slice(0, 60)}" → outcome: ${d.outcome_rating}`).join("\n")}`);
+    }
+    // Strong insights the system has already discovered
+    if (strongInsights?.length) {
+      parts.push(`VERIFIED INSIGHTS:\n${strongInsights.map((i: any) => `- [${i.insight_type}] ${i.summary}`).join("\n")}`);
+    }
+    // Recent research topics
+    if (recentResearch?.length) {
+      parts.push(`RECENT RESEARCH: ${recentResearch.map((r: any) => r.topic).join(", ")}`);
+    }
+    return parts.length ? "\n\n" + parts.join("\n\n") : "";
+  })();
+
+  // Cognitive state awareness — shapes response tone
+  const cognitiveBlock = (() => {
+    const latest = (logs ?? [])[0];
+    if (!latest?.cognitive_score) return "";
+    const score = latest.cognitive_score;
+    if (score < 40) return "\n\nCOGNITIVE STATE: LOW (score " + score + "). Keep responses simple, prioritize top 1-2 actions. Don't overwhelm.";
+    if (score > 75) return "\n\nCOGNITIVE STATE: HIGH (score " + score + "). User is sharp — go deeper, offer more nuanced analysis.";
+    return "";
+  })();
+
   const teamContextBlock = "";
 
   const projectMap: Record<string, string> = {};
   const projectMemory: Record<string, string> = {};
-  (projects ?? []).forEach(p => {
-    projectMap[(p as any).id] = (p as any).name;
-    if ((p as any).memory) projectMemory[(p as any).name] = (p as any).memory;
+  (projects ?? []).forEach((p: any) => {
+    projectMap[p.id] = p.name;
+    if (p.memory) projectMemory[p.name] = p.memory;
   });
 
   // Build per-project task summary
@@ -196,31 +236,31 @@ export async function POST(req: NextRequest) {
   }).join("\n");
 
   const sessionHistory = (recentSessions ?? [])
-    .flatMap((s: any) => (s.messages ?? []).slice(-4))
-    .slice(-12)
-    .map((m: any) => `[${m.role}]: ${m.content}`)
+    .flatMap((s: any) => (s.messages ?? []).slice(-2))
+    .slice(-6)
+    .map((m: any) => `[${m.role}]: ${typeof m.content === 'string' ? m.content.slice(0, 300) : m.content}`)
     .join("\n");
 
   const contextBlock = `
-ACTIVE PROJECTS: ${(projects ?? []).map(p => {
-    const desc = (p as any).description ? ` — ${(p as any).description}` : "";
-    return `${p.name}${desc} [id:${(p as any).id}]`;
+ACTIVE PROJECTS: ${(projects ?? []).map((p: any) => {
+    const desc = p.description ? ` — ${p.description}` : "";
+    return `${p.name}${desc} [id:${p.id}]`;
   }).join(", ") || "none"}
 
 PROJECT TASKS:
 ${tasksBlock || "(no tasks)"}
 
 ${Object.keys(projectMemory).length > 0 ? `PROJECT MEMORY:\n${Object.entries(projectMemory).map(([name, mem]) => `[${name}]: ${mem}`).join("\n")}\n` : ""}RECENT UPDATES:
-${(updates ?? []).map(u => `- [${projectMap[u.project_id] ?? "unknown"}] ${u.update_type}: ${u.content}${u.next_actions ? ` → next: ${u.next_actions}` : ""}`).join("\n")}
+${(updates ?? []).map((u: any) => `- [${projectMap[u.project_id] ?? "unknown"}] ${u.update_type}: ${u.content}${u.next_actions ? ` → next: ${u.next_actions}` : ""}`).join("\n")}
 
 DECISIONS:
-${(decisions ?? []).map(d => `- ${d.verdict?.toUpperCase() ?? "?"} (${d.probability ?? "?"}%) [outcome: ${d.outcome_rating ?? "open"}]: ${d.context}`).join("\n")}
+${(decisions ?? []).map((d: any) => `- ${d.verdict?.toUpperCase() ?? "?"} (${d.probability ?? "?"}%) [outcome: ${d.outcome_rating ?? "open"}]: ${d.context}`).join("\n")}
 
 ACTIVE RULES:
-${(rules ?? []).map(r => `- [severity ${r.severity}] ${r.rule_text}`).join("\n")}
+${(rules ?? []).map((r: any) => `- [severity ${r.severity}] ${r.rule_text}`).join("\n")}
 
 BEHAVIOR (last 7 days):
-${(logs ?? []).map(l => `- mood: ${l.mood_tag ?? "?"}, stress: ${l.stress ?? "?"}/10, sleep: ${l.sleep_hours ?? "?"}h`).join("\n")}
+${(logs ?? []).map((l: any) => `- mood: ${l.mood_tag ?? "?"}, stress: ${l.stress ?? "?"}/10, sleep: ${l.sleep_hours ?? "?"}h`).join("\n")}
 
 ${sessionHistory ? `RECENT CONVERSATION HISTORY:\n${sessionHistory}` : ""}`.trim();
 
@@ -277,7 +317,7 @@ RULES:
 - For "app.complete_task": task_id comes from PROJECT TASKS list (id field)
 
 CURRENT CONTEXT:
-${contextBlock}${clientContextBlock ? `\n\nCLIENT STATUS:${clientContextBlock}` : ""}${teamContextBlock ? `\n\nTEAM CONTEXT:\n${teamContextBlock}` : ""}${integrationsBlock}${webSearchBlock}${sessionSummary ? `\n\nPREVIOUS CONVERSATION SUMMARY (earlier context from this chat — treat as memory):\n${sessionSummary}` : ""}${contextNote ? `\n\nUSER PINNED NOTE (always apply in every reply):\n${contextNote}` : ""}`
+${contextBlock}${clientContextBlock ? `\n\nCLIENT STATUS:${clientContextBlock}` : ""}${teamContextBlock ? `\n\nTEAM CONTEXT:\n${teamContextBlock}` : ""}${integrationsBlock}${learningBlock}${cognitiveBlock}${webSearchBlock}${sessionSummary ? `\n\nPREVIOUS CONVERSATION SUMMARY (earlier context from this chat — treat as memory):\n${sessionSummary}` : ""}${contextNote ? `\n\nUSER PINNED NOTE (always apply in every reply):\n${contextNote}` : ""}`
     : `You are the AI core of Buddies OS — a personal operating system for an entrepreneur named Soban.
 
 PHILOSOPHY: Capture → Understand → Analyze → Suggest → Human decides.
