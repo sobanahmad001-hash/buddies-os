@@ -14,7 +14,7 @@ CREATE TABLE ai_usage (
 CREATE INDEX idx_ai_usage_user_date ON ai_usage(user_id, created_at DESC);
 CREATE INDEX idx_ai_usage_session ON ai_usage(session_id);
 
--- AI Session Summary (for context caching)
+-- AI Session Summary
 CREATE TABLE ai_session_summaries (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -26,7 +26,7 @@ CREATE TABLE ai_session_summaries (
 
 CREATE INDEX idx_ai_summaries_user ON ai_session_summaries(user_id, created_at DESC);
 
--- Model Configuration (user preferences)
+-- Model Configuration
 CREATE TABLE ai_model_config (
   user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   default_model TEXT DEFAULT 'claude-3-5-sonnet-20241022',

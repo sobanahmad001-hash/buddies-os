@@ -78,16 +78,16 @@ export default function TokenCounter() {
           
           <div className="w-full bg-zinc-800 rounded-full h-1.5 mb-1">
             <div 
-              className={\`h-1.5 rounded-full transition-all \${
+              className={`h-1.5 rounded-full transition-all ${
                 budgetPercent > 80 ? 'bg-red-500' : budgetPercent > 50 ? 'bg-yellow-500' : 'bg-green-500'
-              }\`}
-              style={{ width: \`\${Math.min(budgetPercent, 100)}%\` }}
+              }`}
+              style={{ width: `${Math.min(budgetPercent, 100)}%` }}
             />
           </div>
           
           <div className="flex justify-between text-xs">
             <span className="text-zinc-500">{summary.month_messages} messages</span>
-            <span className={\`text-xs \${budgetPercent > 80 ? 'text-red-400' : 'text-zinc-500'}\`}>
+            <span className={`text-xs ${budgetPercent > 80 ? 'text-red-400' : 'text-zinc-500'}`}>
               {budgetPercent.toFixed(0)}% of budget
             </span>
           </div>
