@@ -1,23 +1,255 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@/lib/supabase/server';
-import {
-  buildSystemPrompt,
-  compressContext,
-  detectMessageType,
-  detectProjectFocus,
-} from '@/lib/ai/memory';
 
 const MODEL_COSTS = {
+  'claude-haiku-4-5-20251001': { input: 1, output: 5 },
   'claude-sonnet-4-5': { input: 3, output: 15 },
-  'claude-haiku-4-5-20251001': { input: 0.25, output: 1.25 },
   'claude-opus-4-1': { input: 15, output: 75 },
-};
+} as const;
+
+type MessageType = 'chat' | 'analysis' | 'decision';
 
 function calculateCost(model: string, inputTokens: number, outputTokens: number): number {
   const costs =
     MODEL_COSTS[model as keyof typeof MODEL_COSTS] || MODEL_COSTS['claude-sonnet-4-5'];
+
   return (inputTokens * costs.input + outputTokens * costs.output) / 1_000_000;
+}
+
+function detectMessageType(message: string): MessageType {
+  const analysisKeywords = [
+    'analyze',
+    'analysis',
+    'pattern',
+    'insight',
+    'correlation',
+    'trend',
+    'why',
+    'show me',
+    'what does',
+    'compare',
+    'evaluate',
+    'review',
+  ];
+
+  const decisionKeywords = [
+    'decide',
+    'decision',
+    'should i',
+    'choose',
+    'better',
+    'recommend',
+    'which',
+    'help me decide',
+    'best option',
+    'tradeoff',
+  ];
+
+  const lower = message.toLowerCase();
+
+  if (decisionKeywords.some((k) => lower.includes(k))) return 'decision';
+  if (analysisKeywords.some((k) => lower.includes(k))) return 'analysis';
+
+  return 'chat';
+}
+
+function normalizeHistory(history: any[]) {
+  return history
+    .filter((m) => m && typeof m.content === 'string' && m.content.trim())
+    .slice(-12)
+    .map((m) => ({
+      role: m.role === 'assistant' ? 'assistant' : 'user',
+      content: m.content,
+    }));
+}
+
+function detectProjectFocus(
+  message: string,
+  sessionSummary: string,
+  contextNote: string,
+  projects: any[]
+) {
+  const haystack = `${contextNote}\n${sessionSummary}\n${message}`.toLowerCase();
+
+  return (
+    projects.find(
+      (p) => p?.name && haystack.includes(String(p.name).toLowerCase())
+    ) || null
+  );
+}
+
+function compressContext(
+  raw: any,
+  messageType: MessageType,
+  recentConversation: Array<{ role: string; content: string }>,
+  sessionSummary: string,
+  contextNote: string,
+  focusedProject: any | null
+) {
+  const activeProjects =
+    raw.projects?.filter((p: any) => p.status === 'active') || [];
+
+  const relevantProjectId = focusedProject?.id ?? null;
+
+  const relevantUpdates = (raw.updates || [])
+    .filter((u: any) => !relevantProjectId || u.project_id === relevantProjectId)
+    .slice(0, 8);
+
+  const relevantTasks = (raw.tasks || [])
+    .filter((t: any) => {
+      if (relevantProjectId && t.project_id !== relevantProjectId) return false;
+      return t.status === 'in_progress' || (t.priority && t.priority >= 4);
+    })
+    .slice(0, 15);
+
+  const relevantDecisions = (raw.decisions || [])
+    .filter((d: any) => !relevantProjectId || d.project_id === relevantProjectId)
+    .slice(0, messageType === 'decision' ? 8 : 5);
+
+  const activeRules = (raw.rules || [])
+    .filter((r: any) => (r.severity || 0) >= 3)
+    .slice(0, 8);
+
+  const openBlockers = (raw.blockers || [])
+    .filter((b: any) => {
+      if (relevantProjectId && b.project_id !== relevantProjectId) return false;
+      return ['open', 'in_progress', 'blocked'].includes((b.status || '').toLowerCase());
+    })
+    .slice(0, 8);
+
+  const base = {
+    focused_project: focusedProject
+      ? {
+          id: focusedProject.id,
+          name: focusedProject.name,
+          status: focusedProject.status,
+          health: focusedProject.health,
+          current_focus: focusedProject.current_focus,
+          next_milestone: focusedProject.next_milestone,
+        }
+      : null,
+    session_summary: sessionSummary || '',
+    context_note: contextNote || '',
+    active_projects: activeProjects.slice(0, 10),
+    current_tasks: relevantTasks,
+    recent_updates: relevantUpdates.map((u: any) => ({
+      ...u,
+      project_name: u.projects?.name || u.project_name || 'unknown',
+    })),
+    recent_decisions: relevantDecisions,
+    open_blockers: openBlockers,
+    active_rules: activeRules,
+    mood_trend: (raw.behavior || []).slice(0, 3),
+    conversation: recentConversation,
+    integrations: (raw.integrations || []).slice(0, 10),
+  };
+
+  if (messageType === 'analysis' || messageType === 'decision') {
+    return {
+      ...base,
+      all_project_candidates: activeProjects.slice(0, 20),
+      behavior_week: (raw.behavior || []).slice(0, 7),
+    };
+  }
+
+  return base;
+}
+
+function buildSystemPrompt(context: any): string {
+  const sections: string[] = [];
+
+  if (context.focused_project) {
+    sections.push(
+      `FOCUSED PROJECT:
+- ${context.focused_project.name}
+- status: ${context.focused_project.status || 'unknown'}
+- health: ${context.focused_project.health || 'unknown'}
+- current_focus: ${context.focused_project.current_focus || 'n/a'}
+- next_milestone: ${context.focused_project.next_milestone || 'n/a'}`
+    );
+  }
+
+  if (context.session_summary) {
+    sections.push(`SESSION SUMMARY:\n${context.session_summary}`);
+  }
+
+  if (context.context_note) {
+    sections.push(`USER CONTEXT NOTE:\n${context.context_note}`);
+  }
+
+  if (context.current_tasks?.length) {
+    sections.push(
+      `CURRENT TASKS:\n${context.current_tasks
+        .map(
+          (t: any) =>
+            `- [${t.status}] ${t.title} (priority: ${t.priority || 3})`
+        )
+        .join('\n')}`
+    );
+  }
+
+  if (context.recent_updates?.length) {
+    sections.push(
+      `RECENT UPDATES:\n${context.recent_updates
+        .map(
+          (u: any) =>
+            `- [${u.project_name}] ${u.update_type || 'update'}: ${u.content || u.summary || ''}`
+        )
+        .join('\n')}`
+    );
+  }
+
+  if (context.recent_decisions?.length) {
+    sections.push(
+      `RECENT DECISIONS:\n${context.recent_decisions
+        .map(
+          (d: any) =>
+            `- ${d.context || d.title || 'decision'} (${d.status || 'unknown'})`
+        )
+        .join('\n')}`
+    );
+  }
+
+  if (context.open_blockers?.length) {
+    sections.push(
+      `OPEN BLOCKERS:\n${context.open_blockers
+        .map(
+          (b: any) =>
+            `- ${b.title || b.description || 'blocker'} [${b.status || 'open'}] severity: ${b.severity || 'unknown'}`
+        )
+        .join('\n')}`
+    );
+  }
+
+  if (context.active_rules?.length) {
+    sections.push(
+      `ACTIVE RULES:\n${context.active_rules
+        .map(
+          (r: any) =>
+            `- [severity ${r.severity || 0}] ${r.content || r.title || 'rule'}`
+        )
+        .join('\n')}`
+    );
+  }
+
+  if (context.conversation?.length) {
+    sections.push(
+      `RECENT CONVERSATION:\n${context.conversation
+        .map((m: any) => `- ${m.role}: ${m.content}`)
+        .join('\n')}`
+    );
+  }
+
+  return `You are Buddies OS, a personal AI advisor for entrepreneurial and operational work.
+
+Your job is to preserve continuity, reason from active project context, and give answers that feel aware of recent work, blockers, decisions, and priorities.
+
+Do not answer like a fresh chatbot unless context is truly missing.
+When context is partial, say what you know and continue from it.
+Prefer concrete, operational answers over generic advice.
+
+${sections.join('\n\n')}`;
 }
 
 export async function POST(request: NextRequest) {
@@ -33,14 +265,18 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
+
     const message =
       body.message ||
       body.messages?.[body.messages.length - 1]?.content ||
       '';
 
     const requestedModel = body.model;
-    const streamRequested = body.stream === true;
     const sessionId = body.sessionId ?? null;
+    const history = Array.isArray(body.history) ? body.history : [];
+    const sessionSummary = body.sessionSummary || '';
+    const contextNote = body.contextNote || '';
+    const contextEnabled = body.contextEnabled !== false;
 
     if (!message) {
       return NextResponse.json({ error: 'Message required' }, { status: 400 });
@@ -62,130 +298,106 @@ export async function POST(request: NextRequest) {
       if (messageType === 'decision') model = 'claude-sonnet-4-5';
     }
 
-    const [projects, tasks, updates, decisions, rules, behavior, history, integrations, sessionMemoryRow] =
-      await Promise.all([
-        supabase.from('projects').select('*').eq('user_id', user.id),
-        supabase.from('tasks').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+    const recentConversation = normalizeHistory(history);
+
+    const queryList: Promise<any>[] = [
+      supabase.from('projects').select('*').eq('user_id', user.id),
+      supabase
+        .from('tasks')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(50),
+      supabase
+        .from('project_updates')
+        .select('*, projects(name)')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(20),
+      supabase
+        .from('decisions')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(20),
+      supabase.from('rules').select('*').eq('user_id', user.id),
+      supabase
+        .from('behavior_logs')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('logged_at', { ascending: false })
+        .limit(7),
+      supabase.from('integrations').select('*').eq('user_id', user.id),
+    ];
+
+    let blockersEnabled = false;
+    try {
+      // This assumes blockers may exist in your schema. If not, fallback cleanly.
+      queryList.push(
         supabase
-          .from('project_updates')
-          .select('*, projects(name)')
+          .from('blockers')
+          .select('*')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
-          .limit(20),
-        supabase.from('decisions').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(20),
-        supabase.from('rules').select('*').eq('user_id', user.id),
-        supabase.from('behavior_logs').select('*').eq('user_id', user.id).order('logged_at', { ascending: false }).limit(7),
-        supabase.from('ai_sessions').select('messages').eq('user_id', user.id).order('created_at', { ascending: false }).limit(1),
-        supabase.from('integrations').select('*').eq('user_id', user.id),
-        sessionId
-          ? supabase
-              .from('ai_session_memory')
-              .select('*')
-              .eq('user_id', user.id)
-              .eq('session_id', sessionId)
-              .maybeSingle()
-          : Promise.resolve({ data: null } as any),
-      ]);
+          .limit(20)
+      );
+      blockersEnabled = true;
+    } catch {
+      blockersEnabled = false;
+    }
 
-    const existingSessionMemory = sessionMemoryRow?.data || null;
-    const projectFocus = detectProjectFocus(
-      message,
-      projects.data || [],
-      existingSessionMemory?.active_project || null
-    );
+    const results = await Promise.all(queryList);
+
+    const projects = results[0];
+    const tasks = results[1];
+    const updates = results[2];
+    const decisions = results[3];
+    const rules = results[4];
+    const behavior = results[5];
+    const integrations = results[6];
+    const blockers = blockersEnabled ? results[7] : { data: [] };
 
     const rawContext = {
       projects: projects.data || [],
       tasks: tasks.data || [],
-      updates: updates.data?.map((u: any) => ({ ...u, project_name: u.projects?.name })) || [],
+      updates: updates.data || [],
       decisions: decisions.data || [],
       rules: rules.data || [],
       behavior: behavior.data || [],
-      history: history.data?.[0]?.messages || [],
       integrations: integrations.data || [],
+      blockers: blockers.data || [],
     };
 
-    const sessionMemory = existingSessionMemory
-      ? {
-          active_project: projectFocus || existingSessionMemory.active_project || null,
-          current_focus: existingSessionMemory.current_focus || null,
-          open_blockers: existingSessionMemory.open_blockers || [],
-          decisions_made: existingSessionMemory.decisions_made || [],
-          next_steps: existingSessionMemory.next_steps || [],
-          user_preferences: existingSessionMemory.user_preferences || [],
-          key_topics: existingSessionMemory.key_topics || [],
-          summary: existingSessionMemory.summary || null,
-        }
+    const focusedProject = contextEnabled
+      ? detectProjectFocus(
+          message,
+          sessionSummary,
+          contextNote,
+          rawContext.projects
+        )
+      : null;
+
+    const context = contextEnabled
+      ? compressContext(
+          rawContext,
+          messageType,
+          recentConversation,
+          sessionSummary,
+          contextNote,
+          focusedProject
+        )
       : {
-          active_project: projectFocus,
-          current_focus: null,
-          open_blockers: [],
-          decisions_made: [],
-          next_steps: [],
-          user_preferences: [],
-          key_topics: [],
-          summary: null,
+          focused_project: null,
+          session_summary: sessionSummary || '',
+          context_note: contextNote || '',
+          conversation: recentConversation,
         };
 
-    const context = compressContext(rawContext, messageType, sessionMemory);
     const systemPrompt = buildSystemPrompt(context);
 
     const anthropic = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,
     });
-
-    if (streamRequested) {
-      const stream = await anthropic.messages.stream({
-        model,
-        max_tokens: 4096,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: message }],
-      });
-
-      const encoder = new TextEncoder();
-
-      const readableStream = new ReadableStream({
-        async start(controller) {
-          try {
-            for await (const chunk of stream) {
-              if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
-                controller.enqueue(encoder.encode(chunk.delta.text));
-              }
-            }
-
-            const finalMessage = await stream.finalMessage();
-            const inputTokens = finalMessage.usage?.input_tokens || 0;
-            const outputTokens = finalMessage.usage?.output_tokens || 0;
-            const cost = calculateCost(model, inputTokens, outputTokens);
-
-            await supabase.from('ai_usage').insert({
-              user_id: user.id,
-              model,
-              input_tokens: inputTokens,
-              output_tokens: outputTokens,
-              cost_usd: cost,
-              message_type: messageType,
-              session_id: sessionId,
-            });
-
-            controller.close();
-          } catch (err) {
-            controller.error(err);
-          }
-        },
-      });
-
-      return new Response(readableStream, {
-        headers: {
-          'Content-Type': 'text/plain; charset=utf-8',
-          'Cache-Control': 'no-cache, no-transform',
-          'X-Accel-Buffering': 'no',
-          'x-context-used': '1',
-          'x-web-search-used': '0',
-          'x-project-focus': projectFocus || '',
-        },
-      });
-    }
 
     const response = await anthropic.messages.create({
       model,
@@ -194,32 +406,41 @@ export async function POST(request: NextRequest) {
       messages: [{ role: 'user', content: message }],
     });
 
-    const text =
-      response.content
-        ?.filter((block: any) => block.type === 'text')
-        .map((block: any) => block.text)
-        .join('') || '';
+    const text = response.content
+      .filter((block: any) => block.type === 'text')
+      .map((block: any) => block.text)
+      .join('\n')
+      .trim();
 
     const inputTokens = response.usage?.input_tokens || 0;
     const outputTokens = response.usage?.output_tokens || 0;
     const cost = calculateCost(model, inputTokens, outputTokens);
 
-    await supabase.from('ai_usage').insert({
-      user_id: user.id,
-      model,
-      input_tokens: inputTokens,
-      output_tokens: outputTokens,
-      cost_usd: cost,
-      message_type: messageType,
-      session_id: sessionId,
-    });
+    try {
+      await supabase.from('ai_usage').insert({
+        user_id: user.id,
+        model,
+        input_tokens: inputTokens,
+        output_tokens: outputTokens,
+        cost_usd: cost,
+        message_type: messageType,
+        session_id: sessionId,
+      });
+    } catch (usageError) {
+      console.error('AI usage logging error:', usageError);
+    }
 
     return NextResponse.json({
       response: text,
-      content: text,
-      contextUsed: true,
+      contextUsed: {
+        focusedProject: context.focused_project?.name || null,
+        usedSessionSummary: Boolean(sessionSummary),
+        usedContextNote: Boolean(contextNote),
+        historyCount: recentConversation.length,
+        messageType,
+      },
       webSearchUsed: false,
-      projectFocus,
+      model,
     });
   } catch (error: any) {
     console.error('AI API Error:', error);
