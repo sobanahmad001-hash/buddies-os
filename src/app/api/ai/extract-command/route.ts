@@ -66,7 +66,7 @@ If it's NOT a command (just a question or conversation), return:
 {"isCommand": false, "type": null, "data": null}`;
 
     const response = await anthropic.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
+      model: 'claude-sonnet-4-5',
       max_tokens: 1024,
       temperature: 0,
       messages: [

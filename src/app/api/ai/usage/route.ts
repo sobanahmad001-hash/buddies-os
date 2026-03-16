@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       summary: summary?.[0] || { today_cost: 0, month_cost: 0, today_messages: 0, month_messages: 0 },
       recent: recentUsage || [],
-      config: config || { default_model: 'claude-3-5-sonnet-20241022', auto_select: true }
+      config: config || { default_model: 'claude-sonnet-4-5', auto_select: true }
     });
 
   } catch (error: any) {

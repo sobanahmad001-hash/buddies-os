@@ -6,7 +6,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 
 export default function ModelSelector({ onModelChange }: { onModelChange?: (model: string) => void }) {
-  const [model, setModel] = useState('claude-3-5-sonnet-20241022');
+  const [model, setModel] = useState('claude-sonnet-4-5');
   const [autoSelect, setAutoSelect] = useState(true);
   const [loading, setLoading] = useState(true);
 
@@ -53,9 +53,9 @@ export default function ModelSelector({ onModelChange }: { onModelChange?: (mode
   if (loading) return null;
 
   const models = [
-    { value: 'claude-3-5-haiku-20241022', label: 'Haiku', desc: 'Fast & Cheap', cost: '$0.25/M' },
-    { value: 'claude-3-5-sonnet-20241022', label: 'Sonnet', desc: 'Balanced', cost: '$3/M' },
-    { value: 'claude-3-opus-20240229', label: 'Opus', desc: 'Powerful', cost: '$15/M' }
+    { value: 'claude-haiku-4-5-20251001', label: 'Haiku', desc: 'Fast & Cheap', cost: '$0.25/M' },
+    { value: 'claude-sonnet-4-5', label: 'Sonnet', desc: 'Balanced', cost: '$3/M' },
+    { value: 'claude-opus-4-1', label: 'Opus', desc: 'Powerful', cost: '$15/M' }
   ];
 
   return (

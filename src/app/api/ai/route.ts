@@ -3,13 +3,13 @@ import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@/lib/supabase/server';
 
 const MODEL_COSTS = {
-  'claude-3-5-sonnet-20241022': { input: 3, output: 15 },
-  'claude-3-5-haiku-20241022': { input: 0.25, output: 1.25 },
-  'claude-3-opus-20240229': { input: 15, output: 75 }
+  'claude-sonnet-4-5': { input: 3, output: 15 },
+  'claude-haiku-4-5-20251001': { input: 0.25, output: 1.25 },
+  'claude-opus-4-1': { input: 15, output: 75 }
 };
 
 function calculateCost(model: string, inputTokens: number, outputTokens: number): number {
-  const costs = MODEL_COSTS[model as keyof typeof MODEL_COSTS] || MODEL_COSTS['claude-3-5-sonnet-20241022'];
+  const costs = MODEL_COSTS[model as keyof typeof MODEL_COSTS] || MODEL_COSTS['claude-sonnet-4-5'];
   return (inputTokens * costs.input + outputTokens * costs.output) / 1_000_000;
 }
 
@@ -112,12 +112,12 @@ export async function POST(request: NextRequest) {
 
     const messageType = detectMessageType(message);
     
-    let model = requestedModel || config?.default_model || 'claude-3-5-sonnet-20241022';
+    let model = requestedModel || config?.default_model || 'claude-sonnet-4-5';
     
     if (config?.auto_select && !requestedModel) {
-      if (messageType === 'chat') model = 'claude-3-5-haiku-20241022';
-      if (messageType === 'analysis') model = 'claude-3-5-sonnet-20241022';
-      if (messageType === 'decision') model = 'claude-3-5-sonnet-20241022';
+      if (messageType === 'chat') model = 'claude-haiku-4-5-20251001';
+      if (messageType === 'analysis') model = 'claude-sonnet-4-5';
+      if (messageType === 'decision') model = 'claude-sonnet-4-5';
     }
 
     const [projects, tasks, updates, decisions, rules, behavior, history, integrations] = await Promise.all([
