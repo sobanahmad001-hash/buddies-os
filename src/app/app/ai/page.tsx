@@ -666,7 +666,7 @@ export default function AIPage() {
         fetch("/api/ai/summarize-session", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages: finalMessages }),
+          body: JSON.stringify({ messages: finalMessages, sessionId: idForSummary }),
         }).then(r => r.json()).then(({ summary }) => {
           if (summary) {
             setSessionSummary(summary);

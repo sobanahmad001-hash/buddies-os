@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@/lib/supabase/server';
+import {
+  buildSystemPrompt,
+  compressContext,
+  detectMessageType,
+  detectProjectFocus,
+} from '@/lib/ai/memory';
 
 const MODEL_COSTS = {
   'claude-sonnet-4-5': { input: 3, output: 15 },
@@ -12,107 +18,6 @@ function calculateCost(model: string, inputTokens: number, outputTokens: number)
   const costs =
     MODEL_COSTS[model as keyof typeof MODEL_COSTS] || MODEL_COSTS['claude-sonnet-4-5'];
   return (inputTokens * costs.input + outputTokens * costs.output) / 1_000_000;
-}
-
-function detectMessageType(message: string): 'chat' | 'analysis' | 'decision' {
-  const analysisKeywords = ['analyze', 'pattern', 'insight', 'correlation', 'trend', 'why', 'show me', 'what does'];
-  const decisionKeywords = ['decide', 'should I', 'choose', 'better', 'recommend', 'which', 'help me decide'];
-
-  const lower = message.toLowerCase();
-
-  if (decisionKeywords.some((k) => lower.includes(k))) return 'decision';
-  if (analysisKeywords.some((k) => lower.includes(k))) return 'analysis';
-
-  return 'chat';
-}
-
-function compressContext(context: any, messageType: 'chat' | 'analysis' | 'decision') {
-  const base = {
-    active_projects: context.projects?.filter((p: any) => p.status === 'active') || [],
-    current_tasks:
-      context.tasks
-        ?.filter((t: any) => t.status === 'in_progress' || (t.priority && t.priority >= 4))
-        ?.slice(0, 15) || [],
-    recent_updates: context.updates?.slice(0, 7) || [],
-    open_decisions: context.decisions?.filter((d: any) => d.status === 'open') || [],
-    active_rules: context.rules?.filter((r: any) => (r.severity || 0) >= 3) || [],
-    mood_trend: context.behavior?.slice(0, 3) || [],
-    conversation: context.history?.slice(-5) || [],
-  };
-
-  if (messageType === 'analysis' || messageType === 'decision') {
-    return {
-      ...base,
-      all_projects: context.projects || [],
-      all_decisions: context.decisions?.slice(0, 10) || [],
-      behavior_week: context.behavior?.slice(0, 7) || [],
-      conversation: context.history?.slice(-10) || [],
-      integrations: context.integrations || [],
-    };
-  }
-
-  return base;
-}
-
-function buildSystemPrompt(context: any): string {
-  const sections: string[] = [];
-
-  if (context.active_projects?.length) {
-    sections.push(
-      `ACTIVE PROJECTS: ${context.active_projects
-        .map((p: any) => `${p.name} [id:${p.id}]`)
-        .join(', ')}`
-    );
-  }
-
-  if (context.current_tasks?.length) {
-    sections.push(
-      `CURRENT TASKS:\n${context.current_tasks
-        .map((t: any) => `- [${t.status}] ${t.title} (priority: ${t.priority || 3})`)
-        .join('\n')}`
-    );
-  }
-
-  if (context.recent_updates?.length) {
-    sections.push(
-      `RECENT UPDATES:\n${context.recent_updates
-        .map((u: any) => `- [${u.project_name || 'unknown'}] ${u.update_type}: ${u.content}`)
-        .join('\n')}`
-    );
-  }
-
-  if (context.open_decisions?.length) {
-    sections.push(
-      `OPEN DECISIONS:\n${context.open_decisions
-        .map((d: any) => `- ${d.context} (${d.probability || '?'}% confidence)`)
-        .join('\n')}`
-    );
-  }
-
-  if (context.active_rules?.length) {
-    sections.push(
-      `ACTIVE RULES:\n${context.active_rules
-        .map((r: any) => `- [severity ${r.severity}] ${r.content}`)
-        .join('\n')}`
-    );
-  }
-
-  if (context.mood_trend?.length) {
-    sections.push(
-      `RECENT MOOD: ${context.mood_trend
-        .map((b: any) => `${b.mood} (stress: ${b.stress_level}/10)`)
-        .join(', ')}`
-    );
-  }
-
-  return `You are the AI core of Buddies OS — a personal operating system for an entrepreneur named Soban.
-
-PHILOSOPHY: Capture → Understand → Analyze → Suggest → Human decides.
-You are an advisor, not a governor. Surface intelligence, let the human decide.
-
-${sections.join('\n\n')}
-
-Respond naturally in markdown. For actions (create task, log decision, etc.), end your response with [BUDDIES_ACTION] blocks.`;
 }
 
 export async function POST(request: NextRequest) {
@@ -157,7 +62,7 @@ export async function POST(request: NextRequest) {
       if (messageType === 'decision') model = 'claude-sonnet-4-5';
     }
 
-    const [projects, tasks, updates, decisions, rules, behavior, history, integrations] =
+    const [projects, tasks, updates, decisions, rules, behavior, history, integrations, sessionMemoryRow] =
       await Promise.all([
         supabase.from('projects').select('*').eq('user_id', user.id),
         supabase.from('tasks').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
@@ -172,7 +77,22 @@ export async function POST(request: NextRequest) {
         supabase.from('behavior_logs').select('*').eq('user_id', user.id).order('logged_at', { ascending: false }).limit(7),
         supabase.from('ai_sessions').select('messages').eq('user_id', user.id).order('created_at', { ascending: false }).limit(1),
         supabase.from('integrations').select('*').eq('user_id', user.id),
+        sessionId
+          ? supabase
+              .from('ai_session_memory')
+              .select('*')
+              .eq('user_id', user.id)
+              .eq('session_id', sessionId)
+              .maybeSingle()
+          : Promise.resolve({ data: null } as any),
       ]);
+
+    const existingSessionMemory = sessionMemoryRow?.data || null;
+    const projectFocus = detectProjectFocus(
+      message,
+      projects.data || [],
+      existingSessionMemory?.active_project || null
+    );
 
     const rawContext = {
       projects: projects.data || [],
@@ -185,7 +105,29 @@ export async function POST(request: NextRequest) {
       integrations: integrations.data || [],
     };
 
-    const context = compressContext(rawContext, messageType);
+    const sessionMemory = existingSessionMemory
+      ? {
+          active_project: projectFocus || existingSessionMemory.active_project || null,
+          current_focus: existingSessionMemory.current_focus || null,
+          open_blockers: existingSessionMemory.open_blockers || [],
+          decisions_made: existingSessionMemory.decisions_made || [],
+          next_steps: existingSessionMemory.next_steps || [],
+          user_preferences: existingSessionMemory.user_preferences || [],
+          key_topics: existingSessionMemory.key_topics || [],
+          summary: existingSessionMemory.summary || null,
+        }
+      : {
+          active_project: projectFocus,
+          current_focus: null,
+          open_blockers: [],
+          decisions_made: [],
+          next_steps: [],
+          user_preferences: [],
+          key_topics: [],
+          summary: null,
+        };
+
+    const context = compressContext(rawContext, messageType, sessionMemory);
     const systemPrompt = buildSystemPrompt(context);
 
     const anthropic = new Anthropic({
@@ -201,16 +143,13 @@ export async function POST(request: NextRequest) {
       });
 
       const encoder = new TextEncoder();
-      let fullText = '';
 
       const readableStream = new ReadableStream({
         async start(controller) {
           try {
             for await (const chunk of stream) {
               if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
-                const text = chunk.delta.text;
-                fullText += text;
-                controller.enqueue(encoder.encode(text));
+                controller.enqueue(encoder.encode(chunk.delta.text));
               }
             }
 
@@ -243,6 +182,7 @@ export async function POST(request: NextRequest) {
           'X-Accel-Buffering': 'no',
           'x-context-used': '1',
           'x-web-search-used': '0',
+          'x-project-focus': projectFocus || '',
         },
       });
     }
@@ -279,6 +219,7 @@ export async function POST(request: NextRequest) {
       content: text,
       contextUsed: true,
       webSearchUsed: false,
+      projectFocus,
     });
   } catch (error: any) {
     console.error('AI API Error:', error);
