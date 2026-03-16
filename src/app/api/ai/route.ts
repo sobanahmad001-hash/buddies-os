@@ -58,47 +58,55 @@ function compressContext(context: any, messageType: 'chat' | 'analysis' | 'decis
   return base;
 }
 
-// Build system prompt from context
+/// Build system prompt from context
 function buildSystemPrompt(context: any): string {
   const sections = [];
 
   if (context.active_projects?.length) {
     sections.push(`ACTIVE PROJECTS: ${context.active_projects.map((p: any) => 
-      \`\${p.name} [id:\${p.id}]\`
+      `${p.name} [id:${p.id}]`
     ).join(', ')}`);
   }
 
   if (context.current_tasks?.length) {
     sections.push(`CURRENT TASKS:\n${context.current_tasks.map((t: any) => 
-      \`- [\${t.status}] \${t.title} (priority: \${t.priority || 3})\`
+      `- [${t.status}] ${t.title} (priority: ${t.priority || 3})`
     ).join('\n')}`);
   }
 
   if (context.recent_updates?.length) {
     sections.push(`RECENT UPDATES:\n${context.recent_updates.map((u: any) => 
-      \`- [\${u.project_name || 'unknown'}] \${u.update_type}: \${u.content}\`
+      `- [${u.project_name || 'unknown'}] ${u.update_type}: ${u.content}`
     ).join('\n')}`);
   }
 
   if (context.open_decisions?.length) {
     sections.push(`OPEN DECISIONS:\n${context.open_decisions.map((d: any) => 
-      \`- \${d.context} (\${d.probability || '?'}% confidence)\`
+      `- ${d.context} (${d.probability || '?'}% confidence)`
     ).join('\n')}`);
   }
 
   if (context.active_rules?.length) {
     sections.push(`ACTIVE RULES:\n${context.active_rules.map((r: any) => 
-      \`- [severity \${r.severity}] \${r.content}\`
+      `- [severity ${r.severity}] ${r.content}`
     ).join('\n')}`);
   }
 
   if (context.mood_trend?.length) {
     sections.push(`RECENT MOOD: ${context.mood_trend.map((b: any) => 
-      \`\${b.mood} (stress: \${b.stress_level}/10)\`
+      `${b.mood} (stress: ${b.stress_level}/10)`
     ).join(', ')}`);
   }
 
-  return \`You are the AI core of Buddies OS — a personal operating system for an entrepreneur named Soban.
+  return `You are the AI core of Buddies OS — a personal operating system for an entrepreneur named Soban.
+
+PHILOSOPHY: Capture → Understand → Analyze → Suggest → Human decides.
+You are an advisor, not a governor. Surface intelligence, let the human decide.
+
+${sections.join('\n\n')}
+
+Respond naturally in markdown. For actions (create task, log decision, etc.), end your response with [BUDDIES_ACTION] blocks.`;
+}`You are the AI core of Buddies OS — a personal operating system for an entrepreneur named Soban.
 
 PHILOSOPHY: Capture → Understand → Analyze → Suggest → Human decides.
 You are an advisor, not a governor. Surface intelligence, let the human decide.
