@@ -1,409 +1,235 @@
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
-import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
-import Anthropic from "@anthropic-ai/sdk";
+import { NextRequest, NextResponse } from 'next/server';
+import Anthropic from '@anthropic-ai/sdk';
+import { createClient } from '@/lib/supabase/server';
 
-function detectWebSearchIntent(message: string): boolean {
-  const triggers = [
-    "search for", "look up", "find information", "what is the current",
-    "latest news", "price of", "weather in", "stock price", "how to",
-    "what happened", "current price", "news about", "today's", "right now",
-    "recent", "live", "real-time",
-  ];
-  const lower = message.toLowerCase();
-  return triggers.some(t => lower.includes(t));
+// Model pricing (per million tokens)
+const MODEL_COSTS = {
+  'claude-3-5-sonnet-20241022': { input: 3, output: 15 },
+  'claude-3-5-haiku-20241022': { input: 0.25, output: 1.25 },
+  'claude-3-opus-20240229': { input: 15, output: 75 }
+};
+
+function calculateCost(model: string, inputTokens: number, outputTokens: number): number {
+  const costs = MODEL_COSTS[model as keyof typeof MODEL_COSTS] || MODEL_COSTS['claude-3-5-sonnet-20241022'];
+  return (inputTokens * costs.input + outputTokens * costs.output) / 1_000_000;
 }
 
-export async function POST(req: NextRequest) {
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll() { return cookieStore.getAll(); }, setAll(s) { s.forEach(({ name, value, options }) => cookieStore.set(name, value, options)); } } }
-  );
+// Detect message intent for smart context loading
+function detectMessageType(message: string): 'chat' | 'analysis' | 'decision' {
+  const analysisKeywords = ['analyze', 'pattern', 'insight', 'correlation', 'trend', 'why', 'show me', 'what does'];
+  const decisionKeywords = ['decide', 'should I', 'choose', 'better', 'recommend', 'which', 'help me decide'];
+  
+  const lower = message.toLowerCase();
+  
+  if (decisionKeywords.some(k => lower.includes(k))) return 'decision';
+  if (analysisKeywords.some(k => lower.includes(k))) return 'analysis';
+  
+  return 'chat';
+}
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+// Smart context compression based on message type
+function compressContext(context: any, messageType: 'chat' | 'analysis' | 'decision') {
+  // Base context (always included)
+  const base = {
+    active_projects: context.projects?.filter((p: any) => p.status === 'active') || [],
+    current_tasks: context.tasks
+      ?.filter((t: any) => t.status === 'in_progress' || (t.priority && t.priority >= 4))
+      ?.slice(0, 15) || [],
+    recent_updates: context.updates?.slice(0, 7) || [],
+    open_decisions: context.decisions?.filter((d: any) => d.status === 'open') || [],
+    active_rules: context.rules?.filter((r: any) => (r.severity || 0) >= 3) || [],
+    mood_trend: context.behavior?.slice(0, 3) || [],
+    conversation: context.history?.slice(-5) || []
+  };
 
-  const body = await req.json();
-  // Support both old format { messages } and new format { message, history }
-  const messages = body.messages ?? [...(body.history ?? []), { role: "user", content: body.message }];
-  const lastMessage = messages[messages.length - 1]?.content ?? "";
-  const contextEnabled = body.contextEnabled !== false;
-  const sessionSummary: string = body.sessionSummary ?? "";
-  const contextNote: string = body.contextNote ?? "";
-
-  // ── ALL CONTEXT IN PARALLEL ──────────────────────────────────
-  // Everything fires at once: DB queries, web search, client context, integrations, learning data
-  let webSearchBlock = "";
-  let webSearchUsed = false;
-
-  // Fire web search, DB, clients, integrations, and learning context ALL in parallel
-  const webSearchPromise = (detectWebSearchIntent(lastMessage) && process.env.TAVILY_API_KEY)
-    ? fetch(`${req.nextUrl.origin}/api/web-search`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: lastMessage }),
-      }).then(r => r.ok ? r.json() : null).catch(() => null)
-    : Promise.resolve(null);
-
-  const dbPromise = contextEnabled ? Promise.all([
-    supabase.from("projects").select("id, name, description, status, memory").eq("user_id", user.id).eq("status", "active"),
-    supabase.from("project_updates").select("content, next_actions, update_type, created_at, project_id").eq("user_id", user.id).order("created_at", { ascending: false }).limit(20),
-    supabase.from("decisions").select("context, verdict, probability, outcome_rating, prediction_accuracy, created_at, closed_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(15),
-    supabase.from("rules").select("rule_text, severity, active").eq("user_id", user.id).eq("active", true),
-    supabase.from("behavior_logs").select("mood_tag, stress, sleep_hours, cognitive_score, notes, timestamp").eq("user_id", user.id).order("timestamp", { ascending: false }).limit(7),
-    supabase.from("ai_sessions").select("messages, updated_at").eq("user_id", user.id).order("updated_at", { ascending: false }).limit(3),
-    supabase.from("project_tasks").select("id, title, status, priority, due_date, project_id").eq("user_id", user.id).neq("status", "cancelled").order("priority", { ascending: true }).limit(50),
-  ]) : Promise.resolve([
-    { data: null }, { data: null }, { data: null },
-    { data: null }, { data: null }, { data: null }, { data: null },
-  ] as any);
-
-  // Learning loop: pull decision outcomes and training logs so AI compounds on past accuracy
-  const learningPromise = contextEnabled ? Promise.all([
-    supabase.from("decisions").select("context, verdict, probability, outcome_rating, prediction_accuracy").eq("user_id", user.id).not("outcome_rating", "is", null).order("created_at", { ascending: false }).limit(10),
-    supabase.from("training_logs").select("intent_detected, confidence_score, was_confirmed").eq("user_id", user.id).order("created_at", { ascending: false }).limit(20),
-    supabase.from("insights").select("summary, insight_type, strength").eq("user_id", user.id).eq("strength", "strong").order("generated_on", { ascending: false }).limit(5),
-    supabase.from("research_sessions").select("topic, status, created_at").eq("user_id", user.id).eq("status", "complete").order("created_at", { ascending: false }).limit(5),
-  ]).catch(() => [{ data: null }, { data: null }, { data: null }, { data: null }] as any)
-    : Promise.resolve([{ data: null }, { data: null }, { data: null }, { data: null }] as any);
-
-  // Client context (runs in parallel with everything else)
-  const clientPromise = contextEnabled ? (async () => {
-    try {
-      const { data: ws } = await supabase.from("workspaces").select("id").eq("owner_id", user.id).maybeSingle();
-      if (!ws) return "";
-      const { data: clients } = await supabase.from("clients").select("id, name, status").eq("workspace_id", ws.id).eq("status", "active");
-      if (!clients?.length) return "";
-      // Fetch ALL stages in one query instead of N+1
-      const clientIds = clients.map((c: any) => c.id);
-      const { data: allStages } = await supabase.from("client_stages").select("client_id, stage_name, status, department").in("client_id", clientIds);
-      const stagesByClient: Record<string, any[]> = {};
-      (allStages ?? []).forEach((s: any) => { (stagesByClient[s.client_id] ??= []).push(s); });
-      const summaries = clients.map((c: any) => {
-        const stages = stagesByClient[c.id] ?? [];
-        const done = stages.filter(s => s.status === "done").length;
-        const inProgress = stages.filter(s => s.status === "in_progress");
-        return `${c.name}: ${done}/${stages.length || 14} stages done${inProgress.length ? ". In progress: " + inProgress.map(s => s.stage_name).join(", ") : ""}`;
-      });
-      return "\nACTIVE CLIENTS:\n" + summaries.join("\n");
-    } catch { return ""; }
-  })() : Promise.resolve("");
-
-  // Integrations (with 3s timeout on GitHub API calls)
-  const integrationsPromise = (async () => {
-    try {
-      const { data } = await supabase
-        .from("integrations").select("type, name, config, status")
-        .eq("user_id", user.id).eq("status", "active");
-      if (!data?.length) return "";
-
-      const lines: string[] = [];
-      const repoContextLines: string[] = [];
-
-      const ghFetches = data.map(async (i: any) => {
-        const meta: string[] = [];
-        if (i.config?.org_or_user)  meta.push(`org/user: ${i.config.org_or_user}`);
-        if (i.config?.repo_url)     meta.push(`repo: ${i.config.repo_url}`);
-        if (i.config?.project_url)  meta.push(`project: ${i.config.project_url}`);
-        if (i.config?.team_slug)    meta.push(`team: ${i.config.team_slug}`);
-        if (i.config?.project_name) meta.push(`project: ${i.config.project_name}`);
-        if (i.config?.channel)      meta.push(`channel: ${i.config.channel}`);
-        if (i.config?.team_name)    meta.push(`team: ${i.config.team_name}`);
-        if (i.config?.database_id)  meta.push(`db: ${i.config.database_id}`);
-        lines.push(`- ${i.type.toUpperCase()}: ${i.name}${meta.length ? ` (${meta.join(", ")})` : ""}`);
-
-        if (i.type === "github" && i.config?.access_token && !i.config.access_token.includes("****") && i.config?.org_or_user) {
-          try {
-            const repoName = i.config?.repo_url?.replace(/^https?:\/\/github\.com\//, "").replace(/\.git$/, "");
-            if (!repoName) return;
-            const headers = { Authorization: `token ${i.config.access_token}`, Accept: "application/vnd.github.v3+json" };
-            // 3s timeout so GitHub never blocks the response
-            const ctrl = new AbortController();
-            const timer = setTimeout(() => ctrl.abort(), 3000);
-            try {
-              const [treeRes, commitsRes] = await Promise.all([
-                fetch(`https://api.github.com/repos/${repoName}/git/trees/HEAD?recursive=0`, { headers, signal: ctrl.signal }),
-                fetch(`https://api.github.com/repos/${repoName}/commits?per_page=5`, { headers, signal: ctrl.signal }),
-              ]);
-              clearTimeout(timer);
-              const treeData = treeRes.ok ? await treeRes.json() : null;
-              const commitsData = commitsRes.ok ? await commitsRes.json() : null;
-              const topFiles = (treeData?.tree ?? []).filter((f: any) => f.type === "blob" || f.type === "tree").slice(0, 30)
-                .map((f: any) => `${f.type === "tree" ? "📁" : "📄"} ${f.path}`).join(", ");
-              const recentCommits = Array.isArray(commitsData)
-                ? commitsData.map((c: any) => `  - ${c.commit?.message?.split("\n")[0] ?? "?"} (${c.commit?.author?.date?.slice(0, 10) ?? "?"})`)
-                    .join("\n") : "";
-              if (topFiles || recentCommits) {
-                repoContextLines.push(`\nGITHUB REPO STRUCTURE (${repoName}):\nRoot: ${topFiles || "n/a"}` +
-                  (recentCommits ? `\nRecent commits:\n${recentCommits}` : ""));
-              }
-            } catch { clearTimeout(timer); }
-          } catch { /* skip */ }
-        }
-      });
-      await Promise.all(ghFetches);
-      return "\nCONNECTED INTEGRATIONS:\n" + lines.join("\n") + repoContextLines.join("");
-    } catch { return ""; }
-  })();
-
-  // ── AWAIT ALL PARALLEL WORK ────────────────────────────────────
-  const [
-    dbResults, searchData, clientContextBlock, integrationsBlock,
-    learningResults
-  ] = await Promise.all([
-    dbPromise, webSearchPromise, clientPromise, integrationsPromise, learningPromise
-  ]);
-
-  const [
-    { data: projects }, { data: updates }, { data: decisions },
-    { data: rules }, { data: logs }, { data: recentSessions },
-    { data: allTasks }
-  ]: any[] = dbResults;
-
-  const [
-    { data: closedDecisions }, { data: trainingLogs },
-    { data: strongInsights }, { data: recentResearch }
-  ]: any[] = learningResults;
-
-  if (searchData?.answer || searchData?.results?.length) {
-    webSearchUsed = true;
-    webSearchBlock = `\n\nWEB SEARCH RESULTS (live data):\n${searchData.answer ?? ""}\n\nSOURCES:\n${
-      (searchData.results ?? []).map((r: any) => `- ${r.title}: ${r.url}`).join("\n")}`;
+  // Expand context for deep work
+  if (messageType === 'analysis' || messageType === 'decision') {
+    return {
+      ...base,
+      all_projects: context.projects || [],
+      all_decisions: context.decisions?.slice(0, 10) || [],
+      behavior_week: context.behavior?.slice(0, 7) || [],
+      conversation: context.history?.slice(-10) || [],
+      integrations: context.integrations || []
+    };
   }
 
-  // Build learning context so AI compounds on past accuracy
-  const learningBlock = (() => {
-    const parts: string[] = [];
-    // Decision outcome history — AI learns from what worked
-    const rated = (closedDecisions ?? []).filter((d: any) => d.outcome_rating);
-    if (rated.length) {
-      const avg = rated.filter((d: any) => d.prediction_accuracy != null);
-      parts.push(`DECISION TRACK RECORD (${rated.length} rated):${
-        avg.length ? ` avg accuracy: ${Math.round(avg.reduce((a: number, d: any) => a + d.prediction_accuracy, 0) / avg.length)}%` : ""
-      }\n${rated.slice(0, 5).map((d: any) => `- ${d.verdict?.toUpperCase()}: "${d.context?.slice(0, 60)}" → outcome: ${d.outcome_rating}`).join("\n")}`);
-    }
-    // Strong insights the system has already discovered
-    if (strongInsights?.length) {
-      parts.push(`VERIFIED INSIGHTS:\n${strongInsights.map((i: any) => `- [${i.insight_type}] ${i.summary}`).join("\n")}`);
-    }
-    // Recent research topics
-    if (recentResearch?.length) {
-      parts.push(`RECENT RESEARCH: ${recentResearch.map((r: any) => r.topic).join(", ")}`);
-    }
-    return parts.length ? "\n\n" + parts.join("\n\n") : "";
-  })();
+  // Minimal context for quick chat
+  return base;
+}
 
-  // Cognitive state awareness — shapes response tone
-  const cognitiveBlock = (() => {
-    const latest = (logs ?? [])[0];
-    if (!latest?.cognitive_score) return "";
-    const score = latest.cognitive_score;
-    if (score < 40) return "\n\nCOGNITIVE STATE: LOW (score " + score + "). Keep responses simple, prioritize top 1-2 actions. Don't overwhelm.";
-    if (score > 75) return "\n\nCOGNITIVE STATE: HIGH (score " + score + "). User is sharp — go deeper, offer more nuanced analysis.";
-    return "";
-  })();
+// Build system prompt from context
+function buildSystemPrompt(context: any): string {
+  const sections = [];
 
-  const teamContextBlock = "";
+  if (context.active_projects?.length) {
+    sections.push(`ACTIVE PROJECTS: ${context.active_projects.map((p: any) => 
+      \`\${p.name} [id:\${p.id}]\`
+    ).join(', ')}`);
+  }
 
-  const projectMap: Record<string, string> = {};
-  const projectMemory: Record<string, string> = {};
-  (projects ?? []).forEach((p: any) => {
-    projectMap[p.id] = p.name;
-    if (p.memory) projectMemory[p.name] = p.memory;
-  });
+  if (context.current_tasks?.length) {
+    sections.push(`CURRENT TASKS:\n${context.current_tasks.map((t: any) => 
+      \`- [\${t.status}] \${t.title} (priority: \${t.priority || 3})\`
+    ).join('\n')}`);
+  }
 
-  // Build per-project task summary
-  const tasksByProject: Record<string, { todo: string[]; in_progress: string[]; done: string[] }> = {};
-  (allTasks ?? []).forEach((t: any) => {
-    const pName = projectMap[t.project_id] ?? "Unknown";
-    if (!tasksByProject[pName]) tasksByProject[pName] = { todo: [], in_progress: [], done: [] };
-    const bucket = t.status === "done" || t.status === "completed" ? "done"
-      : t.status === "in_progress" ? "in_progress" : "todo";
-    // Include task_id in brackets so AI can reference it for complete_task action
-    const label = `${t.title} [id:${t.id}]${t.due_date ? ` [due:${t.due_date.slice(0, 10)}]` : ""}`;
-    tasksByProject[pName][bucket].push(label);
-  });
+  if (context.recent_updates?.length) {
+    sections.push(`RECENT UPDATES:\n${context.recent_updates.map((u: any) => 
+      \`- [\${u.project_name || 'unknown'}] \${u.update_type}: \${u.content}\`
+    ).join('\n')}`);
+  }
 
-  const tasksBlock = Object.entries(tasksByProject).map(([name, buckets]) => {
-    const parts: string[] = [];
-    if (buckets.in_progress.length) parts.push(`  🔄 In progress: ${buckets.in_progress.join(", ")}`);
-    if (buckets.todo.length) parts.push(`  📋 Todo (${buckets.todo.length}): ${buckets.todo.slice(0, 5).join(", ")}${buckets.todo.length > 5 ? ` +${buckets.todo.length - 5} more` : ""}`);
-    if (buckets.done.length) parts.push(`  ✅ Done recently: ${buckets.done.slice(0, 3).join(", ")}`);
-    return `[${name}]\n${parts.join("\n") || "  (no tasks)"}`;
-  }).join("\n");
+  if (context.open_decisions?.length) {
+    sections.push(`OPEN DECISIONS:\n${context.open_decisions.map((d: any) => 
+      \`- \${d.context} (\${d.probability || '?'}% confidence)\`
+    ).join('\n')}`);
+  }
 
-  const sessionHistory = (recentSessions ?? [])
-    .flatMap((s: any) => (s.messages ?? []).slice(-2))
-    .slice(-6)
-    .map((m: any) => `[${m.role}]: ${typeof m.content === 'string' ? m.content.slice(0, 300) : m.content}`)
-    .join("\n");
+  if (context.active_rules?.length) {
+    sections.push(`ACTIVE RULES:\n${context.active_rules.map((r: any) => 
+      \`- [severity \${r.severity}] \${r.content}\`
+    ).join('\n')}`);
+  }
 
-  const contextBlock = `
-ACTIVE PROJECTS: ${(projects ?? []).map((p: any) => {
-    const desc = p.description ? ` — ${p.description}` : "";
-    return `${p.name}${desc} [id:${p.id}]`;
-  }).join(", ") || "none"}
+  if (context.mood_trend?.length) {
+    sections.push(`RECENT MOOD: ${context.mood_trend.map((b: any) => 
+      \`\${b.mood} (stress: \${b.stress_level}/10)\`
+    ).join(', ')}`);
+  }
 
-PROJECT TASKS:
-${tasksBlock || "(no tasks)"}
-
-${Object.keys(projectMemory).length > 0 ? `PROJECT MEMORY:\n${Object.entries(projectMemory).map(([name, mem]) => `[${name}]: ${mem}`).join("\n")}\n` : ""}RECENT UPDATES:
-${(updates ?? []).map((u: any) => `- [${projectMap[u.project_id] ?? "unknown"}] ${u.update_type}: ${u.content}${u.next_actions ? ` → next: ${u.next_actions}` : ""}`).join("\n")}
-
-DECISIONS:
-${(decisions ?? []).map((d: any) => `- ${d.verdict?.toUpperCase() ?? "?"} (${d.probability ?? "?"}%) [outcome: ${d.outcome_rating ?? "open"}]: ${d.context}`).join("\n")}
-
-ACTIVE RULES:
-${(rules ?? []).map((r: any) => `- [severity ${r.severity}] ${r.rule_text}`).join("\n")}
-
-BEHAVIOR (last 7 days):
-${(logs ?? []).map((l: any) => `- mood: ${l.mood_tag ?? "?"}, stress: ${l.stress ?? "?"}/10, sleep: ${l.sleep_hours ?? "?"}h`).join("\n")}
-
-${sessionHistory ? `RECENT CONVERSATION HISTORY:\n${sessionHistory}` : ""}`.trim();
-
-  const systemPrompt = contextEnabled
-    ? `You are the AI core of Buddies OS — a personal operating system for an entrepreneur named Soban.
+  return \`You are the AI core of Buddies OS — a personal operating system for an entrepreneur named Soban.
 
 PHILOSOPHY: Capture → Understand → Analyze → Suggest → Human decides.
 You are an advisor, not a governor. Surface intelligence, let the human decide.
 
-Respond naturally in markdown. Never output JSON or structured data EXCEPT for action blocks (see below).
+\${sections.join('\n\n')}
 
-RESPONSE RULES:
-- Factual questions: answer directly
-- Patterns detected: "Observation: [what data shows]. [supporting data]. You decide."
-- Never say "you should" — say "the data suggests" or "worth considering"
-- Use markdown — bold key terms, bullets for lists
-- Tight responses. No padding. No flattery.
-- For live data (prices, news, events) — use web search
+Respond naturally in markdown. For actions (create task, log decision, etc.), end your response with [BUDDIES_ACTION] blocks.\`;
+}
 
-AUTO-DETECTION FROM CHAT (apply on every message):
-1. PROJECTS: If user mentions a project name NOT in ACTIVE PROJECTS list → propose "app.create_project".
-2. PROJECT UPDATES: If user describes progress, work done, or blockers on a project → proactively propose "app.add_project_update" to capture it. Don't wait to be asked — surface it naturally: "Want me to log this as a project update?"
-3. TASKS: If user mentions a to-do, next step, or work item → propose "app.create_task" with the matching project_id (shown as [id:xxx] in ACTIVE PROJECTS). If multiple tasks, propose the highest priority one and list the rest.
-4. TASK COMPLETION: If user says something is done/finished/deployed/merged → check PROJECT TASKS for a matching task and propose "app.complete_task" with its task_id.
-5. GIT REPOS: When GITHUB REPO STRUCTURE is present, use the file tree and commit history to answer codebase questions accurately — reference real files, suggest tasks from recent commits, offer to create GitHub issues for bugs discussed.
-
-ACTION SYSTEM (read carefully):
-When the user asks to perform a write action — create a task, log a decision, update a project, create a GitHub issue, run SQL — you MUST:
-1. Explain what you're about to do in plain markdown
-2. End your response with a single [BUDDIES_ACTION] block:
-
-[BUDDIES_ACTION]
-{"type":"<action_type>","description":"<one sentence what this does>","warning":"<risk or null>","params":{...}}
-[/BUDDIES_ACTION]
-
-Supported action types and their params:
-- "app.create_project": {"name":"...","description":"..."}
-- "app.generate_document": {"title":"...","content":"full markdown document text"} ← use when user asks to write/create/draft a document, spec, proposal, report, plan, README, or any structured text. Write the FULL document in the content field.
-- "app.create_task": {"title":"...","project_id":"...","priority":1-5,"due_date":"YYYY-MM-DD or null"}
-- "app.complete_task": {"task_id":"...","title":"..."}
-- "app.create_decision": {"context":"...","verdict":"proceed|pause|reject","probability":0-100}
-- "app.update_project": {"project_id":"...","status":"active|completed|on_hold","description":"..."}
-- "app.add_project_update": {"project_id":"...","content":"...","update_type":"progress|blocker|milestone","next_actions":"next step or null"}
-- "github.create_issue": {"repo":"owner/repo","title":"...","body":"...","labels":["bug","enhancement",...]}
-- "github.create_branch": {"repo":"owner/repo","branch":"feature/name","from":"main"}
-- "supabase.run_sql": {"sql":"SELECT ...","description":"what this query does"}
-
-RULES:
-- Never include [BUDDIES_ACTION] for read-only questions or analysis
-- Always include a "description" the user can read before approving
-- Set "warning" to the risk, or null if safe
-- Only ONE action block per response
-- The user must approve before any action runs — you are PROPOSING, not executing
-- For "app.complete_task": task_id comes from PROJECT TASKS list (id field)
-
-CURRENT CONTEXT:
-${contextBlock}${clientContextBlock ? `\n\nCLIENT STATUS:${clientContextBlock}` : ""}${teamContextBlock ? `\n\nTEAM CONTEXT:\n${teamContextBlock}` : ""}${integrationsBlock}${learningBlock}${cognitiveBlock}${webSearchBlock}${sessionSummary ? `\n\nPREVIOUS CONVERSATION SUMMARY (earlier context from this chat — treat as memory):\n${sessionSummary}` : ""}${contextNote ? `\n\nUSER PINNED NOTE (always apply in every reply):\n${contextNote}` : ""}`
-    : `You are the AI core of Buddies OS — a personal operating system for an entrepreneur named Soban.
-
-PHILOSOPHY: Capture → Understand → Analyze → Suggest → Human decides.
-You are an advisor, not a governor. Surface intelligence, let the human decide.
-
-Respond naturally in markdown. Never output JSON or structured data EXCEPT for action blocks.
-
-RESPONSE RULES:
-- Factual questions: answer directly
-- Patterns detected: "Observation: [what data shows]. [supporting data]. You decide."
-- Never say "you should" — say "the data suggests" or "worth considering"
-- Use markdown — bold key terms, bullets for lists
-- Tight responses. No padding. No flattery.
-- For live data (prices, news, events) — use web search
-
-ACTION SYSTEM: Same rules as above — include [BUDDIES_ACTION] blocks for any write action requested.
-${integrationsBlock}
-
-Note: Context mode is OFF. Respond based on this conversation only.${webSearchBlock}${sessionSummary ? `\n\nPREVIOUS CONVERSATION SUMMARY:\n${sessionSummary}` : ""}${contextNote ? `\n\nUSER PINNED NOTE (always apply):\n${contextNote}` : ""}`;
-
+export async function POST(request: NextRequest) {
   try {
-    // ── PRIMARY: Claude ──────────────────────────────────────────
-    if (process.env.ANTHROPIC_API_KEY) {
-      try {
-        const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-        const response = await anthropic.messages.create({
-          model: "claude-sonnet-4-5",
-          max_tokens: 16000,
-          system: systemPrompt,
-          messages: messages.map((m: any) => {
-            // Vision: message with attached image URLs
-            if (m.images && m.images.length > 0) {
-              return {
-                role: m.role,
-                content: [
-                  { type: "text", text: m.content },
-                  ...m.images.map((url: string) => ({
-                    type: "image",
-                    source: { type: "url", url },
-                  })),
-                ],
-              };
-            }
-            return { role: m.role, content: m.content };
-          }),
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { message, model: requestedModel } = await request.json();
+
+    if (!message) {
+      return NextResponse.json({ error: 'Message required' }, { status: 400 });
+    }
+
+    // Get user's model preference
+    const { data: config } = await supabase
+      .from('ai_model_config')
+      .select('default_model, auto_select')
+      .eq('user_id', user.id)
+      .single();
+
+    const messageType = detectMessageType(message);
+    
+    // Auto-select model based on message type if enabled
+    let model = requestedModel || config?.default_model || 'claude-3-5-sonnet-20241022';
+    
+    if (config?.auto_select && !requestedModel) {
+      if (messageType === 'chat') model = 'claude-3-5-haiku-20241022';
+      if (messageType === 'analysis') model = 'claude-3-5-sonnet-20241022';
+      if (messageType === 'decision') model = 'claude-3-5-sonnet-20241022';
+    }
+
+    // Fetch user context
+    const [projects, tasks, updates, decisions, rules, behavior, history, integrations] = await Promise.all([
+      supabase.from('projects').select('*').eq('user_id', user.id),
+      supabase.from('tasks').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('project_updates').select('*, projects(name)').eq('user_id', user.id).order('created_at', { ascending: false }).limit(20),
+      supabase.from('decisions').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(20),
+      supabase.from('rules').select('*').eq('user_id', user.id),
+      supabase.from('behavior_logs').select('*').eq('user_id', user.id).order('logged_at', { ascending: false }).limit(7),
+      supabase.from('ai_sessions').select('messages').eq('user_id', user.id).order('created_at', { ascending: false }).limit(1),
+      supabase.from('integrations').select('*').eq('user_id', user.id)
+    ]);
+
+    const rawContext = {
+      projects: projects.data || [],
+      tasks: tasks.data || [],
+      updates: updates.data?.map(u => ({ ...u, project_name: u.projects?.name })) || [],
+      decisions: decisions.data || [],
+      rules: rules.data || [],
+      behavior: behavior.data || [],
+      history: history.data?.[0]?.messages || [],
+      integrations: integrations.data || []
+    };
+
+    // Compress context based on message type
+    const context = compressContext(rawContext, messageType);
+    const systemPrompt = buildSystemPrompt(context);
+
+    // Call Claude API with streaming
+    const anthropic = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+    });
+
+    const stream = await anthropic.messages.stream({
+      model,
+      max_tokens: 4096,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: message }],
+    });
+
+    let inputTokens = 0;
+    let outputTokens = 0;
+
+    // Create readable stream
+    const readableStream = new ReadableStream({
+      async start(controller) {
+        for await (const chunk of stream) {
+          if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
+            const text = chunk.delta.text;
+            controller.enqueue(new TextEncoder().encode(text));
+          }
+          
+          if (chunk.type === 'message_start') {
+            inputTokens = chunk.message.usage.input_tokens;
+          }
+          
+          if (chunk.type === 'message_delta') {
+            outputTokens = chunk.usage.output_tokens;
+          }
+        }
+
+        // Log usage after completion
+        const cost = calculateCost(model, inputTokens, outputTokens);
+        
+        await supabase.from('ai_usage').insert({
+          user_id: user.id,
+          model,
+          input_tokens: inputTokens,
+          output_tokens: outputTokens,
+          cost_usd: cost,
+          message_type: messageType
         });
-        const text = response.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("") || "No response.";
-        return NextResponse.json({ response: text, text, provider: "claude", contextUsed: contextEnabled, webSearchUsed });
-      } catch (claudeErr: any) {
-        console.error("Claude error, falling back to OpenAI:", claudeErr.message);
-      }
-    }
 
-    // ── FALLBACK: OpenAI ─────────────────────────────────────────
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+        controller.close();
+      },
+    });
 
-    // Try Responses API with web search first
-    try {
-      const response = await (openai as any).responses.create({
-        model: "gpt-4o-mini",
-        tools: [{ type: "web_search_preview" }],
-        input: [
-          { role: "system", content: systemPrompt },
-          ...messages.map((m: any) => ({ role: m.role, content: m.content })),
-        ],
-      });
+    return new Response(readableStream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
+    });
 
-      const text = response.output
-        ?.filter((o: any) => o.type === "message")
-        ?.flatMap((o: any) => o.content ?? [])
-        ?.filter((c: any) => c.type === "output_text")
-        ?.map((c: any) => c.text)
-        ?.join("") ?? "";
-
-      return NextResponse.json({ response: text, text, provider: "openai", contextUsed: contextEnabled, webSearchUsed });
-    } catch {
-      // Fallback to chat completions
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        max_tokens: 16000,
-        messages: [{ role: "system", content: systemPrompt }, ...messages],
-      });
-      const text = response.choices[0]?.message?.content ?? "No response.";
-      return NextResponse.json({ response: text, text, provider: "openai-fallback", contextUsed: contextEnabled, webSearchUsed });
-    }
-  } catch (err: any) {
-    return NextResponse.json({ text: `Error: ${err.message}` });
+  } catch (error: any) {
+    console.error('AI API Error:', error);
+    return NextResponse.json(
+      { error: error.message || 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
