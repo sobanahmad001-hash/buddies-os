@@ -134,6 +134,8 @@ export async function POST(request: NextRequest) {
       '';
 
     const requestedModel = body.model;
+    const streamRequested = body.stream === true;
+    const sessionId = body.sessionId ?? null;
 
     if (!message) {
       return NextResponse.json({ error: 'Message required' }, { status: 400 });
@@ -190,6 +192,61 @@ export async function POST(request: NextRequest) {
       apiKey: process.env.ANTHROPIC_API_KEY,
     });
 
+    if (streamRequested) {
+      const stream = await anthropic.messages.stream({
+        model,
+        max_tokens: 4096,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: message }],
+      });
+
+      const encoder = new TextEncoder();
+      let fullText = '';
+
+      const readableStream = new ReadableStream({
+        async start(controller) {
+          try {
+            for await (const chunk of stream) {
+              if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
+                const text = chunk.delta.text;
+                fullText += text;
+                controller.enqueue(encoder.encode(text));
+              }
+            }
+
+            const finalMessage = await stream.finalMessage();
+            const inputTokens = finalMessage.usage?.input_tokens || 0;
+            const outputTokens = finalMessage.usage?.output_tokens || 0;
+            const cost = calculateCost(model, inputTokens, outputTokens);
+
+            await supabase.from('ai_usage').insert({
+              user_id: user.id,
+              model,
+              input_tokens: inputTokens,
+              output_tokens: outputTokens,
+              cost_usd: cost,
+              message_type: messageType,
+              session_id: sessionId,
+            });
+
+            controller.close();
+          } catch (err) {
+            controller.error(err);
+          }
+        },
+      });
+
+      return new Response(readableStream, {
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'Cache-Control': 'no-cache, no-transform',
+          'X-Accel-Buffering': 'no',
+          'x-context-used': '1',
+          'x-web-search-used': '0',
+        },
+      });
+    }
+
     const response = await anthropic.messages.create({
       model,
       max_tokens: 4096,
@@ -214,6 +271,7 @@ export async function POST(request: NextRequest) {
       output_tokens: outputTokens,
       cost_usd: cost,
       message_type: messageType,
+      session_id: sessionId,
     });
 
     return NextResponse.json({

@@ -565,22 +565,77 @@ export default function AIPage() {
           images: imageUrls.length > 0 ? imageUrls : undefined,
           sessionSummary: sessionSummary || undefined,
           contextNote: contextNote || undefined,
+          stream: true,
         }),
         signal,
       });
-      const data = await res.json();
-      const rawContent = data.response ?? data.error ?? "Something went wrong.";
-      const { clean, action } = parseActionBlock(rawContent);
+
+      if (!res.ok) {
+        let errorMessage = "Something went wrong.";
+        try {
+          const errJson = await res.json();
+          errorMessage = errJson.error || errorMessage;
+        } catch {
+          try {
+            errorMessage = await res.text() || errorMessage;
+          } catch {}
+        }
+        throw new Error(errorMessage);
+      }
+
+      if (!res.body) {
+        throw new Error("Streaming not supported by browser.");
+      }
+
+      const decoder = new TextDecoder();
+      const reader = res.body.getReader();
+      const ts = new Date().toISOString();
+
+      const placeholderMsg: Message = {
+        role: "assistant",
+        content: "",
+        ts,
+        contextUsed: res.headers.get("x-context-used") === "1",
+        webSearchUsed: res.headers.get("x-web-search-used") === "1",
+      };
+
+      setMessages([...newMessages, placeholderMsg]);
+
+      let streamedText = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        streamedText += decoder.decode(value, { stream: true });
+
+        setMessages((prev) => {
+          const copy = [...prev];
+          if (copy.length > 0) {
+            copy[copy.length - 1] = {
+              ...copy[copy.length - 1],
+              content: streamedText,
+            };
+          }
+          return copy;
+        });
+      }
+
+      streamedText += decoder.decode();
+
+      const { clean, action } = parseActionBlock(streamedText);
+
       const assistantMsg: Message = {
         role: "assistant",
         content: clean,
-        ts: new Date().toISOString(),
-        contextUsed: data.contextUsed,
-        webSearchUsed: data.webSearchUsed,
+        ts,
+        contextUsed: res.headers.get("x-context-used") === "1",
+        webSearchUsed: res.headers.get("x-web-search-used") === "1",
       };
+
       const finalMessages = [...newMessages, assistantMsg];
       setMessages(finalMessages);
-      // If AI proposed an action, queue the approval modal
+
       if (action) {
         setPendingAction({ action, msgIdx: finalMessages.length - 1 });
       }
