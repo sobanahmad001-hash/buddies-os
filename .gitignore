@@ -1,5 +1,24 @@
-node_modules
-.next
-node_modules
+node_modules/
+.next/
 coverage/
+.env
 .env.local
+.env.development.local
+.env.test.local
+.env.production.local
+tsconfig.tsbuildinfo
+
+# PWA / generated files
+public/sw.js
+public/workbox-*.js
+public/fallback-*.js
+public/worker-*.js
+
+# Supabase temp
+supabase/.temp/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
