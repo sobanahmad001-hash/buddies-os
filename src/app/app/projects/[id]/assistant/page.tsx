@@ -284,10 +284,13 @@ export default function ProjectAssistantPage() {
   }, []);
 
   useEffect(() => {
-    loadHistory();
+    if (projectId) {
+      loadHistory();
+    }
   }, [projectId]);
 
   async function loadHistory() {
+    if (!projectId) return;
     const res = await fetch(`/api/projects/chat?projectId=${projectId}`);
     if (res.ok) {
       const d = await res.json();
@@ -307,6 +310,10 @@ export default function ProjectAssistantPage() {
   }
 
   async function send(overrideInput?: string) {
+    if (!projectId) {
+      console.warn('projectId not yet available');
+      return;
+    }
     const text = (overrideInput ?? input).trim();
     if ((!text && attachedFiles.length === 0) || loading) return;
 
@@ -391,6 +398,7 @@ export default function ProjectAssistantPage() {
   }
 
   async function clearHistory() {
+    if (!projectId) return;
     if (!confirm('Clear all chat history for this project?')) return;
     await fetch(`/api/projects/chat?projectId=${projectId}`, { method: 'DELETE' });
     setMessages([]);
@@ -672,7 +680,7 @@ export default function ProjectAssistantPage() {
             />
             <button
               onClick={() => send()}
-              disabled={loading || (!input.trim() && attachedFiles.length === 0)}
+              disabled={loading || !projectId || (!input.trim() && attachedFiles.length === 0)}
               className="flex items-center justify-center w-9 h-9 bg-[#E8521A] text-white rounded-xl hover:bg-[#c94415] disabled:opacity-40 transition-colors shrink-0"
             >
               <Send size={15} />

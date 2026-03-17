@@ -37,7 +37,7 @@ export default function ProjectDocumentsPage() {
 
   // Generate document content via AI then open in editor
   async function generate() {
-    if (!genPrompt.trim()) return;
+    if (!projectId || !genPrompt.trim()) return;
     setGenerating(true);
     try {
       const res = await fetch('/api/projects/chat', {
@@ -62,7 +62,7 @@ export default function ProjectDocumentsPage() {
 
   // Save document to this project
   async function saveDoc() {
-    if (!form.title.trim() || !form.content.trim()) return;
+    if (!projectId || !form.title.trim() || !form.content.trim()) return;
     setSaving(true);
     await fetch('/api/projects/documents', {
       method: 'POST',

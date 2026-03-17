@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS projects (
 );
 ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "proj_owner" ON projects;
-CREATE POLICY "proj_owner" ON projects FOR ALL USING (user_id = auth.uid());
+CREATE POLICY "projects_owner" ON projects FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 CREATE INDEX IF NOT EXISTS idx_projects_user_status ON projects(user_id, status);
 
 -- ── 4. Project Updates ───────────────────────────────────────────────────────
@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS project_updates (
 );
 ALTER TABLE project_updates ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "pu_owner" ON project_updates;
-CREATE POLICY "pu_owner" ON project_updates FOR ALL USING (user_id = auth.uid());
+CREATE POLICY "project_updates_owner" ON project_updates FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 CREATE INDEX IF NOT EXISTS idx_pupdates_project ON project_updates(project_id, created_at);
 
 -- ── 5. Project Tasks ─────────────────────────────────────────────────────────
@@ -89,7 +89,7 @@ CREATE TABLE IF NOT EXISTS project_tasks (
 );
 ALTER TABLE project_tasks ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "pt_owner" ON project_tasks;
-CREATE POLICY "pt_owner" ON project_tasks FOR ALL USING (user_id = auth.uid());
+CREATE POLICY "project_tasks_owner" ON project_tasks FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 CREATE INDEX IF NOT EXISTS idx_ptasks_project ON project_tasks(project_id, status);
 
 -- ── 6. Decisions ─────────────────────────────────────────────────────────────

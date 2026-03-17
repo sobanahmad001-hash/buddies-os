@@ -15,16 +15,11 @@ CREATE TABLE IF NOT EXISTS project_chat_messages (
 ALTER TABLE project_chat_messages ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "project_chat_select" ON project_chat_messages;
-CREATE POLICY "project_chat_select" ON project_chat_messages
-  FOR SELECT USING (user_id = auth.uid());
-
 DROP POLICY IF EXISTS "project_chat_insert" ON project_chat_messages;
-CREATE POLICY "project_chat_insert" ON project_chat_messages
-  FOR INSERT WITH CHECK (user_id = auth.uid());
-
 DROP POLICY IF EXISTS "project_chat_delete" ON project_chat_messages;
-CREATE POLICY "project_chat_delete" ON project_chat_messages
-  FOR DELETE USING (user_id = auth.uid());
+CREATE POLICY "project_chat_messages_owner" ON project_chat_messages
+  FOR ALL USING (user_id = auth.uid())
+  WITH CHECK (user_id = auth.uid());
 
 CREATE INDEX IF NOT EXISTS idx_project_chat_project ON project_chat_messages(project_id, created_at);
 
@@ -43,20 +38,12 @@ CREATE TABLE IF NOT EXISTS project_decisions (
 ALTER TABLE project_decisions ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "project_decisions_select" ON project_decisions;
-CREATE POLICY "project_decisions_select" ON project_decisions
-  FOR SELECT USING (user_id = auth.uid());
-
 DROP POLICY IF EXISTS "project_decisions_insert" ON project_decisions;
-CREATE POLICY "project_decisions_insert" ON project_decisions
-  FOR INSERT WITH CHECK (user_id = auth.uid());
-
 DROP POLICY IF EXISTS "project_decisions_update" ON project_decisions;
-CREATE POLICY "project_decisions_update" ON project_decisions
-  FOR UPDATE USING (user_id = auth.uid());
-
 DROP POLICY IF EXISTS "project_decisions_delete" ON project_decisions;
-CREATE POLICY "project_decisions_delete" ON project_decisions
-  FOR DELETE USING (user_id = auth.uid());
+CREATE POLICY "project_decisions_owner" ON project_decisions
+  FOR ALL USING (user_id = auth.uid())
+  WITH CHECK (user_id = auth.uid());
 
 CREATE INDEX IF NOT EXISTS idx_project_decisions_project ON project_decisions(project_id, created_at);
 
@@ -74,20 +61,12 @@ CREATE TABLE IF NOT EXISTS project_rules (
 ALTER TABLE project_rules ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "project_rules_select" ON project_rules;
-CREATE POLICY "project_rules_select" ON project_rules
-  FOR SELECT USING (user_id = auth.uid());
-
 DROP POLICY IF EXISTS "project_rules_insert" ON project_rules;
-CREATE POLICY "project_rules_insert" ON project_rules
-  FOR INSERT WITH CHECK (user_id = auth.uid());
-
 DROP POLICY IF EXISTS "project_rules_update" ON project_rules;
-CREATE POLICY "project_rules_update" ON project_rules
-  FOR UPDATE USING (user_id = auth.uid());
-
 DROP POLICY IF EXISTS "project_rules_delete" ON project_rules;
-CREATE POLICY "project_rules_delete" ON project_rules
-  FOR DELETE USING (user_id = auth.uid());
+CREATE POLICY "project_rules_owner" ON project_rules
+  FOR ALL USING (user_id = auth.uid())
+  WITH CHECK (user_id = auth.uid());
 
 CREATE INDEX IF NOT EXISTS idx_project_rules_project ON project_rules(project_id, active);
 
@@ -104,16 +83,11 @@ CREATE TABLE IF NOT EXISTS project_research (
 ALTER TABLE project_research ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "project_research_select" ON project_research;
-CREATE POLICY "project_research_select" ON project_research
-  FOR SELECT USING (user_id = auth.uid());
-
 DROP POLICY IF EXISTS "project_research_insert" ON project_research;
-CREATE POLICY "project_research_insert" ON project_research
-  FOR INSERT WITH CHECK (user_id = auth.uid());
-
 DROP POLICY IF EXISTS "project_research_delete" ON project_research;
-CREATE POLICY "project_research_delete" ON project_research
-  FOR DELETE USING (user_id = auth.uid());
+CREATE POLICY "project_research_owner" ON project_research
+  FOR ALL USING (user_id = auth.uid())
+  WITH CHECK (user_id = auth.uid());
 
 CREATE INDEX IF NOT EXISTS idx_project_research_project ON project_research(project_id, created_at);
 
@@ -130,15 +104,10 @@ CREATE TABLE IF NOT EXISTS project_documents (
 ALTER TABLE project_documents ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "project_documents_select" ON project_documents;
-CREATE POLICY "project_documents_select" ON project_documents
-  FOR SELECT USING (user_id = auth.uid());
-
 DROP POLICY IF EXISTS "project_documents_insert" ON project_documents;
-CREATE POLICY "project_documents_insert" ON project_documents
-  FOR INSERT WITH CHECK (user_id = auth.uid());
-
 DROP POLICY IF EXISTS "project_documents_delete" ON project_documents;
-CREATE POLICY "project_documents_delete" ON project_documents
-  FOR DELETE USING (user_id = auth.uid());
+CREATE POLICY "project_documents_owner" ON project_documents
+  FOR ALL USING (user_id = auth.uid())
+  WITH CHECK (user_id = auth.uid());
 
 CREATE INDEX IF NOT EXISTS idx_project_documents_project ON project_documents(project_id, created_at);

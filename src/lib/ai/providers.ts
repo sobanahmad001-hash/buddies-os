@@ -5,7 +5,7 @@ export type AIProvider = "anthropic" | "openai" | "xai";
 
 export type ProviderMessage = {
   role: "user" | "assistant";
-  content: string;
+  content: string | Array<{ type: string; text?: string; source?: { type: string; url?: string; data?: string; media_type?: string } }>;
 };
 
 export type ProviderCallInput = {
@@ -49,11 +49,20 @@ export async function callAIProvider(input: ProviderCallInput): Promise<Provider
   if (provider === "anthropic") {
     const anthropic = getAnthropicClient();
 
+    // Convert messages to Anthropic format (handles both string and structured content)
+    const anthropicMessages = messages.map((msg) => {
+      if (typeof msg.content === "string") {
+        return { role: msg.role, content: msg.content };
+      }
+      // msg.content is an array of content blocks
+      return { role: msg.role, content: msg.content as any };
+    });
+
     const response = await anthropic.messages.create({
       model,
       max_tokens: maxTokens,
       system,
-      messages,
+      messages: anthropicMessages as any,
     });
 
     const text = response.content
@@ -73,11 +82,43 @@ export async function callAIProvider(input: ProviderCallInput): Promise<Provider
 
   const client = provider === "xai" ? getXAIClient() : getOpenAIClient();
 
+  // Convert Anthropic-style messages to OpenAI format
+  const openaiMessages = messages.map((msg) => {
+    const baseMsg: any = { role: msg.role };
+    
+    if (typeof msg.content === "string") {
+      baseMsg.content = msg.content;
+    } else {
+      // Convert content array (Anthropic format) to OpenAI format
+      const contentArray: any[] = [];
+      for (const block of msg.content) {
+        if (block.type === "text" && block.text) {
+          contentArray.push({ type: "text", text: block.text });
+        } else if (block.type === "image" && block.source?.url) {
+          contentArray.push({
+            type: "image_url",
+            image_url: { url: block.source.url },
+          });
+        } else if (block.type === "image" && block.source?.data) {
+          contentArray.push({
+            type: "image_url",
+            image_url: {
+              url: `data:${block.source.media_type || "image/jpeg"};base64,${block.source.data}`,
+            },
+          });
+        }
+      }
+      baseMsg.content = contentArray.length > 0 ? contentArray : msg.content;
+    }
+    
+    return baseMsg;
+  });
+
   const response = await client.chat.completions.create({
     model,
     messages: [
       { role: "system", content: system },
-      ...messages,
+      ...openaiMessages,
     ],
     max_tokens: maxTokens,
     temperature: 0.4,

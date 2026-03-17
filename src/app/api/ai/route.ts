@@ -286,6 +286,7 @@ export async function POST(request: NextRequest) {
       body.message ||
       body.messages?.[body.messages.length - 1]?.content ||
       '';
+    const images = body.images || [];
 
     const sessionId = body.sessionId ?? null;
     const history = Array.isArray(body.history) ? body.history : [];
@@ -399,11 +400,26 @@ export async function POST(request: NextRequest) {
 
     const systemPrompt = buildSystemPrompt(context);
 
+    // Build message content with images if present
+    let userMessageContent: string | Array<{ type: string; text?: string; source?: { type: string; url?: string } }>;
+    
+    if (images && images.length > 0) {
+      userMessageContent = [
+        { type: 'text', text: message },
+        ...images.map((url: string) => ({
+          type: 'image',
+          source: { type: 'url', url },
+        })),
+      ];
+    } else {
+      userMessageContent = message;
+    }
+
     const aiResult = await callAIProvider({
       provider,
       model,
       system: systemPrompt,
-      messages: [{ role: 'user', content: message }],
+      messages: [{ role: 'user', content: userMessageContent }],
       maxTokens: 4096,
     });
 

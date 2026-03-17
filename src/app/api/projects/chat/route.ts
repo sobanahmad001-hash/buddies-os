@@ -125,6 +125,7 @@ export async function POST(req: NextRequest) {
       mode,
       provider,
       model,
+      images,
     } = await req.json();
 
     if (!projectId || !message) {
@@ -317,13 +318,28 @@ ${mode === "document" ? "\nYou are in DOCUMENT GENERATION mode. Return only the 
       const selectedProvider = provider ?? "anthropic";
       const selectedModel = model ?? (selectedProvider === "anthropic" ? "claude-haiku-4-5-20251001" : "gpt-4o-mini");
 
+      // Build message content with images if present
+      let userMessageContent: string | Array<{ type: string; text?: string; source?: { type: string; url?: string } }>;
+      
+      if (images && images.length > 0) {
+        userMessageContent = [
+          { type: 'text', text: message },
+          ...images.map((url: string) => ({
+            type: 'image',
+            source: { type: 'url', url },
+          })),
+        ];
+      } else {
+        userMessageContent = message;
+      }
+
       const result = await callAIProvider({
         provider: selectedProvider,
         model: selectedModel,
         system: systemPrompt,
         messages: [
           ...historyMessages,
-          { role: "user", content: message },
+          { role: "user", content: userMessageContent },
         ],
       });
 
