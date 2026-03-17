@@ -705,7 +705,7 @@ export default function AIPage() {
     setInput(e.target.value);
     const el = e.target;
     el.style.height = "auto";
-    el.style.height = Math.min(el.scrollHeight, 120) + "px";
+    el.style.height = Math.min(el.scrollHeight, 180) + "px";
   }
 
   const grouped = groupSessions(sessions);
@@ -1165,41 +1165,45 @@ export default function AIPage() {
                 ))}
               </div>
             )}
-            <div className="relative flex items-end gap-2 sm:gap-3 bg-[#F7F5F2] rounded-2xl px-3 sm:px-4 py-2 sm:py-3 border border-[#E5E2DE] focus-within:border-[#E8521A] transition-colors">
-              <QuickActionsDropdown onSelectAction={handleQuickAction} />
-              <VoiceInputButton onTranscript={handleVoiceTranscript} />
-              <FileUpload onFilesSelected={(f) => setAttachedFiles(prev => [...prev, ...f])} />
-              <WebSearchButton onSearch={(query) => { setInput(query); setTimeout(() => textareaRef.current?.focus(), 0); }} />
-              <textarea
-                ref={textareaRef}
-                value={input}
-                onChange={autoResize}
-                onKeyDown={handleKey}
-                placeholder="Start with context, a goal, or a task. Buddies will understand, propose, and execute when appropriate..."
-                rows={1}
-                className="flex-1 bg-transparent text-[14px] sm:text-[15px] text-[#1A1A1A] placeholder-[#B0ADA9] resize-none focus:outline-none leading-relaxed"
-                style={{ maxHeight: "120px", minHeight: "24px" }}
-              />
-              {input.length > 8000 && (
-                <span className={`text-[10px] font-mono shrink-0 self-end mb-1 ${
-                  input.length > MAX_CHARS ? "text-red-500" : "text-amber-500"
-                }`}>
-                  {input.length.toLocaleString()}/{MAX_CHARS.toLocaleString()}
-                </span>
-              )}
-              {loading ? (
-                <button onClick={stopResponse}
-                  title="Stop generating"
-                  className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-[#1A1A1A] text-white hover:bg-[#E8521A] transition-all">
-                  <Square size={14} fill="currentColor" />
-                </button>
-              ) : (
-                <button onClick={() => send()} disabled={!input.trim() && attachedFiles.length === 0}
-                  className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all
-                    disabled:bg-[#E5E2DE] disabled:text-[#B0ADA9] bg-[#E8521A] text-white hover:bg-[#c94415]">
-                  <Send size={16} />
-                </button>
-              )}
+            <div className="bg-[#F7F5F2] rounded-2xl px-3 sm:px-4 py-2 sm:py-3 border border-[#E5E2DE] focus-within:border-[#E8521A] transition-colors">
+              <div className="flex items-center gap-2 overflow-x-auto pb-2">
+                <QuickActionsDropdown onSelectAction={handleQuickAction} />
+                <VoiceInputButton onTranscript={handleVoiceTranscript} />
+                <FileUpload onFilesSelected={(f) => setAttachedFiles(prev => [...prev, ...f])} />
+                <WebSearchButton onSearch={(query) => { setInput(query); setTimeout(() => textareaRef.current?.focus(), 0); }} />
+              </div>
+              <div className="relative flex items-end gap-2 sm:gap-3">
+                <textarea
+                  ref={textareaRef}
+                  value={input}
+                  onChange={autoResize}
+                  onKeyDown={handleKey}
+                  placeholder="Start with context, a goal, or a task. Buddies will understand, propose, and execute when appropriate..."
+                  rows={2}
+                  className="flex-1 bg-transparent text-[15px] sm:text-[15px] text-[#1A1A1A] placeholder-[#B0ADA9] resize-none focus:outline-none leading-relaxed"
+                  style={{ maxHeight: "180px", minHeight: "56px" }}
+                />
+                {input.length > 8000 && (
+                  <span className={`text-[10px] font-mono shrink-0 self-end mb-1 ${
+                    input.length > MAX_CHARS ? "text-red-500" : "text-amber-500"
+                  }`}>
+                    {input.length.toLocaleString()}/{MAX_CHARS.toLocaleString()}
+                  </span>
+                )}
+                {loading ? (
+                  <button onClick={stopResponse}
+                    title="Stop generating"
+                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-[#1A1A1A] text-white hover:bg-[#E8521A] transition-all">
+                    <Square size={14} fill="currentColor" />
+                  </button>
+                ) : (
+                  <button onClick={() => send()} disabled={!input.trim() && attachedFiles.length === 0}
+                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all
+                      disabled:bg-[#E5E2DE] disabled:text-[#B0ADA9] bg-[#E8521A] text-white hover:bg-[#c94415]">
+                    <Send size={16} />
+                  </button>
+                )}
+              </div>
             </div>
             <p className="hidden sm:block text-[11px] text-[#B0ADA9] text-center mt-2">
               Enter to send · Shift+Enter for new line · Context → Solution → Execution · ⚡ Capture · 🎤 Voice · 🌐 Web · 📎 Attach

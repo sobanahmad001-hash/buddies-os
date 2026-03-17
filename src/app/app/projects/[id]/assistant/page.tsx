@@ -419,7 +419,7 @@ export default function ProjectAssistantPage() {
     setInput(e.target.value);
     const el = e.target;
     el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+    el.style.height = Math.min(el.scrollHeight, 180) + 'px';
   }
 
   const messageGroups = groupMessages(messages);
@@ -666,26 +666,30 @@ export default function ProjectAssistantPage() {
             </div>
           )}
 
-          <div className="flex gap-2 items-end bg-[#FAFAF9] border border-[#E5E2DE] rounded-2xl px-4 py-3 focus-within:border-[#E8521A] transition-colors">
-            <VoiceInputButton onTranscript={handleVoiceTranscript} />
-            <FileUpload onFilesSelected={(files) => setAttachedFiles(prev => [...prev, ...files])} />
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={autoResize}
-              onKeyDown={handleKey}
-              rows={1}
-              placeholder="Ask about this project… (Enter to send, Shift+Enter for newline)"
-              className="flex-1 resize-none text-[14px] text-[#1A1A1A] bg-transparent focus:outline-none leading-relaxed max-h-[120px] placeholder:text-[#B0ADA9]"
-              style={{ overflowY: 'auto' }}
-            />
-            <button
-              onClick={() => send()}
-              disabled={loading || !projectId || (!input.trim() && attachedFiles.length === 0)}
-              className="flex items-center justify-center w-9 h-9 bg-[#E8521A] text-white rounded-xl hover:bg-[#c94415] disabled:opacity-40 transition-colors shrink-0"
-            >
-              <Send size={15} />
-            </button>
+          <div className="bg-[#FAFAF9] border border-[#E5E2DE] rounded-2xl px-4 py-3 focus-within:border-[#E8521A] transition-colors">
+            <div className="flex items-center gap-2 overflow-x-auto pb-2">
+              <VoiceInputButton onTranscript={handleVoiceTranscript} />
+              <FileUpload onFilesSelected={(files) => setAttachedFiles(prev => [...prev, ...files])} />
+            </div>
+            <div className="flex gap-2 items-end">
+              <textarea
+                ref={textareaRef}
+                value={input}
+                onChange={autoResize}
+                onKeyDown={handleKey}
+                rows={2}
+                placeholder="Ask about this project… (Enter to send, Shift+Enter for newline)"
+                className="flex-1 resize-none text-[15px] text-[#1A1A1A] bg-transparent focus:outline-none leading-relaxed placeholder:text-[#B0ADA9]"
+                style={{ overflowY: 'auto', minHeight: '56px', maxHeight: '180px' }}
+              />
+              <button
+                onClick={() => send()}
+                disabled={loading || !projectId || (!input.trim() && attachedFiles.length === 0)}
+                className="flex items-center justify-center w-10 h-10 bg-[#E8521A] text-white rounded-xl hover:bg-[#c94415] disabled:opacity-40 transition-colors shrink-0"
+              >
+                <Send size={15} />
+              </button>
+            </div>
           </div>
         </div>
       </div>
