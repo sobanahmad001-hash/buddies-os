@@ -437,14 +437,14 @@ export default function ProjectAssistantPage() {
     <div className="flex flex-col h-full bg-[#FAFAF8]">
 
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-3 bg-white border-b border-[#E5E2DE] shrink-0">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col gap-2 px-3 sm:px-5 py-3 bg-white border-b border-[#E5E2DE] shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
           <div className="w-7 h-7 rounded-lg bg-[#0F0F0F] flex items-center justify-center text-[14px]">🤖</div>
-          <span className="text-[14px] font-semibold text-[#1A1A1A]">Project Assistant</span>
-          <span className="text-[11px] text-[#737373] bg-[#F7F5F2] px-2 py-0.5 rounded-full border border-[#E5E2DE]">Scoped to this project</span>
-          <span className="text-[11px] text-[#737373] bg-[#F7F5F2] px-2 py-0.5 rounded-full border border-[#E5E2DE]">{provider} · {model || 'default'}</span>
+          <span className="text-[14px] font-semibold text-[#1A1A1A] truncate">Project Assistant</span>
+          <span className="hidden sm:inline-flex text-[11px] text-[#737373] bg-[#F7F5F2] px-2 py-0.5 rounded-full border border-[#E5E2DE]">Scoped to this project</span>
+          <span className="hidden sm:inline-flex text-[11px] text-[#737373] bg-[#F7F5F2] px-2 py-0.5 rounded-full border border-[#E5E2DE]">{provider} · {model || 'default'}</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 overflow-x-auto">
           <select
             value={provider}
             onChange={(e) => {
@@ -458,7 +458,7 @@ export default function ProjectAssistantPage() {
               setModel(defaultModel);
               localStorage.setItem('buddies-ai-model', defaultModel);
             }}
-            className="text-[12px] px-2 py-1.5 rounded-lg border border-[#E5E2DE] bg-white text-[#1A1A1A]"
+            className="shrink-0 text-[12px] px-2 py-1.5 rounded-lg border border-[#E5E2DE] bg-white text-[#1A1A1A]"
           >
             <option value="anthropic">Claude</option>
             <option value="openai">OpenAI</option>
@@ -471,7 +471,7 @@ export default function ProjectAssistantPage() {
               setModel(e.target.value);
               localStorage.setItem('buddies-ai-model', e.target.value);
             }}
-            className="text-[12px] px-2 py-1.5 rounded-lg border border-[#E5E2DE] bg-white text-[#1A1A1A]"
+            className="shrink-0 text-[12px] px-2 py-1.5 rounded-lg border border-[#E5E2DE] bg-white text-[#1A1A1A]"
           >
             {providerModels[provider].map((m) => (
               <option key={m.value} value={m.value}>{m.label}</option>
@@ -480,8 +480,8 @@ export default function ProjectAssistantPage() {
 
           <button onClick={clearHistory}
 
-          className="flex items-center gap-1.5 text-[12px] text-[#737373] hover:text-[#EF4444] transition-colors px-2 py-1 rounded-lg hover:bg-[#FEF2F2]">
-          <Trash2 size={13} /> Clear history
+          className="shrink-0 flex items-center gap-1.5 text-[12px] text-[#737373] hover:text-[#EF4444] transition-colors px-2 py-1 rounded-lg hover:bg-[#FEF2F2]">
+          <Trash2 size={13} /> <span className="hidden sm:inline">Clear history</span>
         </button>
         </div>
       </div>

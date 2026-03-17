@@ -779,42 +779,48 @@ export default function AIPage() {
       <div className="flex flex-col flex-1 overflow-hidden">
 
         {/* Header */}
-        <div className="flex items-center gap-3 px-5 py-3 bg-white border-b border-[#E5E2DE] shrink-0">
-          <button onClick={() => setSidebarOpen(v => !v)}
-            className="flex flex-col justify-center items-center w-9 h-9 gap-1.5 text-[#737373] hover:text-[#1A1A1A] transition-colors rounded-lg hover:bg-[#F0EDE9]"
+        <div className="flex flex-col gap-2 px-3 sm:px-5 py-3 bg-white border-b border-[#E5E2DE] shrink-0 md:flex-row md:items-center md:gap-3">
+          <div className="flex w-full items-start gap-2 md:items-center md:flex-1 min-w-0">
+            <button onClick={() => setSidebarOpen(v => !v)}
+            className="shrink-0 flex flex-col justify-center items-center w-9 h-9 gap-1.5 text-[#737373] hover:text-[#1A1A1A] transition-colors rounded-lg hover:bg-[#F0EDE9]"
             title={sidebarOpen ? "Hide" : "Show"}>
             <span className="w-4 h-0.5 bg-current rounded-full" />
             <span className="w-4 h-0.5 bg-current rounded-full" />
             <span className="w-4 h-0.5 bg-current rounded-full" />
           </button>
-          <div className="flex-1">
+          <div className="min-w-0 flex-1">
             <div className="text-[15px] font-semibold text-[#1A1A1A]">
               {activeSession?.title ?? "Buddies AI"}
             </div>
             <div className="text-[11px] text-[#737373] mt-0.5">Context → Solution → Execution for memory, projects, search, and execution</div>
           </div>
-          {/* Context Toggle */}
-          <ContextToggle onChange={setContextEnabled} />
+          </div>
 
-          {/* Search */}
-          <button
+          <div className="flex w-full md:w-auto items-center gap-2 overflow-x-auto md:overflow-visible">
+            {/* Context Toggle */}
+            <div className="shrink-0">
+              <ContextToggle onChange={setContextEnabled} />
+            </div>
+
+            {/* Search */}
+            <button
             onClick={() => setSearchOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#F0EDE9] hover:bg-[#E5E2DE] text-[#1A1A1A] text-[11px] font-medium transition-colors"
+            className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#F0EDE9] hover:bg-[#E5E2DE] text-[#1A1A1A] text-[11px] font-medium transition-colors"
             title="Search (⌘K)">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
             <span>Search</span>
             <kbd className="hidden sm:inline px-1 py-0.5 bg-white border border-[#E5E2DE] rounded text-[9px]">⌘K</kbd>
           </button>
 
-          {/* Context badge */}
-          <button onClick={() => setContextModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#F0EDE9] hover:bg-[#E5E2DE] text-[#1A1A1A] text-[11px] font-medium transition-colors">
+            {/* Context badge */}
+            <button onClick={() => setContextModalOpen(true)}
+            className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#F0EDE9] hover:bg-[#E5E2DE] text-[#1A1A1A] text-[11px] font-medium transition-colors">
             <span>🧠</span>
             <span>Memory</span>
           </button>
 
-          <button onClick={() => setContextNoteOpen(v => !v)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium transition-colors ${
+            <button onClick={() => setContextNoteOpen(v => !v)}
+            className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium transition-colors ${
               contextNoteOpen || contextNote
                 ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
                 : "bg-[#F0EDE9] hover:bg-[#E5E2DE] text-[#1A1A1A]"
@@ -824,15 +830,15 @@ export default function AIPage() {
             {contextNote && <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />}
           </button>
 
-          <div className="relative">
-            <button
+            <div className="relative shrink-0">
+              <button
               onClick={() => setModelOpen(!modelOpen)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#0F0F0F] text-white text-[11px] font-medium hover:bg-[#1A1A1A] transition-colors"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#0F0F0F] text-white text-[11px] font-medium hover:bg-[#1A1A1A] transition-colors max-w-[220px]"
             >
               <div className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
               <span className="capitalize">{selectedProvider}</span>
               <span className="text-white/50">·</span>
-              {selectedModel}
+              <span className="truncate">{selectedModel}</span>
               <ChevronDown size={12} />
             </button>
             {modelOpen && (
@@ -906,13 +912,13 @@ export default function AIPage() {
                 </div>
               </div>
             )}
-          </div>
+            </div>
 
-          {/* Code split panel toggle */}
-          <button
+            {/* Code split panel toggle */}
+            <button
             onClick={() => setCodeOpen(v => !v)}
             title={codeOpen ? "Close code panel" : "Open VS Code"}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium transition-colors ${
+            className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium transition-colors ${
               codeOpen
                 ? "bg-[#0F0F0F] text-white hover:bg-[#1A1A1A]"
                 : "bg-[#F0EDE9] hover:bg-[#E5E2DE] text-[#1A1A1A]"
@@ -920,6 +926,7 @@ export default function AIPage() {
             <Code2 size={13} />
             <span className="hidden sm:inline">Code</span>
           </button>
+          </div>
         </div>
 
         {/* Content: messages + optional code panel side-by-side */}
