@@ -286,7 +286,9 @@ export async function POST(request: NextRequest) {
       body.message ||
       body.messages?.[body.messages.length - 1]?.content ||
       '';
-    const images = body.images || [];
+    const images = Array.isArray(body.images)
+      ? body.images.filter((url: unknown) => typeof url === 'string' && url.trim())
+      : [];
 
     const sessionId = body.sessionId ?? null;
     const history = Array.isArray(body.history) ? body.history : [];
@@ -294,14 +296,16 @@ export async function POST(request: NextRequest) {
     const contextNote = body.contextNote || '';
     const contextEnabled = body.contextEnabled !== false;
 
-    if (!message) {
+    if (!message && images.length === 0) {
       return NextResponse.json({ error: 'Message required' }, { status: 400 });
     }
+
+    const effectiveMessage = message || 'Please analyze the attached image(s).';
 
     const provider: AIProvider = normalizeProvider(body.provider);
     const requestedModel = body.model;
 
-    const messageType = detectMessageType(message);
+    const messageType = detectMessageType(effectiveMessage);
     const model = requestedModel || getDefaultModelForProvider(provider, messageType);
 
     const recentConversation = normalizeHistory(history);
@@ -375,7 +379,7 @@ export async function POST(request: NextRequest) {
 
     const focusedProject = contextEnabled
       ? detectProjectFocus(
-          message,
+          effectiveMessage,
           sessionSummary,
           contextNote,
           rawContext.projects
@@ -405,14 +409,14 @@ export async function POST(request: NextRequest) {
     
     if (images && images.length > 0) {
       userMessageContent = [
-        { type: 'text', text: message },
+        { type: 'text', text: effectiveMessage },
         ...images.map((url: string) => ({
           type: 'image',
           source: { type: 'url', url },
         })),
       ];
     } else {
-      userMessageContent = message;
+      userMessageContent = effectiveMessage;
     }
 
     const aiResult = await callAIProvider({

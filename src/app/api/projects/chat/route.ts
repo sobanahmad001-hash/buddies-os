@@ -128,9 +128,19 @@ export async function POST(req: NextRequest) {
       images,
     } = await req.json();
 
-    if (!projectId || !message) {
-      return NextResponse.json({ error: "projectId and message required" }, { status: 400 });
+    const imageUrls = Array.isArray(images)
+      ? images.filter((url: unknown) => typeof url === "string" && url.trim())
+      : [];
+
+    if (!projectId) {
+      return NextResponse.json({ error: "projectId required" }, { status: 400 });
     }
+
+    if (!message && imageUrls.length === 0) {
+      return NextResponse.json({ error: "message or images required" }, { status: 400 });
+    }
+
+    const effectiveMessage = message || "Please analyze the attached image(s).";
 
     const { data: project } = await supabase
       .from("projects")
@@ -141,7 +151,7 @@ export async function POST(req: NextRequest) {
 
     if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    const quickIntent = parseActionIntent(message, projectId);
+    const quickIntent = parseActionIntent(effectiveMessage, projectId);
 
     if (quickIntent) {
       const fingerprint = createActionFingerprint(quickIntent.type, quickIntent.params);
@@ -165,7 +175,7 @@ export async function POST(req: NextRequest) {
           project_id: projectId,
           user_id: user.id,
           role: "user",
-          content: message,
+          content: effectiveMessage,
         });
         await supabase.from("project_chat_messages").insert({
           project_id: projectId,
@@ -309,7 +319,7 @@ ${mode === "document" ? "\nYou are in DOCUMENT GENERATION mode. Return only the 
       project_id: projectId,
       user_id: user.id,
       role: "user",
-      content: message,
+      content: effectiveMessage,
     });
 
     let reply = "";
@@ -323,14 +333,14 @@ ${mode === "document" ? "\nYou are in DOCUMENT GENERATION mode. Return only the 
       
       if (images && images.length > 0) {
         userMessageContent = [
-          { type: 'text', text: message },
-          ...images.map((url: string) => ({
+          { type: 'text', text: effectiveMessage },
+          ...imageUrls.map((url: string) => ({
             type: 'image',
             source: { type: 'url', url },
           })),
         ];
       } else {
-        userMessageContent = message;
+        userMessageContent = effectiveMessage;
       }
 
       const result = await callAIProvider({

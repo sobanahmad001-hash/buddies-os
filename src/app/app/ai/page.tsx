@@ -458,12 +458,14 @@ export default function AIPage() {
       setAttachedFiles([]);
     }
 
-    // Merge file context into the message text so Claude sees it
+    // Merge file context into the message text so Claude sees it.
+    // For image-only sends, provide a minimal prompt to avoid empty-message API validation errors.
     const combinedText = [text, ...fileContextBlocks].filter(Boolean).join("\n\n");
+    const requestMessage = combinedText || (imageUrls.length > 0 ? "Please analyze the attached image(s)." : "");
 
     const userMsg: Message = {
       role: "user",
-      content: combinedText || `📎 ${attachedFiles.length} file${attachedFiles.length > 1 ? "s" : ""} attached`,
+      content: requestMessage || `📎 ${attachedFiles.length} file${attachedFiles.length > 1 ? "s" : ""} attached`,
       ts: new Date().toISOString(),
       images: imageUrls.length > 0 ? imageUrls : undefined,
     };
@@ -479,7 +481,7 @@ export default function AIPage() {
 
     // ── Offline guard ─────────────────────────────────────────────
     if (!navigator.onLine) {
-      await savePendingCommand({ type: "message", content: text });
+      await savePendingCommand({ type: "message", content: requestMessage || text });
       setMessages(prev => [
         ...prev,
         {
@@ -497,7 +499,7 @@ export default function AIPage() {
       const cmdRes = await fetch("/api/ai/command", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: combinedText }),
+        body: JSON.stringify({ message: requestMessage }),
         signal,
       });
       const cmdData = await cmdRes.json();
@@ -526,7 +528,7 @@ export default function AIPage() {
       const extractRes = await fetch("/api/ai/extract-command", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: combinedText }),
+        body: JSON.stringify({ message: requestMessage }),
         signal,
       });
       const extractData = await extractRes.json();
@@ -568,7 +570,7 @@ export default function AIPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: combinedText,
+          message: requestMessage,
           sessionId: activeSession?.id ?? null,
           history: messages.slice(-50).map(m => ({
             role: m.role,

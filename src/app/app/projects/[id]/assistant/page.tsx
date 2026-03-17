@@ -344,10 +344,11 @@ export default function ProjectAssistantPage() {
     }
 
     const combinedText = [text, ...fileContextBlocks].filter(Boolean).join('\n\n');
+    const requestMessage = combinedText || (imageUrls.length > 0 ? 'Please analyze the attached image(s).' : '');
 
     const userMsg: Message = {
       role: 'user',
-      content: combinedText || `📎 ${attachedFiles.length} file${attachedFiles.length > 1 ? 's' : ''} attached`,
+      content: requestMessage || `📎 ${attachedFiles.length} file${attachedFiles.length > 1 ? 's' : ''} attached`,
       ts: new Date().toISOString(),
       images: imageUrls.length > 0 ? imageUrls : undefined,
     };
@@ -361,7 +362,7 @@ export default function ProjectAssistantPage() {
       const res = await fetch('/api/projects/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId, message: combinedText, provider, model }),
+        body: JSON.stringify({ projectId, message: requestMessage, images: imageUrls.length > 0 ? imageUrls : undefined, provider, model }),
       });
       const data = await res.json();
       if (data.reply) {
