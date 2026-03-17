@@ -300,7 +300,7 @@ export async function POST(request: NextRequest) {
 
     const recentConversation = normalizeHistory(history);
 
-    const queryList: Promise<any>[] = [
+    const queryList = [
       supabase.from('projects').select('*').eq('user_id', user.id),
       supabase
         .from('tasks')
