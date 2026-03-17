@@ -202,7 +202,8 @@ export default function AIPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [modelOpen, setModelOpen] = useState(false);
-  const [selectedModel, setSelectedModel] = useState("Claude 3.5 Sonnet");
+  const [selectedProvider, setSelectedProvider] = useState<"anthropic" | "openai" | "xai">("anthropic");
+  const [selectedModel, setSelectedModel] = useState("claude-sonnet-4-5");
   const [contextModalOpen, setContextModalOpen] = useState(false);
   const [contextEnabled, setContextEnabled] = useState(true);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -338,6 +339,17 @@ export default function AIPage() {
       messages: []
     })));
   }
+
+  useEffect(() => {
+    const savedProvider = localStorage.getItem("buddies-ai-provider");
+    const savedModel = localStorage.getItem("buddies-ai-model");
+    if (savedProvider === "anthropic" || savedProvider === "openai" || savedProvider === "xai") {
+      setSelectedProvider(savedProvider);
+    }
+    if (savedModel) {
+      setSelectedModel(savedModel);
+    }
+  }, []);
 
   function startNewChat() {
     setActiveSession(null);
@@ -565,6 +577,8 @@ export default function AIPage() {
           images: imageUrls.length > 0 ? imageUrls : undefined,
           sessionSummary: sessionSummary || undefined,
           contextNote: contextNote || undefined,
+          provider: selectedProvider,
+          model: selectedModel,
           stream: true,
         }),
         signal,
@@ -803,8 +817,9 @@ export default function AIPage() {
           </button>
           <div className="flex-1">
             <div className="text-[15px] font-semibold text-[#1A1A1A]">
-              {activeSession?.title ?? "New Chat"}
+              {activeSession?.title ?? "Buddies AI"}
             </div>
+            <div className="text-[11px] text-[#737373] mt-0.5">Context → Solution → Execution for memory, projects, search, and execution</div>
           </div>
           {/* Context Toggle */}
           <ContextToggle onChange={setContextEnabled} />
@@ -823,7 +838,7 @@ export default function AIPage() {
           <button onClick={() => setContextModalOpen(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#F0EDE9] hover:bg-[#E5E2DE] text-[#1A1A1A] text-[11px] font-medium transition-colors">
             <span>🧠</span>
-            <span>Context</span>
+            <span>Memory</span>
           </button>
 
           <button onClick={() => setContextNoteOpen(v => !v)}
@@ -838,21 +853,85 @@ export default function AIPage() {
           </button>
 
           <div className="relative">
-            <button onClick={() => setModelOpen(!modelOpen)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#0F0F0F] text-white text-[11px] font-medium hover:bg-[#1A1A1A] transition-colors">
+            <button
+              onClick={() => setModelOpen(!modelOpen)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#0F0F0F] text-white text-[11px] font-medium hover:bg-[#1A1A1A] transition-colors"
+            >
               <div className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
+              <span className="capitalize">{selectedProvider}</span>
+              <span className="text-white/50">·</span>
               {selectedModel}
               <ChevronDown size={12} />
             </button>
             {modelOpen && (
-              <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-[#E5E2DE] rounded-xl shadow-lg overflow-hidden z-50">
-                {["Claude 3.5 Sonnet", "GPT-4", "GPT-3.5 Turbo"].map(m => (
-                  <button key={m} onClick={() => { setSelectedModel(m); setModelOpen(false); }}
-                    className={`w-full text-left px-4 py-2.5 text-[13px] transition-colors
-                      ${selectedModel === m ? "bg-[#F0EDE9] text-[#E8521A] font-medium" : "text-[#1A1A1A] hover:bg-[#F7F5F2]"}`}>
-                    {m}
-                  </button>
-                ))}
+              <div className="absolute right-0 top-full mt-2 w-72 bg-white border border-[#E5E2DE] rounded-xl shadow-lg overflow-hidden z-50">
+                <div className="px-4 py-2 border-b border-[#E5E2DE] bg-[#FAF9F7]">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-[#737373]">Provider</p>
+                  <div className="flex gap-2 mt-2">
+                    {[
+                      { id: "anthropic", label: "Claude" },
+                      { id: "openai", label: "OpenAI" },
+                      { id: "xai", label: "Grok" },
+                    ].map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => {
+                          setSelectedProvider(p.id as "anthropic" | "openai" | "xai");
+                          localStorage.setItem("buddies-ai-provider", p.id);
+                          const nextModel =
+                            p.id === "anthropic"
+                              ? "claude-sonnet-4-5"
+                              : p.id === "openai"
+                              ? "gpt-4o"
+                              : "grok-3";
+                          setSelectedModel(nextModel);
+                          localStorage.setItem("buddies-ai-model", nextModel);
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors ${
+                          selectedProvider === p.id
+                            ? "bg-[#0F0F0F] text-white"
+                            : "bg-[#F0EDE9] text-[#404040] hover:bg-[#E5E2DE]"
+                        }`}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="py-1">
+                  {(selectedProvider === "anthropic"
+                    ? [
+                        { value: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5" },
+                        { value: "claude-sonnet-4-5", label: "Claude Sonnet 4.5" },
+                      ]
+                    : selectedProvider === "openai"
+                    ? [
+                        { value: "gpt-4o-mini", label: "GPT-4o Mini" },
+                        { value: "gpt-4o", label: "GPT-4o" },
+                      ]
+                    : [
+                        { value: "grok-3-mini", label: "Grok 3 Mini" },
+                        { value: "grok-3", label: "Grok 3" },
+                      ]
+                  ).map((m) => (
+                    <button
+                      key={m.value}
+                      onClick={() => {
+                        setSelectedModel(m.value);
+                        localStorage.setItem("buddies-ai-model", m.value);
+                        setModelOpen(false);
+                      }}
+                      className={`w-full text-left px-4 py-2.5 text-[13px] transition-colors ${
+                        selectedModel === m.value
+                          ? "bg-[#F0EDE9] text-[#E8521A] font-medium"
+                          : "text-[#1A1A1A] hover:bg-[#F7F5F2]"
+                      }`}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -880,24 +959,49 @@ export default function AIPage() {
           <div className="max-w-[800px] mx-auto">
 
             {messages.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-20 text-center">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#E8521A] to-[#c94415] flex items-center justify-center mb-5 shadow-lg">
-                  <span className="text-2xl">🤖</span>
-                </div>
-                <h2 className="text-xl font-bold text-[#1A1A1A] mb-2">Buddies AI</h2>
-                <p className="text-[15px] text-[#737373] mb-10">Ask anything. Get structured, actionable answers.</p>
-                <div className="grid grid-cols-2 gap-3 w-full max-w-[560px]">
-                  {[
-                    "What's the team working on today?",
-                    "Summarize my active projects",
-                    "What decisions have I made this week?",
-                    "Give me a focus recommendation",
-                  ].map(q => (
-                    <button key={q} onClick={() => { setInput(q); send(q); }}
-                      className="text-left text-[13px] text-[#737373] bg-white border border-[#E5E2DE] rounded-xl px-4 py-4 hover:border-[#E8521A] hover:text-[#1A1A1A] hover:shadow-sm transition-all">
-                      {q}
-                    </button>
-                  ))}
+              <div className="py-14">
+                <div className="max-w-[760px] mx-auto">
+                  <div className="flex flex-col items-center text-center mb-10">
+                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#E8521A] to-[#c94415] flex items-center justify-center mb-5 shadow-lg">
+                      <span className="text-2xl">🧠</span>
+                    </div>
+                    <h2 className="text-[24px] font-bold text-[#1A1A1A] mb-2">Buddies AI</h2>
+                    <p className="text-[15px] text-[#737373] max-w-[620px] leading-relaxed">
+                      Buddies works in three steps: understand context, align on solution, then execute when appropriate.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-8">
+                    <div className="bg-white border border-[#E5E2DE] rounded-xl p-4">
+                      <p className="text-[12px] font-semibold text-[#1A1A1A] mb-1">Understand the system</p>
+                      <p className="text-[12px] text-[#737373] leading-relaxed">Ask Buddies what is active, blocked, changing, or worth attention.</p>
+                    </div>
+                    <div className="bg-white border border-[#E5E2DE] rounded-xl p-4">
+                      <p className="text-[12px] font-semibold text-[#1A1A1A] mb-1">Capture naturally</p>
+                      <p className="text-[12px] text-[#737373] leading-relaxed">Tasks, blockers, decisions, and updates can be extracted from plain language.</p>
+                    </div>
+                    <div className="bg-white border border-[#E5E2DE] rounded-xl p-4">
+                      <p className="text-[12px] font-semibold text-[#1A1A1A] mb-1">Work across projects</p>
+                      <p className="text-[12px] text-[#737373] leading-relaxed">Use Buddies to reason across memory, projects, research, and execution surfaces.</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full max-w-[680px] mx-auto">
+                    {[
+                      "Summarize my active projects and tell me what matters most.",
+                      "What blockers or decisions are still unresolved across Buddies?",
+                      "What should I focus on next based on recent memory?",
+                      "Search my system memory for everything related to the dashboard refactor.",
+                    ].map(q => (
+                      <button
+                        key={q}
+                        onClick={() => { setInput(q); send(q); }}
+                        className="text-left text-[13px] text-[#737373] bg-white border border-[#E5E2DE] rounded-xl px-4 py-4 hover:border-[#E8521A] hover:text-[#1A1A1A] hover:shadow-sm transition-all"
+                      >
+                        {q}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
@@ -1058,7 +1162,7 @@ export default function AIPage() {
                 />
                 {sessionSummary && (
                   <div className="px-3 py-2 border-t border-amber-100 bg-amber-50/50">
-                    <p className="text-[10px] text-amber-600 font-semibold uppercase tracking-wider mb-1">Auto-retained summary (generated from chat history)</p>
+                    <p className="text-[10px] text-amber-600 font-semibold uppercase tracking-wider mb-1">Session compact retained from this chat</p>
                     <p className="text-[11px] text-[#737373] whitespace-pre-wrap leading-relaxed">{sessionSummary}</p>
                   </div>
                 )}
@@ -1099,7 +1203,7 @@ export default function AIPage() {
                 value={input}
                 onChange={autoResize}
                 onKeyDown={handleKey}
-                placeholder="Message Buddies AI or type a command..."
+                placeholder="Start with context, a goal, or a task. Buddies will understand, propose, and execute when appropriate..."
                 rows={1}
                 className="flex-1 bg-transparent text-[14px] sm:text-[15px] text-[#1A1A1A] placeholder-[#B0ADA9] resize-none focus:outline-none leading-relaxed"
                 style={{ maxHeight: "120px", minHeight: "24px" }}
@@ -1126,7 +1230,7 @@ export default function AIPage() {
               )}
             </div>
             <p className="hidden sm:block text-[11px] text-[#B0ADA9] text-center mt-2">
-              Enter to send · Shift+Enter for new line · ⚡ Actions · 🎤 Voice · 🌐 Web · 📎 Attach · Ctrl+V paste image
+              Enter to send · Shift+Enter for new line · Context → Solution → Execution · ⚡ Capture · 🎤 Voice · 🌐 Web · 📎 Attach
             </p>
           </div>
         </div>

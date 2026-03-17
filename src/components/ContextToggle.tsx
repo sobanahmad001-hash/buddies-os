@@ -32,17 +32,19 @@ export default function ContextToggle({ onChange }: ContextToggleProps) {
           ? 'bg-[#0F0F0F] hover:bg-[#1A1A1A] text-white'
           : 'bg-[#F0EDE9] hover:bg-[#E5E2DE] text-[#737373]'
       }`}
-      title={contextEnabled ? 'Context ON — AI sees your full history' : 'Context OFF — AI only sees this conversation'}
+      title={
+        contextEnabled
+          ? 'Memory ON — Buddies uses layered context and retrieval'
+          : 'Memory OFF — Buddies uses only the live conversation'
+      }
     >
       {contextEnabled ? (
         <BrainCircuit className="w-3.5 h-3.5 text-[#E8521A]" />
       ) : (
         <Brain className="w-3.5 h-3.5" />
       )}
-      <span>Context: {contextEnabled ? 'ON' : 'OFF'}</span>
-      {contextEnabled && (
-        <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
-      )}
+      <span>Memory: {contextEnabled ? 'ON' : 'OFF'}</span>
+      {contextEnabled && <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />}
     </button>
   );
 }

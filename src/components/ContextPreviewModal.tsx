@@ -55,25 +55,21 @@ export default function ContextPreviewModal({ isOpen, onClose }: ContextPreviewM
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden border border-[#E5E2DE]">
-
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E2DE]">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-[#0F0F0F] rounded-xl flex items-center justify-center">
               <span className="text-xl">🧠</span>
             </div>
             <div>
-              <h2 className="text-[16px] font-bold text-[#1A1A1A]">Current Context</h2>
-              <p className="text-[12px] text-[#737373]">What the AI knows about you right now</p>
+              <h2 className="text-[16px] font-bold text-[#1A1A1A]">Buddies Memory View</h2>
+              <p className="text-[12px] text-[#737373]">The working context Buddies is drawing from right now</p>
             </div>
           </div>
-          <button onClick={onClose}
-            className="p-2 hover:bg-[#F0EDE9] rounded-lg transition-colors">
+          <button onClick={onClose} className="p-2 hover:bg-[#F0EDE9] rounded-lg transition-colors">
             <X size={18} className="text-[#737373]" />
           </button>
         </div>
 
-        {/* Body */}
         <div className="overflow-y-auto p-6 space-y-5" style={{ maxHeight: 'calc(85vh - 140px)' }}>
           {loading ? (
             <div className="flex items-center justify-center py-16">
@@ -82,7 +78,7 @@ export default function ContextPreviewModal({ isOpen, onClose }: ContextPreviewM
           ) : context ? (
             <>
               {context.projects?.length > 0 && (
-                <Section title="📁 Active Projects" count={context.projects.length}>
+                <Section title="Active Projects" count={context.projects.length}>
                   <div className="space-y-2">
                     {context.projects.map((p, i) => (
                       <div key={i} className="flex items-center justify-between px-3 py-2.5 bg-[#F7F5F2] rounded-lg">
@@ -97,7 +93,7 @@ export default function ContextPreviewModal({ isOpen, onClose }: ContextPreviewM
               )}
 
               {context.recent_updates?.length > 0 && (
-                <Section title="✅ Recent Updates" count={context.recent_updates.length}>
+                <Section title="Recent Updates" count={context.recent_updates.length}>
                   <div className="space-y-2">
                     {context.recent_updates.map((u, i) => (
                       <div key={i} className="px-3 py-2.5 bg-[#F7F5F2] rounded-lg">
@@ -112,7 +108,7 @@ export default function ContextPreviewModal({ isOpen, onClose }: ContextPreviewM
               )}
 
               {context.decisions?.length > 0 && (
-                <Section title="⚖️ Decisions" count={context.decisions.length}>
+                <Section title="Recent Decisions" count={context.decisions.length}>
                   <div className="space-y-2">
                     {context.decisions.map((d, i) => (
                       <div key={i} className="px-3 py-2.5 bg-[#F7F5F2] rounded-lg">
@@ -135,7 +131,7 @@ export default function ContextPreviewModal({ isOpen, onClose }: ContextPreviewM
               )}
 
               {context.active_rules?.length > 0 && (
-                <Section title="📋 Active Rules" count={context.active_rules.length}>
+                <Section title="Active Constraints" count={context.active_rules.length}>
                   <div className="space-y-2">
                     {context.active_rules.map((r, i) => (
                       <div key={i} className="flex items-start gap-2 px-3 py-2.5 bg-[#F7F5F2] rounded-lg">
@@ -152,7 +148,7 @@ export default function ContextPreviewModal({ isOpen, onClose }: ContextPreviewM
               )}
 
               {context.behavior?.length > 0 && (
-                <Section title="😊 Behavior (Last 7 Days)" count={context.behavior.length}>
+                <Section title="Behavior Signals" count={context.behavior.length}>
                   <div className="space-y-2">
                     {context.behavior.map((b, i) => (
                       <div key={i} className="flex items-center gap-5 px-3 py-2.5 bg-[#F7F5F2] rounded-lg text-[13px] text-[#1A1A1A]">
@@ -166,19 +162,23 @@ export default function ContextPreviewModal({ isOpen, onClose }: ContextPreviewM
               )}
             </>
           ) : (
-            <div className="text-center py-16 text-[#737373] text-[14px]">No context available</div>
+            <div className="text-center py-16 text-[#737373] text-[14px]">No memory context available</div>
           )}
         </div>
 
-        {/* Footer */}
         <div className="flex items-center justify-between px-6 py-4 border-t border-[#E5E2DE]">
-          <button onClick={refreshContext} disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 bg-[#0F0F0F] hover:bg-[#1A1A1A] disabled:opacity-50 text-white text-[13px] font-medium rounded-lg transition-colors">
+          <button
+            onClick={refreshContext}
+            disabled={refreshing}
+            className="flex items-center gap-2 px-4 py-2 bg-[#0F0F0F] hover:bg-[#1A1A1A] disabled:opacity-50 text-white text-[13px] font-medium rounded-lg transition-colors"
+          >
             <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
             {refreshing ? 'Refreshing…' : 'Refresh'}
           </button>
-          <button onClick={onClose}
-            className="px-4 py-2 bg-[#F0EDE9] hover:bg-[#E5E2DE] text-[#1A1A1A] text-[13px] font-medium rounded-lg transition-colors">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-[#F0EDE9] hover:bg-[#E5E2DE] text-[#1A1A1A] text-[13px] font-medium rounded-lg transition-colors"
+          >
             Close
           </button>
         </div>

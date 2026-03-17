@@ -1,0 +1,124 @@
+﻿
+> buddies-os@0.1.0 build
+> next build
+
+node.exe :  ΓÜá Warning: Next.js inferred your workspace root, but it may not 
+be correct.
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ( ΓÜá Warning: N...not be correct. 
+   :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+ We detected multiple lockfiles and selected the directory of C:\Users\Soban 
+Ahmed\package-lock.json as the root directory.
+ To silence this warning, set `outputFileTracingRoot` in your Next.js config, 
+or consider removing one of the lockfiles if it's not needed.
+   See 
+https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats 
+for more information.
+ Detected additional lockfiles: 
+   * C:\Users\Soban Ahmed\Documents\buddies-os\package-lock.json
+
+   Γû▓ Next.js 15.5.12
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+> [PWA] Compile server
+> [PWA] Compile server
+> [PWA] Compile client (static)
+> [PWA] Custom worker found: C:\Users\Soban Ahmed\Documents\buddies-os\src\worker\index.js
+> [PWA] Build custom worker: C:\Users\Soban Ahmed\Documents\buddies-os\public\worker-aGHVrSQKu3cuU0ZlQOZhF.js
+> [PWA] Auto register service worker with: C:\Users\Soban Ahmed\Documents\buddies-os\node_modules\next-pwa\register.js
+> [PWA] Service worker: C:\Users\Soban Ahmed\Documents\buddies-os\public\sw.js
+> [PWA]   url: /sw.js
+> [PWA]   scope: /
+> [PWA] Fallback to precache routes when fetch failed from cache or network:
+> [PWA]   document (page): /offline.html
+ Γ£ô Compiled successfully in 14.8s
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/55) ...
+   Generating static pages (13/55) 
+   Generating static pages (27/55) 
+   Generating static pages (41/55) 
+ Γ£ô Generating static pages (55/55)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                 Size  First Load JS
+Γöî Γùï /                                      165 B         106 kB
+Γö£ Γùï /_not-found                            997 B         103 kB
+Γö£ ╞Æ /api/agents                            243 B         102 kB
+Γö£ ╞Æ /api/ai                                243 B         102 kB
+Γö£ ╞Æ /api/ai/activity-patterns              243 B         102 kB
+Γö£ ╞Æ /api/ai/check-rules                    243 B         102 kB
+Γö£ ╞Æ /api/ai/command                        243 B         102 kB
+Γö£ ╞Æ /api/ai/context                        243 B         102 kB
+Γö£ ╞Æ /api/ai/decision-lessons               243 B         102 kB
+Γö£ ╞Æ /api/ai/decision-patterns              243 B         102 kB
+Γö£ ╞Æ /api/ai/embed                          243 B         102 kB
+Γö£ ╞Æ /api/ai/execute                        243 B         102 kB
+Γö£ ╞Æ /api/ai/execute-command                243 B         102 kB
+Γö£ ╞Æ /api/ai/extract                        243 B         102 kB
+Γö£ ╞Æ /api/ai/extract-command                243 B         102 kB
+Γö£ ╞Æ /api/ai/extract-decision               243 B         102 kB
+Γö£ ╞Æ /api/ai/focus-recommendation           243 B         102 kB
+Γö£ ╞Æ /api/ai/generate-insights              243 B         102 kB
+Γö£ ╞Æ /api/ai/insights                       243 B         102 kB
+Γö£ ╞Æ /api/ai/memory                         243 B         102 kB
+Γö£ ╞Æ /api/ai/predictions                    243 B         102 kB
+Γö£ ╞Æ /api/ai/proactive                      243 B         102 kB
+Γö£ ╞Æ /api/ai/query                          243 B         102 kB
+Γö£ ╞Æ /api/ai/save                           243 B         102 kB
+Γö£ ╞Æ /api/ai/semantic-search                243 B         102 kB
+Γö£ ╞Æ /api/ai/sessions                       243 B         102 kB
+Γö£ ╞Æ /api/ai/summarize-session              243 B         102 kB
+Γö£ ╞Æ /api/ai/transcribe                     243 B         102 kB
+Γö£ ╞Æ /api/ai/upload                         243 B         102 kB
+Γö£ ╞Æ /api/ai/usage                          243 B         102 kB
+Γö£ ╞Æ /api/auth/signout                      243 B         102 kB
+Γö£ ╞Æ /api/clients/[id]                      243 B         102 kB
+Γö£ ╞Æ /api/debug/context                     243 B         102 kB
+Γö£ ╞Æ /api/documents                         243 B         102 kB
+Γö£ ╞Æ /api/documents/[id]                    243 B         102 kB
+Γö£ ╞Æ /api/projects                          243 B         102 kB
+Γö£ ╞Æ /api/projects/chat                     243 B         102 kB
+Γö£ ╞Æ /api/projects/decisions                243 B         102 kB
+Γö£ ╞Æ /api/projects/documents                243 B         102 kB
+Γö£ ╞Æ /api/projects/research                 243 B         102 kB
+Γö£ ╞Æ /api/projects/rules                    243 B         102 kB
+Γö£ ╞Æ /api/projects/tasks                    243 B         102 kB
+Γö£ ╞Æ /api/research/run                      243 B         102 kB
+Γö£ ╞Æ /api/research/sessions                 243 B         102 kB
+Γö£ ╞Æ /api/search                            243 B         102 kB
+Γö£ ╞Æ /api/summary                           243 B         102 kB
+Γö£ ╞Æ /api/web-search                        243 B         102 kB
+Γö£ Γùï /app                                 39.9 kB         197 kB
+Γö£ Γùï /app/ai                              22.4 kB         179 kB
+Γö£ ╞Æ /app/clients/[id]                    4.69 kB         162 kB
+Γö£ Γùï /app/documents                         243 B         102 kB
+Γö£ ╞Æ /app/documents/[id]                  3.81 kB         109 kB
+Γö£ Γùï /app/integrations                    3.57 kB         160 kB
+Γö£ Γùï /app/projects                        2.56 kB         159 kB
+Γö£ ╞Æ /app/projects/[id]                   4.84 kB         162 kB
+Γö£ ╞Æ /app/projects/[id]/assistant         5.36 kB         108 kB
+Γö£ ╞Æ /app/projects/[id]/code              2.29 kB         159 kB
+Γö£ ╞Æ /app/projects/[id]/decisions         2.82 kB         105 kB
+Γö£ ╞Æ /app/projects/[id]/documents         3.49 kB         106 kB
+Γö£ ╞Æ /app/projects/[id]/research          2.67 kB         105 kB
+Γö£ ╞Æ /app/projects/[id]/rules             3.05 kB         105 kB
+Γö£ ╞Æ /app/projects/[id]/tasks             2.52 kB         105 kB
+Γö£ Γùï /app/research                        3.21 kB         105 kB
+Γö£ Γùï /app/search                           3.1 kB         160 kB
+Γöö Γùï /login                               1.08 kB         158 kB
++ First Load JS shared by all             102 kB
+  Γö£ chunks/1255-a390e12b70b4a9fb.js        46 kB
+  Γö£ chunks/4bd1b696-f785427dddbba9fb.js  54.2 kB
+  Γöö other shared chunks (total)          2.01 kB
+
+
+Γùï  (Static)   prerendered as static content
+╞Æ  (Dynamic)  server-rendered on demand
+

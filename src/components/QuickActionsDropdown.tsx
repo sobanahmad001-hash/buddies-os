@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Zap, Smile, CheckSquare, AlertCircle, ListTodo, Shield, TrendingUp, ChevronUp } from 'lucide-react';
+import { Zap, CheckSquare, AlertCircle, ListTodo, Shield, TrendingUp, ChevronUp, Brain, FlaskConical } from 'lucide-react';
 
 interface QuickAction {
   id: string;
@@ -13,46 +13,53 @@ interface QuickAction {
 
 const ACTIONS: QuickAction[] = [
   {
-    id: 'mood',
-    icon: <Smile className="w-3.5 h-3.5" />,
-    label: 'Log Mood/Stress',
-    command: 'log mood ',
-    hint: 'log mood exhausted stress 8 sleep 6',
-  },
-  {
-    id: 'decision',
-    icon: <CheckSquare className="w-3.5 h-3.5" />,
-    label: 'Mark Decision',
-    command: 'decision GO ',
-    hint: 'decision GO ProjectName context 80%',
-  },
-  {
-    id: 'blocker',
-    icon: <AlertCircle className="w-3.5 h-3.5" />,
-    label: 'Report Blocker',
-    command: 'blocker ',
-    hint: 'blocker ProjectName what is blocked',
-  },
-  {
     id: 'task',
     icon: <ListTodo className="w-3.5 h-3.5" />,
-    label: 'Add Task',
+    label: 'Capture Task',
     command: 'task ',
     hint: 'task ProjectName what needs to be done',
   },
   {
-    id: 'rule',
-    icon: <Shield className="w-3.5 h-3.5" />,
-    label: 'Set Rule',
-    command: 'rule ',
-    hint: 'rule no meetings before 10am',
+    id: 'blocker',
+    icon: <AlertCircle className="w-3.5 h-3.5" />,
+    label: 'Capture Blocker',
+    command: 'blocker ',
+    hint: 'blocker ProjectName what is blocked',
+  },
+  {
+    id: 'decision',
+    icon: <CheckSquare className="w-3.5 h-3.5" />,
+    label: 'Capture Decision',
+    command: 'decision GO ',
+    hint: 'decision GO ProjectName context 80%',
   },
   {
     id: 'update',
     icon: <TrendingUp className="w-3.5 h-3.5" />,
-    label: 'Quick Update',
+    label: 'Project Update',
     command: 'update ',
     hint: 'update ProjectName: finished the login flow',
+  },
+  {
+    id: 'rule',
+    icon: <Shield className="w-3.5 h-3.5" />,
+    label: 'Constraint or Rule',
+    command: 'rule ',
+    hint: 'rule do not ship without review',
+  },
+  {
+    id: 'research',
+    icon: <FlaskConical className="w-3.5 h-3.5" />,
+    label: 'Research Prompt',
+    command: 'research ',
+    hint: 'research competitor positioning for ...',
+  },
+  {
+    id: 'focus',
+    icon: <Brain className="w-3.5 h-3.5" />,
+    label: 'Focus Review',
+    command: 'What should I focus on next across Buddies?',
+    hint: 'ask Buddies for cross-project prioritization',
   },
 ];
 
@@ -77,10 +84,10 @@ export default function QuickActionsDropdown({ onSelectAction }: QuickActionsDro
             ? 'bg-[#E8521A] text-white'
             : 'bg-[#F0EDE9] hover:bg-[#E5E2DE] text-[#1A1A1A]'
         }`}
-        title="Quick Actions"
+        title="Quick capture actions"
       >
         <Zap className="w-3.5 h-3.5" />
-        <span>Actions</span>
+        <span>Capture</span>
         <ChevronUp className={`w-3 h-3 transition-transform ${isOpen ? '' : 'rotate-180'}`} />
       </button>
 
@@ -91,9 +98,9 @@ export default function QuickActionsDropdown({ onSelectAction }: QuickActionsDro
             <div className="px-4 py-2.5 border-b border-[#1E1E1E]">
               <div className="flex items-center gap-2">
                 <Zap className="w-3.5 h-3.5 text-[#E8521A]" />
-                <span className="text-[11px] font-bold text-white uppercase tracking-widest">Quick Actions</span>
+                <span className="text-[11px] font-bold text-white uppercase tracking-widest">Quick Capture</span>
               </div>
-              <p className="text-[10px] text-[#525252] mt-0.5">Select to prefill the command</p>
+              <p className="text-[10px] text-[#525252] mt-0.5">Prefill a structured action for Buddies</p>
             </div>
 
             <div className="py-1">
@@ -114,7 +121,7 @@ export default function QuickActionsDropdown({ onSelectAction }: QuickActionsDro
 
             <div className="px-4 py-2.5 border-t border-[#1E1E1E] bg-[#0A0A0A]">
               <p className="text-[10px] text-[#3A3A3A]">
-                💡 Commands save directly — no AI call needed
+                Buddies can also extract these naturally from plain language
               </p>
             </div>
           </div>

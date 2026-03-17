@@ -2,7 +2,139 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Send, Copy, RotateCcw, Trash2, Check, FileText, Download } from 'lucide-react';
+import { Send, Copy, RotateCcw, Trash2, Check, FileText, Download, AlertCircle } from 'lucide-react';
+
+// ── Action Block Parser ───────────────────────────────────────────────────────
+interface BuddiesAction {
+  type: string;
+  description: string;
+  warning?: string;
+  params: Record<string, any>;
+}
+
+interface ActionExecutionResponse {
+  ok: boolean;
+  status: "executed" | "failed";
+  type: string;
+  entity_type?: "task" | "decision" | "rule" | "research" | "document" | "update";
+  entity_id?: string | null;
+  message: string;
+  data?: any;
+}
+
+function extractActionBlock(content: string): { action: BuddiesAction | null; cleanContent: string } {
+  const match = content.match(/\[BUDDIES_ACTION\]\s*([\s\S]*?)\s*\[\/BUDDIES_ACTION\]/);
+  if (!match) return { action: null, cleanContent: content };
+  
+  try {
+    const action = JSON.parse(match[1]);
+    const cleanContent = content.replace(/\[BUDDIES_ACTION\][\s\S]*?\[\/BUDDIES_ACTION\]/, '').trim();
+    return { action, cleanContent };
+  } catch {
+    return { action: null, cleanContent: content };
+  }
+}
+
+// ── Action Block Component ────────────────────────────────────────────────────
+function ActionBlock({ action, projectId, onExecuted }: { action: BuddiesAction; projectId: string; onExecuted?: (result: ActionExecutionResponse) => void }) {
+  const [executing, setExecuting] = useState(false);
+  const [executed, setExecuted] = useState(false);
+  const [declined, setDeclined] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function approve() {
+    if (executing || executed || declined) return;
+    setExecuting(true);
+    setError(null);
+    
+    try {
+      const res = await fetch('/api/projects/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(action),
+      });
+      
+      const data: ActionExecutionResponse = await res.json();
+      if (!res.ok || !data?.ok) throw new Error((data as any).error || data?.message || 'Action failed');
+      
+      setExecuted(true);
+      setSuccess(true);
+      onExecuted?.(data);
+      setTimeout(() => setSuccess(false), 2000);
+    } catch (err: any) {
+      setError(err.message || 'Failed to execute action');
+    } finally {
+      setExecuting(false);
+    }
+  }
+
+  if (declined) {
+    return (
+      <div className="bg-[#F7F5F2] border border-[#E5E2DE] rounded-xl p-4 mt-4 flex items-center gap-3">
+        <AlertCircle size={18} className="text-[#737373] shrink-0" />
+        <div>
+          <p className="text-[13px] font-semibold text-[#404040]">Action Declined</p>
+          <p className="text-[12px] text-[#737373] mt-0.5">No changes were made.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (success) {
+    return (
+      <div className="bg-[#DCFCE7] border border-[#86EFAC] rounded-xl p-4 mt-4 flex items-center gap-3">
+        <Check size={18} className="text-[#16A34A] shrink-0" />
+        <div>
+        <p className="text-[13px] font-semibold text-[#166534]">Action Executed</p>
+          <p className="text-[12px] text-[#15803D] mt-0.5">{action.type} executed successfully.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-[#FEF3ED] border border-[#FDBA9A] rounded-xl p-4 mt-4">
+      <div className="flex items-start gap-3 mb-3">
+        <AlertCircle size={18} className="text-[#E8521A] shrink-0 mt-0.5" />
+        <div className="flex-1 min-w-0">
+          <p className="text-[13px] font-semibold text-[#1A1A1A]">{action.description}</p>
+          <p className="text-[11px] text-[#737373] mt-1">Proposed action</p>
+          {action.warning && (
+            <p className="text-[12px] text-[#EA580C] mt-1.5 leading-relaxed">{action.warning}</p>
+          )}
+          <details className="mt-2.5 text-[11px]">
+            <summary className="cursor-pointer text-[#737373] hover:text-[#1A1A1A] transition-colors">
+              View action details
+            </summary>
+            <pre className="mt-2 bg-[#1A1A1A] text-[#E5E2DE] text-[10px] p-2 rounded overflow-x-auto">
+              {JSON.stringify(action, null, 2)}
+            </pre>
+          </details>
+        </div>
+      </div>
+      {error && (
+        <p className="text-[12px] text-[#EF4444] mb-3 bg-[#FEE2E2] px-3 py-2 rounded-lg">{error}</p>
+      )}
+      <div className="flex gap-2">
+        <button
+          onClick={approve}
+          disabled={executing || executed || declined}
+          className="flex-1 bg-[#E8521A] text-white text-[13px] font-semibold px-4 py-2 rounded-lg hover:bg-[#c94415] disabled:opacity-50 transition-colors"
+        >
+          {executing ? 'Executing…' : 'Approve & Execute'}
+        </button>
+        <button
+          onClick={() => setDeclined(true)}
+          disabled={executing || executed || declined}
+          className="px-4 py-2 bg-white text-[#737373] text-[13px] font-semibold rounded-lg border border-[#E5E2DE] hover:text-[#1A1A1A] disabled:opacity-50 transition-colors"
+        >
+          Decline
+        </button>
+      </div>
+    </div>
+  );
+}
 
 // ── Markdown renderer ─────────────────────────────────────────────────────────
 function renderMarkdown(text: string): React.ReactNode[] {
@@ -119,8 +251,31 @@ export default function ProjectAssistantPage() {
   const [histLoading, setHistLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [provider, setProvider] = useState<'anthropic' | 'openai' | 'xai'>('anthropic');
+  const [model, setModel] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const providerModels: Record<'anthropic' | 'openai' | 'xai', { label: string; value: string }[]> = {
+    anthropic: [
+      { label: 'Claude Sonnet', value: 'claude-sonnet-4-5' },
+      { label: 'Claude Haiku', value: 'claude-haiku-4-5-20251001' },
+    ],
+    openai: [
+      { label: 'GPT-4o', value: 'gpt-4o' },
+      { label: 'GPT-4o Mini', value: 'gpt-4o-mini' },
+    ],
+    xai: [
+      { label: 'Grok 3', value: 'grok-3' },
+      { label: 'Grok 3 Mini', value: 'grok-3-mini' },
+    ],
+  };
+
+  useEffect(() => {
+    const savedProvider = localStorage.getItem('buddies-ai-provider') as 'anthropic' | 'openai' | 'xai' | null;
+    const savedModel = localStorage.getItem('buddies-ai-model');
+    if (savedProvider) setProvider(savedProvider);
+    if (savedModel) setModel(savedModel);
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -146,7 +301,7 @@ export default function ProjectAssistantPage() {
       const res = await fetch('/api/projects/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId, message: text }),
+        body: JSON.stringify({ projectId, message: text, provider, model }),
       });
       const data = await res.json();
       if (data.reply) {
@@ -212,11 +367,48 @@ export default function ProjectAssistantPage() {
           <div className="w-7 h-7 rounded-lg bg-[#0F0F0F] flex items-center justify-center text-[14px]">🤖</div>
           <span className="text-[14px] font-semibold text-[#1A1A1A]">Project Assistant</span>
           <span className="text-[11px] text-[#737373] bg-[#F7F5F2] px-2 py-0.5 rounded-full border border-[#E5E2DE]">Scoped to this project</span>
+          <span className="text-[11px] text-[#737373] bg-[#F7F5F2] px-2 py-0.5 rounded-full border border-[#E5E2DE]">{provider} · {model || 'default'}</span>
         </div>
-        <button onClick={clearHistory}
+        <div className="flex items-center gap-2">
+          <select
+            value={provider}
+            onChange={(e) => {
+              const next = e.target.value as 'anthropic' | 'openai' | 'xai';
+              setProvider(next);
+              localStorage.setItem('buddies-ai-provider', next);
+              const defaultModel =
+                next === 'anthropic' ? 'claude-sonnet-4-5' :
+                next === 'openai' ? 'gpt-4o' :
+                'grok-3';
+              setModel(defaultModel);
+              localStorage.setItem('buddies-ai-model', defaultModel);
+            }}
+            className="text-[12px] px-2 py-1.5 rounded-lg border border-[#E5E2DE] bg-white text-[#1A1A1A]"
+          >
+            <option value="anthropic">Claude</option>
+            <option value="openai">OpenAI</option>
+            <option value="xai">Grok</option>
+          </select>
+
+          <select
+            value={model}
+            onChange={(e) => {
+              setModel(e.target.value);
+              localStorage.setItem('buddies-ai-model', e.target.value);
+            }}
+            className="text-[12px] px-2 py-1.5 rounded-lg border border-[#E5E2DE] bg-white text-[#1A1A1A]"
+          >
+            {providerModels[provider].map((m) => (
+              <option key={m.value} value={m.value}>{m.label}</option>
+            ))}
+          </select>
+
+          <button onClick={clearHistory}
+
           className="flex items-center gap-1.5 text-[12px] text-[#737373] hover:text-[#EF4444] transition-colors px-2 py-1 rounded-lg hover:bg-[#FEF2F2]">
           <Trash2 size={13} /> Clear history
         </button>
+        </div>
       </div>
 
       {/* Messages */}
@@ -260,6 +452,8 @@ export default function ProjectAssistantPage() {
                   {group.messages.map((msg, mIdx) => {
                     const msgId = `${gIdx}-${mIdx}`;
                     const isLast = gIdx === messageGroups.length - 1 && mIdx === group.messages.length - 1;
+                    const { action, cleanContent } = group.role === 'assistant' ? extractActionBlock(msg.content) : { action: null, cleanContent: msg.content };
+                    
                     return (
                       <div key={mIdx}
                         onMouseEnter={() => setHoveredId(msgId)}
@@ -272,7 +466,7 @@ export default function ProjectAssistantPage() {
                         }`}>
                           {group.role === 'user'
                             ? <p className="text-[15px] text-[#1A1A1A] leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-                            : <div className="prose-sm">{renderMarkdown(msg.content)}</div>
+                            : <div className="prose-sm">{renderMarkdown(cleanContent)}</div>
                           }
                           {/* Document card */}
                           {msg.document && (
@@ -300,6 +494,20 @@ export default function ProjectAssistantPage() {
                                 </button>
                               </div>
                             </div>
+                          )}
+                          {/* Action block */}
+                          {action && (
+                            <ActionBlock
+                              action={action}
+                              projectId={projectId}
+                              onExecuted={async () => {
+                                const historyRes = await fetch(`/api/projects/chat?projectId=${projectId}`);
+                                if (historyRes.ok) {
+                                  const historyData = await historyRes.json();
+                                  setMessages(historyData.messages ?? []);
+                                }
+                              }}
+                            />
                           )}
                         </div>
                         {/* Hover actions */}

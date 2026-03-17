@@ -1,15 +1,15 @@
-'use client';
+﻿'use client';
 
-import { LayoutDashboard, Bot, FolderKanban, Activity, Search } from 'lucide-react';
+import { LayoutDashboard, Bot, FolderKanban, Search, BookOpen } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const links = [
-  { href: '/app',              icon: LayoutDashboard, label: 'Home' },
-  { href: '/app/ai',           icon: Bot,             label: 'AI' },
-  { href: '/app/projects',     icon: FolderKanban,    label: 'Projects' },
-  { href: '/app/daily-check',  icon: Activity,        label: 'Check-in' },
-  { href: '/app/search',       icon: Search,          label: 'Search' },
+  { href: '/app',          icon: LayoutDashboard, label: 'Home' },
+  { href: '/app/ai',       icon: Bot,             label: 'AI' },
+  { href: '/app/projects', icon: FolderKanban,    label: 'Projects' },
+  { href: '/app/search',   icon: Search,          label: 'Search' },
+  { href: '/app/research', icon: BookOpen,        label: 'Research' },
 ];
 
 export default function BottomNav() {
@@ -41,3 +41,4 @@ export default function BottomNav() {
     </nav>
   );
 }
+

@@ -1,11 +1,79 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
-import OpenAI from "openai";
+import { buildProjectMemory } from "@/lib/ai/project-memory";
+import { callAIProvider } from "@/lib/ai/providers";
+import { createActionFingerprint } from "@/lib/ai/action-fingerprint";
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+function parseActionIntent(message: string, projectId: string) {
+  const lower = message.toLowerCase().trim();
+
+  const taskMatch =
+    lower.startsWith("create task") ||
+    lower.startsWith("add task") ||
+    lower.startsWith("make task");
+
+  if (taskMatch) {
+    const title = message.replace(/^(create|add|make)\s+task\s*/i, "").trim();
+    if (title) {
+      return {
+        type: "project.create_task",
+        description: `Create a task in this project`,
+        warning: "This will write a new task to the project.",
+        params: {
+          project_id: projectId,
+          title,
+          priority: 3,
+        },
+      };
+    }
+  }
+
+  const ruleMatch =
+    lower.startsWith("add rule") ||
+    lower.startsWith("create rule") ||
+    lower.startsWith("add constraint") ||
+    lower.startsWith("create constraint");
+
+  if (ruleMatch) {
+    const ruleText = message.replace(/^(add|create)\s+(rule|constraint)\s*/i, "").trim();
+    if (ruleText) {
+      return {
+        type: "project.create_rule",
+        description: `Add a project constraint`,
+        warning: "This will add an active rule/constraint to the project.",
+        params: {
+          project_id: projectId,
+          rule_text: ruleText,
+          severity: 2,
+        },
+      };
+    }
+  }
+
+  const researchMatch =
+    lower.startsWith("add research") ||
+    lower.startsWith("save research") ||
+    lower.startsWith("log research");
+
+  if (researchMatch) {
+    const notes = message.replace(/^(add|save|log)\s+research\s*/i, "").trim();
+    if (notes) {
+      return {
+        type: "project.create_research",
+        description: `Save a research note in this project`,
+        warning: "This will write a research note to the project.",
+        params: {
+          project_id: projectId,
+          topic: "Research Note",
+          notes,
+        },
+      };
+    }
+  }
+
+  return null;
+}
 
 export async function GET(req: NextRequest) {
   const cookieStore = await cookies();
@@ -41,118 +109,187 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll() { return cookieStore.getAll(); }, setAll(s) { s.forEach(({ name, value, options }) => cookieStore.set(name, value, options)); } } }
-  );
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    const cookieStore = await cookies();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { cookies: { getAll() { return cookieStore.getAll(); }, setAll(s) { s.forEach(({ name, value, options }) => cookieStore.set(name, value, options)); } } }
+    );
 
-  const { projectId, message, mode } = await req.json();
-  if (!projectId || !message) return NextResponse.json({ error: "projectId and message required" }, { status: 400 });
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-  // Verify ownership
-  const { data: project } = await supabase
-    .from("projects")
-    .select("*")
-    .eq("id", projectId)
-    .eq("user_id", user.id)
-    .single();
-  if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const {
+      projectId,
+      message,
+      mode,
+      provider,
+      model,
+    } = await req.json();
 
-  // Load all project context + integrations in parallel
-  const [
-    { data: tasks },
-    { data: updates },
-    { data: projectDecisions },
-    { data: projectRules },
-    { data: projectResearch },
-    { data: chatHistory },
-    { data: integrations },
-  ] = await Promise.all([
-    supabase.from("project_tasks").select("title, status, priority, due_date").eq("project_id", projectId).neq("status", "cancelled"),
-    supabase.from("project_updates").select("content, update_type, next_actions, created_at").eq("project_id", projectId).order("created_at", { ascending: false }).limit(20),
-    supabase.from("project_decisions").select("title, context, verdict, created_at").eq("project_id", projectId).order("created_at", { ascending: false }).limit(20),
-    supabase.from("project_rules").select("rule_text, severity, active").eq("project_id", projectId).eq("active", true),
-    supabase.from("project_research").select("topic, notes, created_at").eq("project_id", projectId).order("created_at", { ascending: false }).limit(10),
-    supabase.from("project_chat_messages").select("role, content").eq("project_id", projectId).order("created_at", { ascending: true }).limit(40),
-    supabase.from("integrations").select("type, name, config, status").eq("user_id", user.id).eq("status", "active"),
-  ]);
-
-  // Build project context block
-  const taskLines = (tasks ?? []).map((t: any) => `- [${t.status}] ${t.title}${t.priority === 1 ? " (urgent)" : ""}${t.due_date ? ` due ${t.due_date}` : ""}`).join("\n");
-  const updateLines = (updates ?? []).slice(0, 10).map((u: any) => `[${u.update_type}] ${u.content}`).join("\n");
-  const decisionLines = (projectDecisions ?? []).map((d: any) => `- ${d.title}: ${d.verdict ?? "pending"}`).join("\n");
-  const ruleLines = (projectRules ?? []).map((r: any) => `- [S${r.severity}] ${r.rule_text}`).join("\n");
-  const researchLines = (projectResearch ?? []).map((r: any) => `[${r.topic}] ${r.notes.slice(0, 300)}`).join("\n");
-
-  // Build integrations context block (GitHub live data + Supabase info)
-  let integrationsBlock = "";
-  for (const i of (integrations ?? [])) {
-    if (i.type === "github" && i.config?.access_token && !i.config.access_token.includes("****") && i.config?.org_or_user) {
-      try {
-        const repoName = i.config?.repo_url
-          ? i.config.repo_url.replace(/^https?:\/\/github\.com\//, "").replace(/\.git$/, "").replace(/\/$/, "")
-          : null;
-        if (repoName) {
-          const ghHeaders: Record<string, string> = {
-            Authorization: `token ${i.config.access_token}`,
-            Accept: "application/vnd.github.v3+json",
-          };
-          const [treeRes, commitsRes, issuesRes, prsRes] = await Promise.all([
-            fetch(`https://api.github.com/repos/${repoName}/git/trees/HEAD?recursive=0`, { headers: ghHeaders }),
-            fetch(`https://api.github.com/repos/${repoName}/commits?per_page=10`, { headers: ghHeaders }),
-            fetch(`https://api.github.com/repos/${repoName}/issues?state=open&per_page=10`, { headers: ghHeaders }),
-            fetch(`https://api.github.com/repos/${repoName}/pulls?state=open&per_page=5`, { headers: ghHeaders }),
-          ]);
-          const [treeData, commitsData, issuesData, prsData] = await Promise.all([
-            treeRes.ok ? treeRes.json() : null,
-            commitsRes.ok ? commitsRes.json() : null,
-            issuesRes.ok ? issuesRes.json() : null,
-            prsRes.ok ? prsRes.json() : null,
-          ]);
-
-          const topFiles = (treeData?.tree ?? [])
-            .filter((f: any) => f.type === "blob" || f.type === "tree")
-            .slice(0, 40)
-            .map((f: any) => `${f.type === "tree" ? "📁" : "📄"} ${f.path}`)
-            .join("\n");
-
-          const recentCommits = Array.isArray(commitsData)
-            ? commitsData.map((c: any) => `  - ${c.commit?.message?.split("\n")[0] ?? "?"} (${c.commit?.author?.date?.slice(0, 10) ?? "?"} by ${c.commit?.author?.name ?? "?"})`)
-                .join("\n")
-            : "";
-
-          const openIssues = Array.isArray(issuesData)
-            ? issuesData.filter((i: any) => !i.pull_request).map((i: any) => `  #${i.number}: ${i.title} [${i.state}]`).join("\n")
-            : "";
-
-          const openPRs = Array.isArray(prsData)
-            ? prsData.map((p: any) => `  #${p.number}: ${p.title} (${p.head?.ref} → ${p.base?.ref})`).join("\n")
-            : "";
-
-          integrationsBlock += `\n\nGITHUB REPO: ${repoName}\n`;
-          if (topFiles) integrationsBlock += `FILE STRUCTURE:\n${topFiles}\n`;
-          if (recentCommits) integrationsBlock += `\nRECENT COMMITS:\n${recentCommits}\n`;
-          if (openIssues) integrationsBlock += `\nOPEN ISSUES:\n${openIssues}\n`;
-          if (openPRs) integrationsBlock += `\nOPEN PULL REQUESTS:\n${openPRs}\n`;
-        }
-      } catch { /* skip if GitHub API fails */ }
-    } else if (i.type === "supabase" && i.config?.project_url) {
-      integrationsBlock += `\n\nSUPABASE PROJECT: ${i.config.project_url}\n`;
-      integrationsBlock += `Connected Supabase project for data storage and auth.\n`;
+    if (!projectId || !message) {
+      return NextResponse.json({ error: "projectId and message required" }, { status: 400 });
     }
-  }
 
-  const systemPrompt = `You are the dedicated AI assistant for the project "${project.name}".
+    const { data: project } = await supabase
+      .from("projects")
+      .select("*")
+      .eq("id", projectId)
+      .eq("user_id", user.id)
+      .single();
+
+    if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+    const quickIntent = parseActionIntent(message, projectId);
+
+    if (quickIntent) {
+      const fingerprint = createActionFingerprint(quickIntent.type, quickIntent.params);
+
+      const { data: recentAssistant } = await supabase
+        .from("project_chat_messages")
+        .select("content, created_at")
+        .eq("project_id", projectId)
+        .eq("role", "assistant")
+        .order("created_at", { ascending: false })
+        .limit(8);
+
+      const alreadyProposed = (recentAssistant ?? []).some((m: any) => {
+        const content = String(m.content ?? "");
+        return content.includes("[BUDDIES_ACTION]") && content.includes(fingerprint);
+      });
+
+      if (alreadyProposed) {
+        const dedupeReply = "That exact action was already proposed recently in this thread. Approve the existing action card or change the request.";
+        await supabase.from("project_chat_messages").insert({
+          project_id: projectId,
+          user_id: user.id,
+          role: "user",
+          content: message,
+        });
+        await supabase.from("project_chat_messages").insert({
+          project_id: projectId,
+          user_id: user.id,
+          role: "assistant",
+          content: dedupeReply,
+        });
+        return NextResponse.json({ reply: dedupeReply });
+      }
+    }
+
+    const [
+      { data: tasks },
+      { data: updates },
+      { data: projectDecisions },
+      { data: projectRules },
+      { data: projectResearch },
+      { data: chatHistory },
+      { data: integrations },
+    ] = await Promise.all([
+      supabase.from("project_tasks").select("title, status, priority, due_date").eq("project_id", projectId).neq("status", "cancelled"),
+      supabase.from("project_updates").select("content, update_type, next_actions, created_at").eq("project_id", projectId).order("created_at", { ascending: false }).limit(20),
+      supabase.from("project_decisions").select("title, context, verdict, created_at").eq("project_id", projectId).order("created_at", { ascending: false }).limit(20),
+      supabase.from("project_rules").select("rule_text, severity, active").eq("project_id", projectId).eq("active", true),
+      supabase.from("project_research").select("topic, notes, created_at").eq("project_id", projectId).order("created_at", { ascending: false }).limit(10),
+      supabase.from("project_chat_messages").select("role, content").eq("project_id", projectId).order("created_at", { ascending: true }).limit(40),
+      supabase.from("integrations").select("type, name, config, status").eq("user_id", user.id).eq("status", "active"),
+    ]);
+
+    const taskLines = (tasks ?? []).map((t: any) => `- [${t.status}] ${t.title}${t.priority === 1 ? " (urgent)" : ""}${t.due_date ? ` due ${t.due_date}` : ""}`).join("\n");
+    const updateLines = (updates ?? []).slice(0, 10).map((u: any) => `[${u.update_type}] ${u.content}`).join("\n");
+    const decisionLines = (projectDecisions ?? []).map((d: any) => `- ${d.title}: ${d.verdict ?? "pending"}`).join("\n");
+    const ruleLines = (projectRules ?? []).map((r: any) => `- [S${r.severity}] ${r.rule_text}`).join("\n");
+    const researchLines = (projectResearch ?? []).map((r: any) => `[${r.topic}] ${r.notes.slice(0, 300)}`).join("\n");
+
+    let integrationsBlock = "";
+    for (const i of (integrations ?? [])) {
+      if (i.type === "github" && i.config?.access_token && !i.config.access_token.includes("****") && i.config?.org_or_user) {
+        try {
+          const repoName = i.config?.repo_url
+            ? i.config.repo_url.replace(/^https?:\/\/github\.com\//, "").replace(/\.git$/, "").replace(/\/$/, "")
+            : null;
+
+          if (repoName) {
+            const ghHeaders: Record<string, string> = {
+              Authorization: `token ${i.config.access_token}`,
+              Accept: "application/vnd.github.v3+json",
+            };
+
+            const [treeRes, commitsRes, issuesRes, prsRes] = await Promise.all([
+              fetch(`https://api.github.com/repos/${repoName}/git/trees/HEAD?recursive=0`, { headers: ghHeaders }),
+              fetch(`https://api.github.com/repos/${repoName}/commits?per_page=10`, { headers: ghHeaders }),
+              fetch(`https://api.github.com/repos/${repoName}/issues?state=open&per_page=10`, { headers: ghHeaders }),
+              fetch(`https://api.github.com/repos/${repoName}/pulls?state=open&per_page=5`, { headers: ghHeaders }),
+            ]);
+
+            const [treeData, commitsData, issuesData, prsData] = await Promise.all([
+              treeRes.ok ? treeRes.json() : null,
+              commitsRes.ok ? commitsRes.json() : null,
+              issuesRes.ok ? issuesRes.json() : null,
+              prsRes.ok ? prsRes.json() : null,
+            ]);
+
+            const topFiles = (treeData?.tree ?? [])
+              .filter((f: any) => f.type === "blob" || f.type === "tree")
+              .slice(0, 40)
+              .map((f: any) => `${f.type === "tree" ? "📁" : "📄"} ${f.path}`)
+              .join("\n");
+
+            const recentCommits = Array.isArray(commitsData)
+              ? commitsData.map((c: any) => `  - ${c.commit?.message?.split("\n")[0] ?? "?"} (${c.commit?.author?.date?.slice(0, 10) ?? "?"} by ${c.commit?.author?.name ?? "?"})`).join("\n")
+              : "";
+
+            const openIssues = Array.isArray(issuesData)
+              ? issuesData.filter((i: any) => !i.pull_request).map((i: any) => `  #${i.number}: ${i.title} [${i.state}]`).join("\n")
+              : "";
+
+            const openPRs = Array.isArray(prsData)
+              ? prsData.map((p: any) => `  #${p.number}: ${p.title} (${p.head?.ref} → ${p.base?.ref})`).join("\n")
+              : "";
+
+            integrationsBlock += `\n\nGITHUB REPO: ${repoName}\n`;
+            if (topFiles) integrationsBlock += `FILE STRUCTURE:\n${topFiles}\n`;
+            if (recentCommits) integrationsBlock += `\nRECENT COMMITS:\n${recentCommits}\n`;
+            if (openIssues) integrationsBlock += `\nOPEN ISSUES:\n${openIssues}\n`;
+            if (openPRs) integrationsBlock += `\nOPEN PULL REQUESTS:\n${openPRs}\n`;
+          }
+        } catch {}
+      } else if (i.type === "supabase" && i.config?.project_url) {
+        integrationsBlock += `\n\nSUPABASE PROJECT: ${i.config.project_url}\nConnected Supabase project for data storage and auth.\n`;
+      }
+    }
+
+    const systemPrompt = `You are the dedicated AI assistant for the project "${project.name}".
 ${project.description ? `Project description: ${project.description}` : ""}
 ${project.memory ? `Project memory: ${project.memory}` : ""}
 
-You have full access to this project's data including its connected GitHub repository and Supabase database.
-You can read code files, review commits, check open issues/PRs, and help the user work on this project.
-You have full read and write capability for this project's tasks, decisions, rules, and research.
+You have full read access to this project's data including its connected GitHub repository and Supabase database.
+You can analyze code files, review commits, check open issues/PRs, and help the user work on this project.
+
+BUDDIES OPERATING APPROACH:
+1. Context — first understand what the user is trying to achieve in this project, what constraints matter, what already exists, and what success looks like.
+2. Solution — once enough context exists, propose the best path clearly and align on it when needed.
+3. Execution — for meaningful write actions, do NOT claim the action already happened. Propose the action clearly, and include a single [BUDDIES_ACTION] JSON block so the UI can ask for approval first.
+
+PROJECT RULES FOR BEHAVIOR:
+- Do not jump into execution when project context is still unclear.
+- Do not ask unnecessary questions when the project state already provides enough context.
+- Ask only the minimum sharp questions needed to remove ambiguity.
+- When the user is clearly ready, move from context to solution quickly.
+- For any project write action, require approval first through a [BUDDIES_ACTION] block.
+- Read-only analysis, summaries, and recommendations do not need action blocks.
+- Never say "done" unless the write has actually been executed by the app after approval.
+
+ACTION BLOCK FORMAT:
+[BUDDIES_ACTION]
+{
+  "type": "project.create_task" | "project.create_decision" | "project.create_rule" | "project.create_research" | "project.create_document" | "project.add_update",
+  "description": "short human explanation",
+  "warning": "optional warning or null",
+  "params": { ... }
+}
+[/BUDDIES_ACTION]
+
+When proposing project actions, always include project_id: "${projectId}" in params.
 
 ${taskLines ? `TASKS:\n${taskLines}` : "No tasks yet."}
 ${updateLines ? `\nRECENT UPDATES:\n${updateLines}` : ""}
@@ -160,150 +297,116 @@ ${decisionLines ? `\nDECISIONS:\n${decisionLines}` : ""}
 ${ruleLines ? `\nACTIVE RULES (follow these strictly):\n${ruleLines}` : ""}
 ${researchLines ? `\nRESEARCH NOTES:\n${researchLines}` : ""}
 ${integrationsBlock}
-
-When the user asks you to create tasks, log decisions, add rules, or write research notes, acknowledge clearly that you've done so.
-When the user asks about code, refer to the GitHub repo structure and commits above.
 ${mode === "document" ? "\nYou are in DOCUMENT GENERATION mode. Return only the document content in clean markdown." : ""}`;
 
-  // Build conversation history for context
-  const historyMessages = (chatHistory ?? []).map((m: any) => ({
-    role: m.role as "user" | "assistant",
-    content: m.content,
-  }));
+    const historyMessages = (chatHistory ?? []).map((m: any) => ({
+      role: m.role as "user" | "assistant",
+      content: m.content,
+    }));
 
-  // Save user message
-  await supabase.from("project_chat_messages").insert({
-    project_id: projectId,
-    user_id: user.id,
-    role: "user",
-    content: message,
-  });
+    await supabase.from("project_chat_messages").insert({
+      project_id: projectId,
+      user_id: user.id,
+      role: "user",
+      content: message,
+    });
 
-  // Call AI (Claude with OpenAI fallback)
-  let reply = "";
-  try {
-    if (process.env.ANTHROPIC_API_KEY) {
-      const response = await anthropic.messages.create({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 2048,
+    let reply = "";
+
+    try {
+      const selectedProvider = provider ?? "anthropic";
+      const selectedModel = model ?? (selectedProvider === "anthropic" ? "claude-haiku-4-5-20251001" : "gpt-4o-mini");
+
+      const result = await callAIProvider({
+        provider: selectedProvider,
+        model: selectedModel,
         system: systemPrompt,
         messages: [
           ...historyMessages,
           { role: "user", content: message },
         ],
       });
-      reply = response.content[0].type === "text" ? response.content[0].text : "";
-    }
-    if (!reply) throw new Error("No Claude response");
-  } catch (claudeErr: any) {
-    console.error("Claude error, falling back to OpenAI:", claudeErr.message);
-    try {
-      const oaiRes = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        max_tokens: 2048,
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...historyMessages,
-          { role: "user", content: message },
-        ],
-      });
-      reply = oaiRes.choices[0].message.content ?? "";
-    } catch (oaiErr: any) {
-      console.error("OpenAI error:", oaiErr.message);
+
+      reply = result.text?.trim() || "";
+      if (!reply) throw new Error("No provider response");
+    } catch (err: any) {
+      console.error("[project-chat] provider error:", err?.message ?? err);
       return NextResponse.json({ error: "AI unavailable" }, { status: 500 });
     }
-  }
 
-  // Save assistant reply
-  await supabase.from("project_chat_messages").insert({
-    project_id: projectId,
-    user_id: user.id,
-    role: "assistant",
-    content: reply,
-  });
-
-  // Auto-detect decisions from assistant reply and log them
-  if (mode !== "document" && reply.toLowerCase().includes("decision:")) {
-    const lines = reply.split("\n").filter(l => l.toLowerCase().startsWith("decision:"));
-    for (const line of lines) {
-      const title = line.replace(/^decision:\s*/i, "").split(".")[0].trim().slice(0, 120);
-      if (title) {
-        await supabase.from("project_decisions").insert({
-          project_id: projectId,
-          user_id: user.id,
-          title,
-          context: message,
-          verdict: title,
-        });
-      }
+    if (quickIntent && !reply.includes("[BUDDIES_ACTION]")) {
+      reply = `${reply.trim()}\n\n[BUDDIES_ACTION]\n${JSON.stringify(quickIntent, null, 2)}\n[/BUDDIES_ACTION]`;
     }
-  }
 
-  // Auto-detect document creation intent and generate + save document
-  let savedDocument: { id: string; title: string; content: string } | null = null;
-  const docIntent = /\b(create|make|write|generate|draft|produce|build)\b.{0,40}\b(document|doc|pdf|report|brief|summary|readme|spec|proposal|plan)\b/i;
-  if (mode !== "document" && docIntent.test(message)) {
+    await supabase.from("project_chat_messages").insert({
+      project_id: projectId,
+      user_id: user.id,
+      role: "assistant",
+      content: reply,
+    });
+
     try {
-      // Extract a clean title from the message
-      const titleMatch = message.match(/(?:about|for|on|titled?|called?|named?)\s+["']?(.{3,80})["']?/i);
-      const docTitle = titleMatch
-        ? titleMatch[1].replace(/["']/g, "").trim()
-        : message.replace(/^(create|make|write|generate|draft|produce|build)\s+(a\s+)?(document|doc|pdf|report|brief|summary|readme|spec|proposal|plan)\s*/i, "").trim().slice(0, 80) || `Document - ${new Date().toLocaleDateString()}`;
+      const { data: refreshTasks } = await supabase
+        .from("project_tasks")
+        .select("title, status, priority, due_date")
+        .eq("project_id", projectId);
 
-      // Generate clean document content
-      const docPrompt = `Generate a well-structured, professional document for the project "${project.name}" about: ${message}.\nReturn ONLY the document content in clean markdown. No preamble, no explanation.`;
-      let docContent = "";
-      try {
-        if (process.env.ANTHROPIC_API_KEY) {
-          const docRes = await anthropic.messages.create({
-            model: "claude-haiku-4-5-20251001",
-            max_tokens: 3000,
-            system: `You generate clean markdown documents for the project "${project.name}". Return only document content, no meta-commentary.`,
-            messages: [{ role: "user", content: docPrompt }],
-          });
-          docContent = docRes.content[0].type === "text" ? docRes.content[0].text : "";
-        }
-        if (!docContent) throw new Error("no content");
-      } catch {
-        const oaiDocRes = await openai.chat.completions.create({
-          model: "gpt-4o-mini",
-          max_tokens: 3000,
-          messages: [
-            { role: "system", content: `You generate clean markdown documents for the project "${project.name}". Return only document content, no meta-commentary.` },
-            { role: "user", content: docPrompt },
-          ],
-        });
-        docContent = oaiDocRes.choices[0].message.content ?? "";
-      }
+      const { data: refreshUpdates } = await supabase
+        .from("project_updates")
+        .select("content, update_type, next_actions, created_at")
+        .eq("project_id", projectId)
+        .order("created_at", { ascending: false })
+        .limit(20);
 
-      if (docContent) {
-        const { data: newDoc } = await supabase.from("project_documents").insert({
-          project_id: projectId,
-          user_id: user.id,
-          title: docTitle,
-          content: docContent,
-        }).select("id, title, content").single();
+      const { data: refreshDecisions } = await supabase
+        .from("project_decisions")
+        .select("title, context, verdict, created_at")
+        .eq("project_id", projectId)
+        .order("created_at", { ascending: false })
+        .limit(20);
 
-        if (newDoc) {
-          savedDocument = newDoc;
-          // Update the assistant reply to confirm
-          reply = `✅ Document created and saved to your Documents tab.\n\n**"${docTitle}"** — ${docContent.split("\n").filter(Boolean)[0]?.slice(0, 120) ?? ""}…`;
-          // Update the already-saved reply in DB
-          await supabase.from("project_chat_messages")
-            .update({ content: reply })
-            .eq("project_id", projectId)
-            .eq("user_id", user.id)
-            .eq("role", "assistant")
-            .order("created_at", { ascending: false })
-            .limit(1);
-        }
-      }
-    } catch (docErr: any) {
-      console.error("Document generation error:", docErr.message);
+      const { data: refreshRules } = await supabase
+        .from("project_rules")
+        .select("rule_text, severity, active")
+        .eq("project_id", projectId)
+        .eq("active", true);
+
+      const { data: refreshResearch } = await supabase
+        .from("project_research")
+        .select("topic, notes, created_at")
+        .eq("project_id", projectId)
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      const compact = buildProjectMemory({
+        project,
+        tasks: refreshTasks ?? [],
+        updates: refreshUpdates ?? [],
+        decisions: refreshDecisions ?? [],
+        rules: refreshRules ?? [],
+        research: refreshResearch ?? [],
+      });
+
+      await supabase.from("ai_project_memory").upsert({
+        user_id: user.id,
+        project_id: projectId,
+        project_name: compact.project_name ?? null,
+        purpose: compact.purpose ?? null,
+        current_stage: compact.current_stage ?? null,
+        active_priorities: compact.active_priorities ?? [],
+        open_blockers: compact.open_blockers ?? [],
+        key_decisions: compact.key_decisions ?? [],
+        constraints: compact.constraints ?? [],
+        next_actions: compact.next_actions ?? [],
+        summary_text: compact.summary_text ?? null,
+        summary_json: compact.summary_json ?? {},
+        updated_at: new Date().toISOString(),
+      });
+    } catch (memoryErr: any) {
+      console.error("[project-chat] project memory refresh failed:", memoryErr?.message ?? memoryErr);
     }
-  }
 
-  return NextResponse.json({ reply, document: savedDocument });
+    return NextResponse.json({ reply, provider: provider ?? "anthropic", model: model ?? null });
   } catch (err: any) {
     console.error("[project-chat] unhandled error:", err);
     return NextResponse.json({ error: err?.message ?? "Internal server error" }, { status: 500 });

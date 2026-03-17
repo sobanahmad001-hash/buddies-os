@@ -36,7 +36,8 @@ export default function ProjectTasksPage() {
   }
 
   async function cycleStatus(taskId: string, current: string) {
-    const next = current === 'todo' ? 'in_progress' : current === 'in_progress' ? 'done' : 'todo';
+    const normalized = current === 'open' ? 'todo' : current;
+    const next = normalized === 'todo' ? 'in_progress' : normalized === 'in_progress' ? 'done' : 'todo';
     await fetch('/api/projects/tasks', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },

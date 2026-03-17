@@ -110,7 +110,7 @@ export default function SearchPage() {
             </div>
             <div className="space-y-2">
               {results.decisions.map(d => (
-                <div key={d.id} onClick={() => router.push("/app/decisions")}
+                <div key={d.id} onClick={() => router.push("/app/search")}
                   className="bg-white border border-[#E5E2DE] rounded-xl px-4 py-3 cursor-pointer hover:border-[#CC785C]/40 transition-colors">
                   <div className="flex items-center gap-2 mb-1">
                     <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${d.verdict === "enter" ? "bg-[#DCFCE7] text-[#2D6A4F]" : d.verdict === "wait" ? "bg-[#FEF9C3] text-[#92400E]" : "bg-[#FEE2E2] text-[#EF4444]"}`}>
@@ -133,7 +133,7 @@ export default function SearchPage() {
             </div>
             <div className="space-y-2">
               {results.rules.map(r => (
-                <div key={r.id} onClick={() => router.push("/app/rules")}
+                <div key={r.id} onClick={() => router.push("/app/search")}
                   className="bg-white border border-[#E5E2DE] rounded-xl px-4 py-3 cursor-pointer hover:border-[#CC785C]/40 transition-colors flex items-center gap-3">
                   <p className="text-[13px] text-[#404040] flex-1">{r.rule_text}</p>
                   <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${r.severity === 3 ? "bg-[#FEE2E2] text-[#EF4444]" : r.severity === 2 ? "bg-[#FEF9C3] text-[#92400E]" : "bg-[#F7F5F2] text-[#737373]"}`}>

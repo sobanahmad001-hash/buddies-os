@@ -1,18 +1,125 @@
-"use client";
+﻿"use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { Plus } from "lucide-react";
+import {
+  Plus,
+  Bot,
+  CheckSquare,
+  Scale,
+  ShieldCheck,
+  FlaskConical,
+  FileText,
+  Code2,
+  ArrowRight,
+} from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 
-type Project = { id: string; name: string; description: string | null; status: string; priority: string | null; tags: string[] | null; updated_at: string; memory: string | null; };
-type Update = { id: string; update_type: string; content: string; outcomes: string | null; next_actions: string | null; created_at: string; };
-type Task = { id: string; title: string; status: string };
+type Project = {
+  id: string;
+  name: string;
+  description: string | null;
+  status: string;
+  priority: string | null;
+  tags: string[] | null;
+  updated_at: string;
+  memory: string | null;
+};
 
-function timeAgo(d: string) { const diff = Date.now() - new Date(d).getTime(); const m = Math.floor(diff/60000); if (m < 60) return `${m}m ago`; const h = Math.floor(m/60); if (h < 24) return `${h}h ago`; return `${Math.floor(h/24)}d ago`; }
+type Update = {
+  id: string;
+  update_type: string;
+  content: string;
+  outcomes: string | null;
+  next_actions: string | null;
+  created_at: string;
+};
+
+type Task = { id: string; title: string; status: string };
+type ProjectDecision = { id: string; title: string; verdict: string | null; created_at: string };
+type ProjectRule = { id: string; rule_text: string; severity: number; active: boolean };
+type ProjectResearch = { id: string; topic: string; created_at: string };
+type ProjectDocument = { id: string; title: string; created_at: string };
+
+function timeAgo(d: string) {
+  const diff = Date.now() - new Date(d).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
 function TypeBadge({ type }: { type: string }) {
-  const map: Record<string,string> = { progress:"bg-[#DBEAFE] text-[#2C5F8A]", decision:"bg-[#DCFCE7] text-[#2D6A4F]", blocker:"bg-[#FEE2E2] text-[#EF4444]", milestone:"bg-[#FEF9C3] text-[#92400E]" };
-  return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold capitalize ${map[type]??map.progress}`}>{type}</span>;
+  const map: Record<string, string> = {
+    progress: "bg-[#DBEAFE] text-[#2C5F8A]",
+    decision: "bg-[#DCFCE7] text-[#2D6A4F]",
+    blocker: "bg-[#FEE2E2] text-[#EF4444]",
+    milestone: "bg-[#FEF9C3] text-[#92400E]",
+  };
+
+  return (
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold capitalize ${map[type] ?? map.progress}`}>
+      {type}
+    </span>
+  );
+}
+
+function SectionCard({
+  title,
+  subtitle,
+  action,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="bg-white border border-[#E5E2DE] rounded-xl p-4">
+      <div className="flex items-start justify-between mb-3 gap-3">
+        <div>
+          <h2 className="text-[14px] font-semibold text-[#1A1A1A]">{title}</h2>
+          {subtitle && <p className="text-[12px] text-[#737373] mt-0.5">{subtitle}</p>}
+        </div>
+        {action}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function LinkTile({
+  icon: Icon,
+  title,
+  subtitle,
+  onClick,
+}: {
+  icon: any;
+  title: string;
+  subtitle: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full text-left bg-[#FAF9F7] border border-[#EDE8E2] rounded-xl p-3 hover:border-[#CC785C]/40 hover:bg-white transition-colors"
+    >
+      <div className="flex items-start gap-3">
+        <div className="w-8 h-8 rounded-lg bg-white border border-[#E5E2DE] flex items-center justify-center shrink-0">
+          <Icon size={15} className="text-[#CC785C]" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[13px] font-semibold text-[#1A1A1A]">{title}</p>
+            <ArrowRight size={13} className="text-[#B0ADA9] shrink-0" />
+          </div>
+          <p className="text-[12px] text-[#737373] mt-1 leading-relaxed">{subtitle}</p>
+        </div>
+      </div>
+    </button>
+  );
 }
 
 export default function ProjectOverviewPage() {
@@ -22,22 +129,49 @@ export default function ProjectOverviewPage() {
 
   const [project, setProject] = useState<Project | null>(null);
   const [updates, setUpdates] = useState<Update[]>([]);
-  const [tasks,   setTasks]   = useState<Task[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [decisions, setDecisions] = useState<ProjectDecision[]>([]);
+  const [rules, setRules] = useState<ProjectRule[]>([]);
+  const [research, setResearch] = useState<ProjectResearch[]>([]);
+  const [documents, setDocuments] = useState<ProjectDocument[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { loadAll(); }, [id]);
+  useEffect(() => {
+    loadAll();
+  }, [id]);
 
   async function loadAll() {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { router.push("/login"); return; }
-    const [{ data: p }, { data: u }] = await Promise.all([
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+
+    const [
+      { data: p },
+      { data: u },
+      taskRes,
+      decisionsRes,
+      rulesRes,
+      researchRes,
+      documentsRes,
+    ] = await Promise.all([
       supabase.from("projects").select("*").eq("id", id).eq("user_id", user.id).single(),
       supabase.from("project_updates").select("*").eq("project_id", id).order("created_at", { ascending: false }),
+      fetch(`/api/projects/tasks?projectId=${id}`).then((r) => r.json()).catch(() => ({ tasks: [] })),
+      fetch(`/api/projects/decisions?projectId=${id}`).then((r) => r.json()).catch(() => ({ decisions: [] })),
+      fetch(`/api/projects/rules?projectId=${id}`).then((r) => r.json()).catch(() => ({ rules: [] })),
+      fetch(`/api/projects/research?projectId=${id}`).then((r) => r.json()).catch(() => ({ research: [] })),
+      fetch(`/api/projects/documents?projectId=${id}`).then((r) => r.json()).catch(() => ({ documents: [] })),
     ]);
+
     setProject(p);
     setUpdates(u ?? []);
-    const res = await fetch(`/api/projects/tasks?projectId=${id}`);
-    if (res.ok) { const d = await res.json(); setTasks(d.tasks ?? []); }
+    setTasks(taskRes.tasks ?? []);
+    setDecisions(decisionsRes.decisions ?? []);
+    setRules(rulesRes.rules ?? []);
+    setResearch(researchRes.research ?? []);
+    setDocuments(documentsRes.documents ?? []);
     setLoading(false);
   }
 
@@ -46,92 +180,285 @@ export default function ProjectOverviewPage() {
     router.push("/app/projects");
   }
 
-  if (loading) return <div className="flex items-center justify-center h-40"><p className="text-[14px] text-[#737373]">Loading…</p></div>;
-  if (!project) return <div className="flex items-center justify-center h-40"><p className="text-[14px] text-[#737373]">Project not found.</p></div>;
+  const assistantHref = `/app/projects/${id}/assistant`;
 
-  const openTasks = tasks.filter(t => t.status !== "done").length;
-  const doneTasks = tasks.filter(t => t.status === "done").length;
+  const openTasks = useMemo(() => tasks.filter((t) => t.status !== "done"), [tasks]);
+  const doneTasks = useMemo(() => tasks.filter((t) => t.status === "done"), [tasks]);
+  const activeRules = useMemo(() => rules.filter((r) => r.active), [rules]);
+  const recentUpdates = updates.slice(0, 4);
+
+  if (loading) {
+    return <div className="flex items-center justify-center h-40"><p className="text-[14px] text-[#737373]">Loading…</p></div>;
+  }
+
+  if (!project) {
+    return <div className="flex items-center justify-center h-40"><p className="text-[14px] text-[#737373]">Project not found.</p></div>;
+  }
 
   return (
-    <div className="p-6 max-w-[860px]">
-
-      {/* Header row */}
-      <div className="flex items-start justify-between mb-5">
-        <div>
-          {project.description && <p className="text-[14px] text-[#737373] mt-1 max-w-[560px]">{project.description}</p>}
-          {project.memory && (
-            <p className="text-[12px] text-[#737373] mt-1.5 italic">
-              {project.memory.split("\n").find(l => l.startsWith("Current focus:"))?.replace("Current focus:", "→ ") ?? ""}
+    <div className="p-4 md:p-6 max-w-[980px]">
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-5">
+        <div className="min-w-0">
+          {project.description && (
+            <p className="text-[14px] text-[#737373] mt-1 max-w-[640px] leading-relaxed">
+              {project.description}
             </p>
           )}
+
+          {project.memory && (
+            <p className="text-[12px] text-[#737373] mt-2 italic">
+              {project.memory.split("\n").find((l) => l.startsWith("Current focus:"))?.replace("Current focus:", "→ ") ?? ""}
+            </p>
+          )}
+
+          {project.tags && project.tags.length > 0 && (
+            <div className="flex gap-1.5 mt-3 flex-wrap">
+              {project.tags.map((t) => (
+                <span
+                  key={t}
+                  className="text-[11px] px-2 py-0.5 rounded-full bg-[#F7F5F2] text-[#737373] border border-[#E5E2DE]"
+                >
+                  {t}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
-        <div className="flex gap-2 shrink-0 ml-4">
-          <button onClick={() => router.push("/app/command")}
-            className="flex items-center gap-2 px-4 py-2 bg-[#1A1A1A] text-white text-[13px] font-semibold rounded-lg hover:bg-[#333] transition-colors">
-            <Plus size={14}/> Update
+
+        <div className="flex gap-2 shrink-0">
+          <button
+            onClick={() => router.push(assistantHref)}
+            className="flex items-center gap-2 px-4 py-2 bg-[#1A1A1A] text-white text-[13px] font-semibold rounded-lg hover:bg-[#333] transition-colors"
+          >
+            <Plus size={14} /> Work with Assistant
           </button>
-          <button onClick={handleArchive}
-            className="px-4 py-2 border border-[#E5E2DE] text-[#737373] text-[13px] rounded-lg hover:border-[#EF4444] hover:text-[#EF4444] transition-colors">
+
+          <button
+            onClick={handleArchive}
+            className="px-4 py-2 border border-[#E5E2DE] text-[#737373] text-[13px] rounded-lg hover:border-[#EF4444] hover:text-[#EF4444] transition-colors"
+          >
             Archive
           </button>
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="flex flex-wrap gap-5 mb-8 pb-6 border-b border-[#E5E2DE]">
-        <div>
-          <span className="text-[11px] text-[#737373] uppercase tracking-wide">Updates</span>
-          <p className="text-[18px] font-semibold text-[#1A1A1A] mt-0.5">{updates.length}</p>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+        <div className="bg-white border border-[#E5E2DE] rounded-xl p-4">
+          <p className="text-[11px] text-[#737373] uppercase tracking-wide">Updates</p>
+          <p className="text-[20px] font-semibold text-[#1A1A1A] mt-1">{updates.length}</p>
         </div>
-        <div>
-          <span className="text-[11px] text-[#737373] uppercase tracking-wide">Tasks Open</span>
-          <p className="text-[18px] font-semibold text-[#1A1A1A] mt-0.5">{openTasks}</p>
+        <div className="bg-white border border-[#E5E2DE] rounded-xl p-4">
+          <p className="text-[11px] text-[#737373] uppercase tracking-wide">Open Work</p>
+          <p className="text-[20px] font-semibold text-[#1A1A1A] mt-1">{openTasks.length}</p>
         </div>
-        <div>
-          <span className="text-[11px] text-[#737373] uppercase tracking-wide">Completed</span>
-          <p className="text-[18px] font-semibold text-[#1A1A1A] mt-0.5">{doneTasks}</p>
+        <div className="bg-white border border-[#E5E2DE] rounded-xl p-4">
+          <p className="text-[11px] text-[#737373] uppercase tracking-wide">Decisions</p>
+          <p className="text-[20px] font-semibold text-[#1A1A1A] mt-1">{decisions.length}</p>
         </div>
-        {project.tags && project.tags.length > 0 && (
-          <div>
-            <span className="text-[11px] text-[#737373] uppercase tracking-wide">Tags</span>
-            <div className="flex gap-1.5 mt-1">
-              {project.tags.map(t => (
-                <span key={t} className="text-[11px] px-2 py-0.5 rounded-full bg-[#F7F5F2] text-[#737373] border border-[#E5E2DE]">{t}</span>
-              ))}
-            </div>
-          </div>
-        )}
+        <div className="bg-white border border-[#E5E2DE] rounded-xl p-4">
+          <p className="text-[11px] text-[#737373] uppercase tracking-wide">Documents</p>
+          <p className="text-[20px] font-semibold text-[#1A1A1A] mt-1">{documents.length}</p>
+        </div>
       </div>
 
-      {/* Recent updates */}
-      <div>
-        <h2 className="text-[14px] font-semibold text-[#1A1A1A] mb-4">
-          Recent Updates <span className="text-[12px] text-[#737373] font-normal ml-1">{updates.length} total</span>
-        </h2>
-        {updates.length === 0 ? (
-          <div className="border-2 border-dashed border-[#E5E2DE] rounded-xl py-12 px-6 text-center">
-            <p className="text-[14px] text-[#737373] mb-3">No updates yet.</p>
-            <button onClick={() => router.push("/app/command")} className="text-[13px] text-[#CC785C] hover:text-[#b5684e]">Add via Command →</button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {updates.slice(0, 5).map(u => (
-              <div key={u.id} className="bg-white border border-[#E5E2DE] rounded-xl p-5">
-                <div className="flex items-center justify-between mb-3">
-                  <TypeBadge type={u.update_type}/>
-                  <span className="text-[12px] text-[#737373]">{timeAgo(u.created_at)}</span>
-                </div>
-                <p className="text-[14px] text-[#404040] mb-3 leading-relaxed">{u.content}</p>
-                {u.outcomes && <div className="mb-2"><span className="text-[11px] font-semibold text-[#737373] uppercase tracking-wide">Outcomes</span><p className="text-[12px] text-[#737373] mt-1 pl-3 border-l-2 border-[#CC785C]">{u.outcomes}</p></div>}
-                {u.next_actions && <div><span className="text-[11px] font-semibold text-[#737373] uppercase tracking-wide">Next Actions</span><p className="text-[12px] text-[#737373] mt-1 pl-3 border-l-2 border-[#CC785C]">{u.next_actions}</p></div>}
+      <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-4">
+        <div className="space-y-4">
+          <SectionCard
+            title="Project Control"
+            subtitle="Use the assistant as the main working surface for this project."
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <LinkTile
+                icon={Bot}
+                title="Project Assistant"
+                subtitle="Discuss work, generate updates, plan next steps, and move the project forward."
+                onClick={() => router.push(`/app/projects/${id}/assistant`)}
+              />
+              <LinkTile
+                icon={CheckSquare}
+                title="Work Queue"
+                subtitle="Review open tasks, priorities, and current execution items."
+                onClick={() => router.push(`/app/projects/${id}/tasks`)}
+              />
+              <LinkTile
+                icon={FlaskConical}
+                title="Research"
+                subtitle="Open research notes, references, and supporting analysis."
+                onClick={() => router.push(`/app/projects/${id}/research`)}
+              />
+              <LinkTile
+                icon={FileText}
+                title="Documents"
+                subtitle="Access saved project documents, outputs, and generated files."
+                onClick={() => router.push(`/app/projects/${id}/documents`)}
+              />
+              <LinkTile
+                icon={Scale}
+                title="Decisions"
+                subtitle="Review project decisions captured so far and their direction."
+                onClick={() => router.push(`/app/projects/${id}/decisions`)}
+              />
+              <LinkTile
+                icon={ShieldCheck}
+                title="Rules and Constraints"
+                subtitle="Inspect project rules, constraints, and operating boundaries."
+                onClick={() => router.push(`/app/projects/${id}/rules`)}
+              />
+            </div>
+          </SectionCard>
+
+          <SectionCard
+            title="Recent Project Activity"
+            subtitle="Latest updates and movement inside this project."
+            action={
+              <button
+                onClick={() => router.push(assistantHref)}
+                className="text-[12px] text-[#CC785C] hover:underline"
+              >
+                Add update
+              </button>
+            }
+          >
+            {recentUpdates.length === 0 ? (
+              <p className="text-[13px] text-[#737373]">No updates yet. Use the project assistant to log progress naturally.</p>
+            ) : (
+              <div className="space-y-3">
+                {recentUpdates.map((u) => (
+                  <div key={u.id} className="bg-[#FAF9F7] border border-[#EDE8E2] rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <TypeBadge type={u.update_type} />
+                      <span className="text-[12px] text-[#737373]">{timeAgo(u.created_at)}</span>
+                    </div>
+
+                    <p className="text-[14px] text-[#404040] mb-2 leading-relaxed">{u.content}</p>
+
+                    {u.outcomes && (
+                      <div className="mb-2">
+                        <span className="text-[11px] font-semibold text-[#737373] uppercase tracking-wide">Outcomes</span>
+                        <p className="text-[12px] text-[#737373] mt-1 pl-3 border-l-2 border-[#CC785C]">{u.outcomes}</p>
+                      </div>
+                    )}
+
+                    {u.next_actions && (
+                      <div>
+                        <span className="text-[11px] font-semibold text-[#737373] uppercase tracking-wide">Next Actions</span>
+                        <p className="text-[12px] text-[#737373] mt-1 pl-3 border-l-2 border-[#CC785C]">{u.next_actions}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
-            ))}
-            {updates.length > 5 && (
-              <p className="text-[13px] text-[#737373] text-center pt-1">{updates.length - 5} more updates…</p>
             )}
-          </div>
-        )}
+          </SectionCard>
+        </div>
+
+        <div className="space-y-4">
+          <SectionCard title="Work Snapshot" subtitle="Current execution state">
+            <div className="space-y-3">
+              <div className="bg-[#FAF9F7] rounded-xl p-3">
+                <p className="text-[11px] text-[#737373] uppercase tracking-wide">Open Tasks</p>
+                {openTasks.length === 0 ? (
+                  <p className="text-[13px] text-[#737373] mt-2">No open tasks.</p>
+                ) : (
+                  <div className="space-y-2 mt-2">
+                    {openTasks.slice(0, 4).map((t) => (
+                      <div key={t.id} className="flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-[#CC785C] shrink-0" />
+                        <p className="text-[12px] text-[#404040] truncate">{t.title}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-[#FAF9F7] rounded-xl p-3">
+                <p className="text-[11px] text-[#737373] uppercase tracking-wide">Completed Tasks</p>
+                <p className="text-[18px] font-semibold text-[#1A1A1A] mt-1">{doneTasks.length}</p>
+              </div>
+            </div>
+          </SectionCard>
+
+          <SectionCard title="Knowledge Snapshot" subtitle="Decision, rule, research, and document context">
+            <div className="space-y-3">
+              <div className="bg-[#FAF9F7] rounded-xl p-3">
+                <p className="text-[11px] text-[#737373] uppercase tracking-wide">Recent Decisions</p>
+                {decisions.length === 0 ? (
+                  <p className="text-[13px] text-[#737373] mt-2">No decisions logged yet.</p>
+                ) : (
+                  <div className="space-y-2 mt-2">
+                    {decisions.slice(0, 3).map((d) => (
+                      <div key={d.id}>
+                        <p className="text-[12px] text-[#404040]">{d.title}</p>
+                        <p className="text-[10px] text-[#737373] mt-0.5">{d.verdict ?? "pending"} · {timeAgo(d.created_at)}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-[#FAF9F7] rounded-xl p-3">
+                <p className="text-[11px] text-[#737373] uppercase tracking-wide">Active Rules</p>
+                {activeRules.length === 0 ? (
+                  <p className="text-[13px] text-[#737373] mt-2">No active rules.</p>
+                ) : (
+                  <div className="space-y-2 mt-2">
+                    {activeRules.slice(0, 3).map((r) => (
+                      <div key={r.id} className="flex items-center justify-between gap-2">
+                        <p className="text-[12px] text-[#404040] line-clamp-2">{r.rule_text}</p>
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#F7F5F2] text-[#737373] shrink-0">
+                          S{r.severity}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-[#FAF9F7] rounded-xl p-3">
+                <p className="text-[11px] text-[#737373] uppercase tracking-wide">Research Topics</p>
+                {research.length === 0 ? (
+                  <p className="text-[13px] text-[#737373] mt-2">No research notes yet.</p>
+                ) : (
+                  <div className="space-y-2 mt-2">
+                    {research.slice(0, 3).map((r) => (
+                      <div key={r.id}>
+                        <p className="text-[12px] text-[#404040]">{r.topic}</p>
+                        <p className="text-[10px] text-[#737373] mt-0.5">{timeAgo(r.created_at)}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-[#FAF9F7] rounded-xl p-3">
+                <p className="text-[11px] text-[#737373] uppercase tracking-wide">Recent Documents</p>
+                {documents.length === 0 ? (
+                  <p className="text-[13px] text-[#737373] mt-2">No documents saved yet.</p>
+                ) : (
+                  <div className="space-y-2 mt-2">
+                    {documents.slice(0, 3).map((d) => (
+                      <div key={d.id}>
+                        <p className="text-[12px] text-[#404040]">{d.title}</p>
+                        <p className="text-[10px] text-[#737373] mt-0.5">{timeAgo(d.created_at)}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </SectionCard>
+
+          <SectionCard title="Developer Surface" subtitle="Code and technical context">
+            <LinkTile
+              icon={Code2}
+              title="Code Workspace"
+              subtitle="Open the code view and connected technical context for this project."
+              onClick={() => router.push(`/app/projects/${id}/code`)}
+            />
+          </SectionCard>
+        </div>
       </div>
     </div>
   );
 }
+

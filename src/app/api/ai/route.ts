@@ -1,18 +1,22 @@
-import { NextRequest, NextResponse } from 'next/server';
-import Anthropic from '@anthropic-ai/sdk';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { callAIProvider, getDefaultModelForProvider, normalizeProvider, type AIProvider } from '@/lib/ai/providers';
 
 const MODEL_COSTS = {
   'claude-haiku-4-5-20251001': { input: 1, output: 5 },
   'claude-sonnet-4-5': { input: 3, output: 15 },
   'claude-opus-4-1': { input: 15, output: 75 },
+  'gpt-4o-mini': { input: 0.15, output: 0.6 },
+  'gpt-4o': { input: 2.5, output: 10 },
+  'grok-3-mini': { input: 0, output: 0 },
+  'grok-3': { input: 0, output: 0 },
 } as const;
 
 type MessageType = 'chat' | 'analysis' | 'decision';
 
 function calculateCost(model: string, inputTokens: number, outputTokens: number): number {
   const costs =
-    MODEL_COSTS[model as keyof typeof MODEL_COSTS] || MODEL_COSTS['claude-sonnet-4-5'];
+    MODEL_COSTS[model as keyof typeof MODEL_COSTS] || { input: 0, output: 0 };
 
   return (inputTokens * costs.input + outputTokens * costs.output) / 1_000_000;
 }
@@ -245,12 +249,24 @@ function buildSystemPrompt(context: any): string {
 
 Your job is to preserve continuity, reason from active project context, and give answers that feel aware of recent work, blockers, decisions, and priorities.
 
-Do not answer like a fresh chatbot unless context is truly missing.
-When context is partial, say what you know and continue from it.
-Prefer concrete, operational answers over generic advice.
+BUDDIES OPERATING APPROACH:
+1. Context — first understand what the user is actually trying to do, what constraints matter, what already exists, and what "done" means.
+2. Solution — once enough context exists, propose the best path clearly and align on the solution when needed.
+3. Execution — execute directly if possible after permission for meaningful or irreversible actions. If direct execution is not possible, give the best concrete execution path instead of vague advice.
+
+OPERATING RULES:
+- Do not jump into execution if the request is still ambiguous.
+- Do not ask unnecessary questions if enough context already exists.
+- Ask only the sharpest missing questions when context is insufficient.
+- When the user is clearly ready to proceed, move from context to solution or execution without friction.
+- For high-impact actions, confirm the intended solution before execution.
+- Prefer concrete, operational answers over generic advice.
+- Do not answer like a fresh chatbot unless context is truly missing.
+- When context is partial, say what you know and continue from it.
 
 ${sections.join('\n\n')}`;
 }
+
 
 export async function POST(request: NextRequest) {
   try {
@@ -271,7 +287,6 @@ export async function POST(request: NextRequest) {
       body.messages?.[body.messages.length - 1]?.content ||
       '';
 
-    const requestedModel = body.model;
     const sessionId = body.sessionId ?? null;
     const history = Array.isArray(body.history) ? body.history : [];
     const sessionSummary = body.sessionSummary || '';
@@ -282,28 +297,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Message required' }, { status: 400 });
     }
 
-    const { data: config } = await supabase
-      .from('ai_model_config')
-      .select('default_model, auto_select')
-      .eq('user_id', user.id)
-      .single();
+    const provider: AIProvider = normalizeProvider(body.provider);
+    const requestedModel = body.model;
 
     const messageType = detectMessageType(message);
-
-    let model = requestedModel || config?.default_model || 'claude-sonnet-4-5';
-
-    if (config?.auto_select && !requestedModel) {
-      if (messageType === 'chat') model = 'claude-haiku-4-5-20251001';
-      if (messageType === 'analysis') model = 'claude-sonnet-4-5';
-      if (messageType === 'decision') model = 'claude-sonnet-4-5';
-    }
+    const model = requestedModel || getDefaultModelForProvider(provider, messageType);
 
     const recentConversation = normalizeHistory(history);
 
     const queryList = [
       supabase.from('projects').select('*').eq('user_id', user.id),
       supabase
-        .from('tasks')
+        .from('project_tasks')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
@@ -325,14 +330,13 @@ export async function POST(request: NextRequest) {
         .from('behavior_logs')
         .select('*')
         .eq('user_id', user.id)
-        .order('logged_at', { ascending: false })
+        .order('timestamp', { ascending: false })
         .limit(7),
       supabase.from('integrations').select('*').eq('user_id', user.id),
     ];
 
     let blockersEnabled = false;
     try {
-      // This assumes blockers may exist in your schema. If not, fallback cleanly.
       queryList.push(
         supabase
           .from('blockers')
@@ -395,31 +399,23 @@ export async function POST(request: NextRequest) {
 
     const systemPrompt = buildSystemPrompt(context);
 
-    const anthropic = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
-    });
-
-    const response = await anthropic.messages.create({
+    const aiResult = await callAIProvider({
+      provider,
       model,
-      max_tokens: 4096,
       system: systemPrompt,
       messages: [{ role: 'user', content: message }],
+      maxTokens: 4096,
     });
 
-    const text = response.content
-      .filter((block: any) => block.type === 'text')
-      .map((block: any) => block.text)
-      .join('\n')
-      .trim();
-
-    const inputTokens = response.usage?.input_tokens || 0;
-    const outputTokens = response.usage?.output_tokens || 0;
-    const cost = calculateCost(model, inputTokens, outputTokens);
+    const text = aiResult.text;
+    const inputTokens = aiResult.inputTokens || 0;
+    const outputTokens = aiResult.outputTokens || 0;
+    const cost = calculateCost(aiResult.model, inputTokens, outputTokens);
 
     try {
       await supabase.from('ai_usage').insert({
         user_id: user.id,
-        model,
+        model: aiResult.model,
         input_tokens: inputTokens,
         output_tokens: outputTokens,
         cost_usd: cost,
@@ -440,7 +436,8 @@ export async function POST(request: NextRequest) {
         messageType,
       },
       webSearchUsed: false,
-      model,
+      model: aiResult.model,
+      provider: aiResult.provider,
     });
   } catch (error: any) {
     console.error('AI API Error:', error);
@@ -450,3 +447,4 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+

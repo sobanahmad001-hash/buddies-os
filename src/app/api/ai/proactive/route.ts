@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
       type: "pattern",
       title: `High stress pattern detected`,
       message: `You've logged exhaustion or stress 7+ a total of ${badLogs.length} times in the last 3 days. Consider reviewing your workload.`,
-      action: { label: "Open Daily Check", data: { action: "navigate", href: "/app/daily-check" } },
+      action: { label: "Open Dashboard", data: { action: "navigate", href: "/app" } },
     });
   } else if (badLogs.length >= 2) {
     const moods = badLogs.map(l => l.mood_tag).filter(Boolean);
@@ -62,7 +62,7 @@ export async function GET(req: NextRequest) {
       type: "warning",
       title: "Mood pattern worth watching",
       message: `You've logged "${moods[0]}" and "${moods[1]}" in the last 3 days — watch your decision quality.`,
-      action: { label: "Log Check-in", data: { action: "navigate", href: "/app/daily-check" } },
+      action: { label: "Open Buddies AI", data: { action: "navigate", href: "/app/ai" } },
     });
   }
 
@@ -79,7 +79,7 @@ export async function GET(req: NextRequest) {
         type: "nudge",
         title: `Decision waiting ${daysSince} days`,
         message: (d.context ?? "").slice(0, 100) + ((d.context?.length ?? 0) > 100 ? "…" : ""),
-        action: { label: "Decide Now", data: { action: "navigate", href: "/app/decisions" } },
+        action: { label: "Review In Search", data: { action: "navigate", href: "/app/search" } },
       });
     }
     // Overdue review
@@ -89,7 +89,7 @@ export async function GET(req: NextRequest) {
         type: "nudge",
         title: "Decision review overdue",
         message: `Review date passed: "${(d.context ?? "").slice(0, 80)}…"`,
-        action: { label: "Review", data: { action: "navigate", href: "/app/decisions" } },
+        action: { label: "Review In Search", data: { action: "navigate", href: "/app/search" } },
       });
     }
   }
@@ -104,7 +104,7 @@ export async function GET(req: NextRequest) {
         type: daysSince >= 14 ? "warning" : "insight",
         title: `${p.name} quiet for ${daysSince} days`,
         message: `No updates logged in over a week. Is this project blocked or deprioritised?`,
-        action: { label: "Add Update", data: { action: "navigate", href: "/app/project-update" } },
+        action: { label: "Open Buddies AI", data: { action: "navigate", href: "/app/ai" } },
       });
     }
   }
@@ -127,7 +127,7 @@ export async function GET(req: NextRequest) {
       type: "insight",
       title: "No check-ins in 3+ days",
       message: "Your behavioral data is going dark. A quick daily check-in keeps your AI context sharp.",
-      action: { label: "Check In Now", data: { action: "navigate", href: "/app/daily-check" } },
+      action: { label: "Review 7-Day Patterns", data: { action: "navigate", href: "/app" } },
     });
   }
 

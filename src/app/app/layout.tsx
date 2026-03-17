@@ -1,13 +1,17 @@
-"use client";
+﻿"use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import {
-  LayoutDashboard, Bot, FolderKanban,
-  Search, LogOut, X, Users,
-  FileText, BookOpen, Scale, Shield,
-  Activity, Terminal, Plug,
+  LayoutDashboard,
+  Bot,
+  FolderKanban,
+  Search,
+  LogOut,
+  X,
+  BookOpen,
+  Plug,
 } from "lucide-react";
 import BottomNav from "@/components/BottomNav";
 
@@ -15,13 +19,7 @@ const NAV_ITEMS = [
   { to: "/app",              icon: LayoutDashboard, label: "Dashboard" },
   { to: "/app/ai",           icon: Bot,             label: "AI Assistant" },
   { to: "/app/projects",     icon: FolderKanban,    label: "Projects" },
-  { to: "/app/clients",      icon: Users,           label: "Clients" },
-  { to: "/app/daily-check",  icon: Activity,        label: "Daily Check" },
-  { to: "/app/decisions",    icon: Scale,           label: "Decisions" },
-  { to: "/app/documents",    icon: FileText,        label: "Documents" },
   { to: "/app/research",     icon: BookOpen,        label: "Research" },
-  { to: "/app/rules",        icon: Shield,          label: "Rules" },
-  { to: "/app/command",      icon: Terminal,        label: "Command" },
   { to: "/app/integrations", icon: Plug,            label: "Integrations" },
   { to: "/app/search",       icon: Search,          label: "Search" },
 ];
@@ -33,6 +31,7 @@ function NavLink({ to, icon: Icon, label, collapsed, onClick }: {
   const active = to === "/app"
     ? pathname === "/app"
     : pathname.startsWith(to);
+
   return (
     <Link
       href={to}
@@ -66,7 +65,6 @@ function NavContent({
 
   return (
     <div className={`flex flex-col h-full bg-[#0F0F0F] text-white transition-all duration-300 ${collapsed ? "w-[60px]" : "w-[220px]"}`}>
-      {/* Header */}
       <div className="flex items-center justify-between px-3 py-4 border-b border-[#1E1E1E]">
         {!collapsed && (
           <span className="text-[14px] font-bold tracking-tight">
@@ -83,20 +81,21 @@ function NavContent({
           <span className="w-3.5 h-0.5 bg-current rounded-full" />
         </button>
         {mobileOpen && (
-          <button onClick={close} className="md:hidden flex items-center justify-center w-8 h-8 text-[#8A8A8A] hover:text-white rounded-lg hover:bg-[#1E1E1E] transition-colors">
+          <button
+            onClick={close}
+            className="md:hidden flex items-center justify-center w-8 h-8 text-[#8A8A8A] hover:text-white rounded-lg hover:bg-[#1E1E1E] transition-colors"
+          >
             <X className="w-4 h-4" />
           </button>
         )}
       </div>
 
-      {/* Nav */}
       <nav className="flex-1 py-3 overflow-y-auto space-y-0.5">
         {NAV_ITEMS.map(item => (
           <NavLink key={item.to} {...item} collapsed={collapsed} onClick={close} />
         ))}
       </nav>
 
-      {/* Logout */}
       <div className="border-t border-[#1E1E1E] p-2">
         <button
           onClick={handleLogout}
@@ -120,31 +119,33 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-[#F7F5F2]">
-
-      {/* Desktop sidebar */}
       <div className="hidden md:flex h-full">
         <NavContent
-          collapsed={collapsed} setCollapsed={setCollapsed}
-          mobileOpen={mobileOpen} setMobileOpen={setMobileOpen}
+          collapsed={collapsed}
+          setCollapsed={setCollapsed}
+          mobileOpen={mobileOpen}
+          setMobileOpen={setMobileOpen}
         />
       </div>
 
-      {/* Mobile sidebar overlay */}
       {mobileOpen && (
         <>
-          <div className="md:hidden fixed inset-0 bg-black/50 z-40" onClick={() => setMobileOpen(false)} />
+          <div
+            className="md:hidden fixed inset-0 bg-black/50 z-40"
+            onClick={() => setMobileOpen(false)}
+          />
           <div className="md:hidden fixed left-0 top-0 h-full z-50 w-[200px]">
             <NavContent
-              collapsed={false} setCollapsed={setCollapsed}
-              mobileOpen={mobileOpen} setMobileOpen={setMobileOpen}
+              collapsed={false}
+              setCollapsed={setCollapsed}
+              mobileOpen={mobileOpen}
+              setMobileOpen={setMobileOpen}
             />
           </div>
         </>
       )}
 
-      {/* Main content */}
       <main className="flex-1 flex flex-col overflow-hidden min-w-0 pb-[60px] md:pb-0">
-        {/* Mobile top bar */}
         <div className="md:hidden flex items-center gap-3 px-4 py-3 bg-[#0F0F0F] border-b border-[#1E1E1E] shrink-0">
           <button
             onClick={() => setMobileOpen(true)}
@@ -162,8 +163,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      {/* Bottom Navigation (mobile) */}
       <BottomNav />
     </div>
   );
 }
+
