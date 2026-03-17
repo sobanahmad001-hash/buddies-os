@@ -2,7 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Send, Copy, RotateCcw, Trash2, Check, FileText, Download, AlertCircle } from 'lucide-react';
+import {
+  Send, Copy, RotateCcw, Trash2, Check,
+  FileText, Download, AlertCircle
+} from 'lucide-react';
+import VoiceInputButton from '@/components/VoiceInputButton';
+import FileUpload from '@/components/FileUpload';
 
 // ── Action Block Parser ───────────────────────────────────────────────────────
 interface BuddiesAction {
@@ -227,7 +232,7 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type Doc = { id: string; title: string; content: string };
-type Message = { id?: string; role: 'user' | 'assistant'; content: string; created_at?: string; ts?: string; document?: Doc };
+type Message = { id?: string; role: 'user' | 'assistant'; content: string; created_at?: string; ts?: string; document?: Doc; images?: string[] };
 type MessageGroup = { role: 'user' | 'assistant'; messages: Message[] };
 
 function groupMessages(messages: Message[]): MessageGroup[] {
@@ -253,6 +258,7 @@ export default function ProjectAssistantPage() {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [provider, setProvider] = useState<'anthropic' | 'openai' | 'xai'>('anthropic');
   const [model, setModel] = useState('');
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const providerModels: Record<'anthropic' | 'openai' | 'xai', { label: string; value: string }[]> = {
@@ -278,39 +284,99 @@ export default function ProjectAssistantPage() {
   }, []);
 
   useEffect(() => {
-    (async () => {
-      const res = await fetch(`/api/projects/chat?projectId=${projectId}`);
-      if (res.ok) { const d = await res.json(); setMessages(d.messages ?? []); }
-      setHistLoading(false);
-    })();
+    loadHistory();
   }, [projectId]);
+
+  async function loadHistory() {
+    const res = await fetch(`/api/projects/chat?projectId=${projectId}`);
+    if (res.ok) {
+      const d = await res.json();
+      setMessages((d.messages ?? []).map((m: any) => ({
+        ...m,
+        ts: m.created_at ?? m.ts,
+      })));
+    }
+    setHistLoading(false);
+  }
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading]);
 
+  function handleVoiceTranscript(transcript: string) {
+    setInput(transcript);
+    setTimeout(() => textareaRef.current?.focus(), 0);
+  }
+
   async function send(overrideInput?: string) {
     const text = (overrideInput ?? input).trim();
-    if (!text || loading) return;
+    if ((!text && attachedFiles.length === 0) || loading) return;
+
+    const imageUrls: string[] = [];
+    const fileContextBlocks: string[] = [];
+
+    if (attachedFiles.length > 0) {
+      for (const file of attachedFiles) {
+        try {
+          const formData = new FormData();
+          formData.append('file', file);
+          const uploadRes = await fetch('/api/ai/upload', { method: 'POST', body: formData });
+          if (uploadRes.ok) {
+            const uploadData = await uploadRes.json();
+            if (uploadData.url && file.type.startsWith('image/')) {
+              imageUrls.push(uploadData.url);
+            }
+            if (uploadData.summary && !file.type.startsWith('image/')) {
+              const block = uploadData.isZip
+                ? `📦 ZIP: **${file.name}** (${uploadData.fileCount ?? "?"} files)\nKey files: ${(uploadData.keyFiles ?? []).slice(0, 8).join(", ")}\nSummary: ${uploadData.summary}`
+                : `📄 File: **${file.name}**\nSummary: ${uploadData.summary}`;
+              fileContextBlocks.push(block);
+            }
+          }
+        } catch {}
+      }
+      setAttachedFiles([]);
+    }
+
+    const combinedText = [text, ...fileContextBlocks].filter(Boolean).join('\n\n');
+
+    const userMsg: Message = {
+      role: 'user',
+      content: combinedText || `📎 ${attachedFiles.length} file${attachedFiles.length > 1 ? 's' : ''} attached`,
+      ts: new Date().toISOString(),
+      images: imageUrls.length > 0 ? imageUrls : undefined,
+    };
+
+    setMessages(prev => [...prev, userMsg]);
     setInput('');
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
-
-    const userMsg: Message = { role: 'user', content: text, ts: new Date().toISOString() };
-    setMessages(prev => [...prev, userMsg]);
     setLoading(true);
 
     try {
       const res = await fetch('/api/projects/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId, message: text, provider, model }),
+        body: JSON.stringify({ projectId, message: combinedText, provider, model }),
       });
       const data = await res.json();
       if (data.reply) {
-        setMessages(prev => [...prev, { role: 'assistant', content: data.reply, ts: new Date().toISOString(), document: data.document ?? undefined }]);
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: data.reply,
+          ts: new Date().toISOString(),
+          document: data.document ?? undefined,
+        }]);
       } else {
-        setMessages(prev => [...prev, { role: 'assistant', content: data.error ? `Error: ${data.error}` : 'Something went wrong. Please try again.', ts: new Date().toISOString() }]);
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: data.error ? `Error: ${data.error}` : 'Something went wrong. Please try again.',
+          ts: new Date().toISOString(),
+        }]);
       }
     } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Network error. Please check your connection.', ts: new Date().toISOString() }]);
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: 'Network error. Please check your connection.',
+        ts: new Date().toISOString(),
+      }]);
     } finally {
       setLoading(false);
     }
@@ -465,7 +531,23 @@ export default function ProjectAssistantPage() {
                             : 'bg-[#F0EDE9]'
                         }`}>
                           {group.role === 'user'
-                            ? <p className="text-[15px] text-[#1A1A1A] leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                            ? (
+                              <div>
+                                <p className="text-[15px] text-[#1A1A1A] leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                                {msg.images && msg.images.length > 0 && (
+                                  <div className="flex flex-wrap gap-2 mt-3">
+                                    {msg.images.map((url, ii) => (
+                                      <img
+                                        key={ii}
+                                        src={url}
+                                        alt="attachment"
+                                        className="max-w-[200px] max-h-[200px] rounded-lg object-cover border border-[#E5E2DE]"
+                                      />
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )
                             : <div className="prose-sm">{renderMarkdown(cleanContent)}</div>
                           }
                           {/* Document card */}
@@ -559,7 +641,25 @@ export default function ProjectAssistantPage() {
       {/* Input */}
       <div className="px-4 py-4 bg-white border-t border-[#E5E2DE] shrink-0">
         <div className="max-w-[800px] mx-auto">
+          {attachedFiles.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-2">
+              {attachedFiles.map((file, i) => (
+                <div key={i} className="flex items-center gap-1.5 px-2 py-1 bg-[#F0EDE9] rounded-lg text-[12px] text-[#737373]">
+                  {file.type.startsWith('image/') ? '🖼️' : (file.name.endsWith('.zip') ? '📦' : '📄')} {file.name.slice(0, 20)}{file.name.length > 20 ? '…' : ''}
+                  <button
+                    onClick={() => setAttachedFiles(prev => prev.filter((_, j) => j !== i))}
+                    className="ml-0.5 hover:text-[#E8521A] transition-colors"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="flex gap-2 items-end bg-[#FAFAF9] border border-[#E5E2DE] rounded-2xl px-4 py-3 focus-within:border-[#E8521A] transition-colors">
+            <VoiceInputButton onTranscript={handleVoiceTranscript} />
+            <FileUpload onFilesSelected={(files) => setAttachedFiles(prev => [...prev, ...files])} />
             <textarea
               ref={textareaRef}
               value={input}
@@ -572,7 +672,7 @@ export default function ProjectAssistantPage() {
             />
             <button
               onClick={() => send()}
-              disabled={loading || !input.trim()}
+              disabled={loading || (!input.trim() && attachedFiles.length === 0)}
               className="flex items-center justify-center w-9 h-9 bg-[#E8521A] text-white rounded-xl hover:bg-[#c94415] disabled:opacity-40 transition-colors shrink-0"
             >
               <Send size={15} />
