@@ -103,6 +103,16 @@ export async function POST(req: NextRequest) {
 
   if (uploadError) return NextResponse.json({ error: uploadError.message }, { status: 500 });
 
+  let signedUrl: string | null = null;
+  try {
+    const { data: signed } = await supabase.storage
+      .from("uploads")
+      .createSignedUrl(storagePath, 60 * 60 * 24 * 7);
+    signedUrl = signed?.signedUrl ?? null;
+  } catch {
+    signedUrl = null;
+  }
+
   // Extract text using OpenAI
   let extractedText = "";
   let summary = "";
@@ -135,6 +145,7 @@ export async function POST(req: NextRequest) {
         summary,
         extracted: parsed,
         storagePath,
+        url: signedUrl,
         isZip: true,
         fileCount: parsed.file_count,
         keyFiles: parsed.key_files ?? [],
@@ -189,6 +200,7 @@ Return ONLY valid JSON, no markdown.`
         summary,
         extracted: parsed,
         storagePath,
+        url: signedUrl,
       });
     } else if (file.type.startsWith("image/")) {
       // For images, use vision
@@ -241,11 +253,18 @@ Return ONLY valid JSON.`
         summary,
         extracted: parsed,
         storagePath,
+        url: signedUrl,
       });
     }
   } catch (err: any) {
     console.error("Extraction error:", err);
   }
 
-  return NextResponse.json({ filename: file.name, summary: "File uploaded.", extracted: {}, storagePath });
+  return NextResponse.json({
+    filename: file.name,
+    summary: "File uploaded.",
+    extracted: {},
+    storagePath,
+    url: signedUrl,
+  });
 }

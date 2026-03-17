@@ -562,6 +562,8 @@ export default function AIPage() {
       }
 
       // ── Tier 3: Normal AI conversation ──────────────────────────
+      const ts = new Date().toISOString();
+
       const res = await fetch("/api/ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -579,16 +581,17 @@ export default function AIPage() {
           contextNote: contextNote || undefined,
           provider: selectedProvider,
           model: selectedModel,
-          stream: true,
         }),
         signal,
       });
 
+      let payload: any = null;
+
       if (!res.ok) {
         let errorMessage = "Something went wrong.";
         try {
-          const errJson = await res.json();
-          errorMessage = errJson.error || errorMessage;
+          payload = await res.json();
+          errorMessage = payload?.error || errorMessage;
         } catch {
           try {
             errorMessage = await res.text() || errorMessage;
@@ -597,54 +600,21 @@ export default function AIPage() {
         throw new Error(errorMessage);
       }
 
-      if (!res.body) {
-        throw new Error("Streaming not supported by browser.");
-      }
+      payload = await res.json();
 
-      const decoder = new TextDecoder();
-      const reader = res.body.getReader();
-      const ts = new Date().toISOString();
+      const rawText =
+        payload?.response ||
+        payload?.reply ||
+        (typeof payload === "string" ? payload : "");
 
-      const placeholderMsg: Message = {
-        role: "assistant",
-        content: "",
-        ts,
-        contextUsed: res.headers.get("x-context-used") === "1",
-        webSearchUsed: res.headers.get("x-web-search-used") === "1",
-      };
-
-      setMessages([...newMessages, placeholderMsg]);
-
-      let streamedText = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        streamedText += decoder.decode(value, { stream: true });
-
-        setMessages((prev) => {
-          const copy = [...prev];
-          if (copy.length > 0) {
-            copy[copy.length - 1] = {
-              ...copy[copy.length - 1],
-              content: streamedText,
-            };
-          }
-          return copy;
-        });
-      }
-
-      streamedText += decoder.decode();
-
-      const { clean, action } = parseActionBlock(streamedText);
+      const { clean, action } = parseActionBlock(rawText);
 
       const assistantMsg: Message = {
         role: "assistant",
-        content: clean,
+        content: clean || "No response returned.",
         ts,
-        contextUsed: res.headers.get("x-context-used") === "1",
-        webSearchUsed: res.headers.get("x-web-search-used") === "1",
+        contextUsed: Boolean(payload?.contextUsed),
+        webSearchUsed: Boolean(payload?.webSearchUsed),
       };
 
       const finalMessages = [...newMessages, assistantMsg];
