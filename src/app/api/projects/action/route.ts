@@ -18,15 +18,69 @@ interface ActionRequest {
   params: Record<string, any>;
 }
 
+type EntityType = "task" | "decision" | "rule" | "research" | "document" | "update";
+
+function extractFirstJsonObject(input: string): string | null {
+  const start = input.indexOf("{");
+  if (start === -1) return null;
+
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let i = start; i < input.length; i++) {
+    const ch = input[i];
+
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (ch === "\\") {
+        escaped = true;
+      } else if (ch === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+
+    if (ch === "{") depth++;
+    if (ch === "}") {
+      depth--;
+      if (depth === 0) return input.slice(start, i + 1);
+    }
+  }
+
+  return null;
+}
+
 function extractActionBlock(content: string): ActionRequest | null {
-  const match = content.match(/\[BUDDIES_ACTION\]\s*([\s\S]*?)\s*\[\/BUDDIES_ACTION\]/);
-  if (!match) return null;
+  const open = "[BUDDIES_ACTION]";
+  const close = "[/BUDDIES_ACTION]";
+  const start = content.indexOf(open);
+  if (start === -1) return null;
+
+  const afterOpen = content.slice(start + open.length);
+  const closeIdx = afterOpen.indexOf(close);
+  const raw = (closeIdx === -1 ? afterOpen : afterOpen.slice(0, closeIdx)).trim();
+
   try {
-    const parsed = JSON.parse(match[1]);
+    const parsed = JSON.parse(raw);
     if (!parsed?.type || !parsed?.params) return null;
     return parsed as ActionRequest;
   } catch {
-    return null;
+    const candidate = extractFirstJsonObject(raw);
+    if (!candidate) return null;
+    try {
+      const parsed = JSON.parse(candidate);
+      if (!parsed?.type || !parsed?.params) return null;
+      return parsed as ActionRequest;
+    } catch {
+      return null;
+    }
   }
 }
 
@@ -79,6 +133,7 @@ export async function POST(req: NextRequest) {
       createActionFingerprint(action.type, Object.fromEntries(
         Object.entries(action.params || {}).filter(([k]) => k !== "_fingerprint")
       ));
+    const threadKey = sessionId || "legacy";
 
     let recentQuery = supabase
       .from("project_chat_messages")
@@ -140,8 +195,61 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Try to acquire an idempotency lock to avoid duplicate execution for same thread+fingerprint.
+    // If the table is not present yet, we continue without hard-failing.
+    let executionId: string | null = null;
+    try {
+      const { data: lockRow, error: lockErr } = await supabase
+        .from("project_action_executions")
+        .insert({
+          user_id: user.id,
+          project_id: projectId,
+          session_id: sessionId,
+          thread_key: threadKey,
+          action_type: action.type,
+          fingerprint,
+          status: "pending",
+          params: action.params || {},
+        })
+        .select("id")
+        .single();
+
+      if (lockErr?.code === "23505") {
+        const { data: existing } = await supabase
+          .from("project_action_executions")
+          .select("entity_type, entity_id")
+          .eq("user_id", user.id)
+          .eq("project_id", projectId)
+          .eq("thread_key", threadKey)
+          .eq("fingerprint", fingerprint)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        return NextResponse.json(
+          {
+            ok: true,
+            status: "executed",
+            type: action.type,
+            entity_type: (existing?.entity_type as EntityType | undefined) ?? undefined,
+            entity_id: existing?.entity_id ?? null,
+            message: "Action already executed for this proposal. Duplicate run skipped.",
+            data: null,
+          },
+          { status: 200 }
+        );
+      }
+
+      if (!lockErr) {
+        executionId = lockRow?.id ?? null;
+      }
+    } catch {
+      // Soft-fail: if lock table doesn't exist yet, continue legacy execution path.
+    }
+
     let result: any = null;
     let resultId: string | null = null;
+    let entityType: EntityType | null = null;
 
     switch (action.type) {
       case "project.create_task":
@@ -173,6 +281,7 @@ export async function POST(req: NextRequest) {
           if (taskError) throw taskError;
           result = newTask;
           resultId = newTask?.id;
+          entityType = "task";
         }
         break;
 
@@ -203,6 +312,7 @@ export async function POST(req: NextRequest) {
           if (decisionError) throw decisionError;
           result = newDecision;
           resultId = newDecision?.id;
+          entityType = "decision";
         }
         break;
 
@@ -232,6 +342,7 @@ export async function POST(req: NextRequest) {
           if (ruleError) throw ruleError;
           result = newRule;
           resultId = newRule?.id;
+          entityType = "rule";
         }
         break;
 
@@ -260,6 +371,7 @@ export async function POST(req: NextRequest) {
           if (researchError) throw researchError;
           result = newResearch;
           resultId = newResearch?.id;
+          entityType = "research";
         }
         break;
 
@@ -288,6 +400,7 @@ export async function POST(req: NextRequest) {
           if (documentError) throw documentError;
           result = newDocument;
           resultId = newDocument?.id;
+          entityType = "document";
         }
         break;
 
@@ -316,6 +429,7 @@ export async function POST(req: NextRequest) {
           if (updateError) throw updateError;
           result = newUpdate;
           resultId = newUpdate?.id;
+          entityType = "update";
         }
         break;
 
@@ -409,12 +523,32 @@ export async function POST(req: NextRequest) {
       // Don't fail the whole request if memory update fails
     }
 
+    // Mark execution lock as executed when available.
+    if (executionId) {
+      try {
+        await supabase
+          .from("project_action_executions")
+          .update({
+            status: "executed",
+            entity_type: entityType,
+            entity_id: resultId,
+            executed_at: new Date().toISOString(),
+          })
+          .eq("id", executionId)
+          .eq("user_id", user.id);
+      } catch {
+        // Ignore lock update failure; action already executed.
+      }
+    }
+
     return NextResponse.json({
-      success: true,
-      action: action.type,
-      result,
-      resultId,
+      ok: true,
+      status: "executed",
+      type: action.type,
+      entity_type: entityType,
+      entity_id: resultId,
       message: `${action.type} action approved and executed successfully.`,
+      data: result,
     });
   } catch (err: any) {
     console.error("[projects/action] error:", err);
