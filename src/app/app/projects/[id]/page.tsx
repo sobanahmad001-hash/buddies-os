@@ -122,6 +122,46 @@ function LinkTile({
   );
 }
 
+function ProjectTimeline({ nodes }: { nodes: any[] }) {
+  if (!nodes?.length) return (
+    <div className="text-center py-8 text-[#B0ADA9] text-sm">
+      No timeline events yet. Research, decisions, and task batches will appear here automatically.
+    </div>
+  );
+
+  // Build Mermaid left-to-right flowchart
+  const nodeColors: Record<string, string> = {
+    research: "fill:#EFF6FF,stroke:#3B82F6",
+    decision: "fill:#FEF3C7,stroke:#F59E0B",
+    task_batch: "fill:#ECFDF5,stroke:#10B981",
+    document: "fill:#F5F3FF,stroke:#8B5CF6",
+    pivot: "fill:#FEE2E2,stroke:#EF4444",
+  };
+
+  const lines = ["flowchart LR"];
+  nodes.forEach((node, i) => {
+    const label = node.label.replace(/"/g, "'").slice(0, 30);
+    const shape = node.type === "decision" ? `{{"${label}"}}` :
+                  node.type === "pivot" ? `[/"${label}"/]` :
+                  `["${label}"]`;
+    lines.push(`  N${i}${shape}`);
+    if (i > 0) lines.push(`  N${i-1} --> N${i}`);
+    lines.push(`  style N${i} ${nodeColors[node.type] ?? "fill:#F7F5F2,stroke:#E5E2DE"}`);
+  });
+
+  const diagram = lines.join("\n");
+
+  return (
+    <div className="overflow-x-auto">
+      <div className="text-[11px] text-[#737373] mb-2">{nodes.length} events · {nodes[nodes.length-1] ? new Date(nodes[nodes.length-1].timestamp).toLocaleDateString() : ""}</div>
+      <pre className="text-[11px] bg-[#F7F5F2] p-3 rounded-xl overflow-x-auto font-mono text-[#404040]">
+        {diagram}
+      </pre>
+      <p className="text-[10px] text-[#B0ADA9] mt-1">Mermaid flowchart — paste into mermaid.live to view visually</p>
+    </div>
+  );
+}
+
 export default function ProjectOverviewPage() {
   const params = useParams();
   const router = useRouter();
@@ -135,10 +175,33 @@ export default function ProjectOverviewPage() {
   const [research, setResearch] = useState<ProjectResearch[]>([]);
   const [documents, setDocuments] = useState<ProjectDocument[]>([]);
   const [loading, setLoading] = useState(true);
+  const [timeline, setTimeline] = useState<any[]>([]);
+  const [livingDoc, setLivingDoc] = useState<any>(null);
+  const [updatingDoc, setUpdatingDoc] = useState(false);
 
   useEffect(() => {
     loadAll();
   }, [id]);
+
+  useEffect(() => {
+    if (id) {
+      fetch(`/api/projects/timeline?projectId=${id}`).then(r => r.json()).then(d => setTimeline(d.timeline ?? []));
+      fetch(`/api/projects/living-doc?projectId=${id}`).then(r => r.json()).then(d => setLivingDoc(d.doc ?? null));
+    }
+  }, [id]);
+
+  async function updateLivingDoc() {
+    setUpdatingDoc(true);
+    await fetch("/api/projects/living-doc", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ projectId: id }),
+    });
+    const res = await fetch(`/api/projects/living-doc?projectId=${id}`);
+    const data = await res.json();
+    setLivingDoc(data.doc ?? null);
+    setUpdatingDoc(false);
+  }
 
   async function loadAll() {
     const { data: { user } } = await supabase.auth.getUser();
@@ -306,6 +369,42 @@ export default function ProjectOverviewPage() {
               />
             </div>
           </SectionCard>
+
+          {/* Living Product Document card */}
+          <div className="bg-white border border-[#E5E2DE] rounded-xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-sm">📄</span>
+                <h3 className="text-[12px] font-semibold text-[#1A1A1A] uppercase tracking-wide">Living Product Document</h3>
+                {livingDoc && <span className="text-[10px] text-[#10B981] bg-[#ECFDF5] px-2 py-0.5 rounded-full">Always current</span>}
+              </div>
+              <button onClick={updateLivingDoc} disabled={updatingDoc}
+                className="text-[11px] px-3 py-1.5 bg-[#E8521A] text-white rounded-lg font-semibold hover:bg-[#c94415] disabled:opacity-40 transition-colors">
+                {updatingDoc ? "Updating…" : livingDoc ? "Refresh" : "Generate"}
+              </button>
+            </div>
+            {livingDoc ? (
+              <div>
+                <p className="text-[12px] text-[#404040] leading-relaxed line-clamp-4 whitespace-pre-wrap">{livingDoc.content.slice(0, 400)}…</p>
+                <div className="flex items-center gap-3 mt-2">
+                  <span className="text-[10px] text-[#737373]">Updated {livingDoc.auto_updated_at ? new Date(livingDoc.auto_updated_at).toLocaleDateString() : "—"}</span>
+                  <button onClick={() => router.push(`/app/projects/${id}/documents`)}
+                    className="text-[11px] text-[#E8521A] hover:underline">View full →</button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-[12px] text-[#737373]">Click Generate to create your living product document from all project data.</p>
+            )}
+          </div>
+
+          {/* Project Timeline card */}
+          <div className="bg-white border border-[#E5E2DE] rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-sm">🗺️</span>
+              <h3 className="text-[12px] font-semibold text-[#1A1A1A] uppercase tracking-wide">Project Timeline</h3>
+            </div>
+            <ProjectTimeline nodes={timeline} />
+          </div>
 
           <SectionCard
             title="Recent Project Activity"

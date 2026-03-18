@@ -459,6 +459,7 @@ export async function POST(req: NextRequest) {
       { data: integrations },
       { data: projectMemoryRow },
       { data: rankedMemoryItems },
+      { data: projectDocs },
     ] = await Promise.all([
       supabase.from("project_tasks").select("title, status, priority, due_date").eq("project_id", projectId).neq("status", "cancelled"),
       supabase.from("project_updates").select("content, update_type, next_actions, created_at").eq("project_id", projectId).order("created_at", { ascending: false }).limit(20),
@@ -476,7 +477,23 @@ export async function POST(req: NextRequest) {
       supabase.from("ai_project_memory").select("*").eq("project_id", projectId).eq("user_id", user.id).maybeSingle(),
       // ── NEW: read top ranked memory items for this project ──
       supabase.from("ai_memory_items").select("memory_type, title, content, importance, keywords").eq("project_id", projectId).eq("user_id", user.id).eq("status", "active").order("importance", { ascending: false }).limit(8),
+      // ── Document retrieval ──
+      supabase.from("project_documents")
+        .select("id, title, content, doc_type, is_living, created_at")
+        .eq("project_id", projectId)
+        .order("is_living", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(8),
     ]);
+
+    // ── Document context ──────────────────────────────────────────────────────────
+    const livingDoc = (projectDocs ?? []).find((d: any) => d.is_living);
+    const otherDocs = (projectDocs ?? []).filter((d: any) => !d.is_living).slice(0, 4);
+
+    const docsBlock = [
+      livingDoc ? `LIVING PRODUCT DOCUMENT (always current):\nTitle: ${livingDoc.title}\n${livingDoc.content.slice(0, 1200)}${livingDoc.content.length > 1200 ? "\n[...truncated]" : ""}` : "",
+      otherDocs.length > 0 ? `PROJECT DOCUMENTS:\n${otherDocs.map((d: any) => `- [${d.doc_type}] ${d.title} (${new Date(d.created_at).toLocaleDateString()})\n  ${d.content.slice(0, 300)}${d.content.length > 300 ? "\u2026" : ""}`).join("\n")}` : "",
+    ].filter(Boolean).join("\n\n");
 
     const taskLines = (tasks ?? []).map((t: any) => `- [${t.status}] ${t.title}${t.priority === 1 ? " (urgent)" : ""}${t.due_date ? ` due ${t.due_date}` : ""}`).join("\n");
     const updateLines = (updates ?? []).slice(0, 10).map((u: any) => `[${u.update_type}] ${u.content}`).join("\n");
@@ -662,7 +679,7 @@ When proposing project actions, always include project_id: "${projectId}" in par
 
 ${persistedMemoryBlock}
 ${compressionNote}
-${rankedMemoryBlock}
+${rankedMemoryBlock}${docsBlock ? `\n${docsBlock}` : ""}
 ${taskLines ? `\nTASKS:\n${taskLines}` : "No tasks yet."}
 ${updateLines ? `\nRECENT UPDATES:\n${updateLines}` : ""}
 ${decisionLines ? `\nDECISIONS:\n${decisionLines}` : ""}

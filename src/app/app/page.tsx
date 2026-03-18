@@ -284,6 +284,9 @@ export default function DashboardPage() {
       setIntegrations(integrationsRes.data ?? []);
       setActivityPatterns(activityPatternsRes ?? null);
 
+      // Fire passive behavior inference daily (non-blocking)
+      fetch("/api/ai/infer-behavior", { method: "POST" }).catch(() => {});
+
       fetch("/api/ai/proactive")
         .then((r) => r.json())
         .then((data) => {
