@@ -470,7 +470,7 @@ ${recentConversation.length > 0 ? `RECENT CONVERSATION:\n${recentConversation.ma
       model,
       system: systemPrompt,
       messages: [
-        ...recentConversation,
+        ...(recentConversation as Array<{ role: 'user' | 'assistant'; content: string }>),
         { role: 'user', content: userMessageContent },
       ],
       maxTokens: 4096,
