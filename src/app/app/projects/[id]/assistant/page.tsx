@@ -510,29 +510,50 @@ export default function ProjectAssistantPage() {
         }),
       });
       const data = await res.json();
+
+      // Always validate response status
+      if (!res.ok) {
+        const errorMsg = data?.error || `Server error: ${res.status}`;
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: `⚠️ Request failed: ${errorMsg}`,
+          ts: new Date().toISOString(),
+        }]);
+        setLoading(false);
+        return;
+      }
+
+      // Safely extract reply with fallback
+      const assistantText = (data?.reply || '').trim();
+      if (!assistantText) {
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: data?.error ? `Error: ${data.error}` : '⚠️ Empty response from assistant',
+          ts: new Date().toISOString(),
+        }]);
+        setLoading(false);
+        return;
+      }
+
+      // Update session if new
       if (!activeSession && data.sessionId) {
         const loadedSessions = await loadSessions();
         const created = loadedSessions.find((s) => s.id === data.sessionId) || null;
         if (created) setActiveSession(created);
       }
-      if (data.reply) {
-        setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: data.reply,
-          ts: new Date().toISOString(),
-          document: data.document ?? undefined,
-        }]);
-      } else {
-        setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: data.error ? `Error: ${data.error}` : 'Something went wrong. Please try again.',
-          ts: new Date().toISOString(),
-        }]);
-      }
-    } catch {
+
+      // Add assistant message with valid content
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: 'Network error. Please check your connection.',
+        content: assistantText,
+        ts: new Date().toISOString(),
+        document: data.document ?? undefined,
+      }]);
+    } catch (err: any) {
+      const errorMsg = err?.message || 'Network error. Please check your connection.';
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: `❌ ${errorMsg}`,
         ts: new Date().toISOString(),
       }]);
     } finally {
