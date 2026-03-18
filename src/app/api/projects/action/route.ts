@@ -332,7 +332,10 @@ export async function POST(req: NextRequest) {
               project_id: projectId,
               user_id: user.id,
               rule_text,
-              severity: severity || 2,
+              severity: typeof severity === 'number' ? severity :
+                typeof severity === 'string'
+                  ? ({ critical: 3, high: 3, medium: 2, low: 1, urgent: 3 }[severity.toLowerCase()] ?? 2)
+                  : 2,
               context: context || null,
               active: true,
             })
@@ -348,13 +351,22 @@ export async function POST(req: NextRequest) {
 
       case "project.create_research":
         {
-          const { topic, notes, keywords } = action.params;
-          if (!topic || !notes) {
+          const rawTopic = action.params.topic || action.params.title || action.params.subject || "";
+          const rawNotes = action.params.notes || action.params.content || action.params.description || action.params.summary || "";
+          const keywords = action.params.keywords;
+
+          const topic = rawTopic.trim();
+          const notes = rawNotes.trim();
+
+          if (!topic) {
             return NextResponse.json(
-              { error: "Research topic and notes are required" },
+              { error: "Research topic is required" },
               { status: 400 }
             );
           }
+
+          // Allow empty notes — AI sometimes generates topic-only research actions
+          const finalNotes = notes || `Research initiated: ${topic}`;
 
           const { data: newResearch, error: researchError } = await supabase
             .from("project_research")
@@ -362,7 +374,7 @@ export async function POST(req: NextRequest) {
               project_id: projectId,
               user_id: user.id,
               topic,
-              notes,
+              notes: finalNotes,
               keywords: keywords || [],
             })
             .select("id, topic")
