@@ -443,6 +443,8 @@ export async function POST(req: NextRequest) {
       { data: projectResearch },
       { data: chatHistory },
       { data: integrations },
+      { data: projectMemoryRow },
+      { data: rankedMemoryItems },
     ] = await Promise.all([
       supabase.from("project_tasks").select("title, status, priority, due_date").eq("project_id", projectId).neq("status", "cancelled"),
       supabase.from("project_updates").select("content, update_type, next_actions, created_at").eq("project_id", projectId).order("created_at", { ascending: false }).limit(20),
@@ -456,6 +458,10 @@ export async function POST(req: NextRequest) {
         ? supabase.from("project_chat_messages").select("role, content").eq("project_id", projectId).eq("session_id", activeSessionId).order("created_at", { ascending: true }).limit(50)
         : supabase.from("project_chat_messages").select("role, content").eq("project_id", projectId).order("created_at", { ascending: true }).limit(20)),
       supabase.from("integrations").select("type, name, config, status").eq("user_id", user.id).eq("status", "active"),
+      // ── NEW: read persisted project memory (written after each response) ──
+      supabase.from("ai_project_memory").select("*").eq("project_id", projectId).eq("user_id", user.id).maybeSingle(),
+      // ── NEW: read top ranked memory items for this project ──
+      supabase.from("ai_memory_items").select("memory_type, title, content, importance, keywords").eq("project_id", projectId).eq("user_id", user.id).eq("status", "active").order("importance", { ascending: false }).limit(8),
     ]);
 
     const taskLines = (tasks ?? []).map((t: any) => `- [${t.status}] ${t.title}${t.priority === 1 ? " (urgent)" : ""}${t.due_date ? ` due ${t.due_date}` : ""}`).join("\n");
@@ -560,6 +566,23 @@ export async function POST(req: NextRequest) {
 
     integrationsBlock = await Promise.race([integrationsBlockPromise, timeoutPromise]);
 
+    // ── Build persisted memory block ─────────────────────────────────────────────
+    const pm = projectMemoryRow;
+    const persistedMemoryBlock = pm ? `
+PROJECT MEMORY (persisted from previous sessions):
+- Purpose: ${pm.purpose ?? "n/a"}
+- Current stage: ${pm.current_stage ?? "n/a"}
+- Summary: ${pm.summary_text ?? "n/a"}
+- Active priorities: ${Array.isArray(pm.active_priorities) ? pm.active_priorities.join(" | ") : "n/a"}
+- Open blockers: ${Array.isArray(pm.open_blockers) ? pm.open_blockers.join(" | ") : "none"}
+- Key decisions: ${Array.isArray(pm.key_decisions) ? pm.key_decisions.map((d: any) => `${d.title ?? d} (${d.verdict ?? "pending"})`).join(" | ") : "none"}
+- Constraints: ${Array.isArray(pm.constraints) ? pm.constraints.map((c: any) => c.rule_text ?? c).join(" | ") : "none"}
+- Next actions: ${Array.isArray(pm.next_actions) ? pm.next_actions.join(" | ") : "none"}` : "";
+
+    const rankedMemoryBlock = (rankedMemoryItems ?? []).length > 0 ? `
+RANKED MEMORY ITEMS (from past work on this project):
+${(rankedMemoryItems ?? []).map((m: any) => `- [${m.memory_type}] ${m.title ? `${m.title}: ` : ""}${m.content}`).join("\n")}` : "";
+
     const referentialNote = isReferentialFollowUp(effectiveMessage)
       ? `
 CRITICAL — SHORT REFERENTIAL FOLLOW-UP DETECTED:
@@ -612,7 +635,9 @@ ACTION BLOCK FORMAT:
 
 When proposing project actions, always include project_id: "${projectId}" in params.
 
-${taskLines ? `TASKS:\n${taskLines}` : "No tasks yet."}
+${persistedMemoryBlock}
+${rankedMemoryBlock}
+${taskLines ? `\nTASKS:\n${taskLines}` : "No tasks yet."}
 ${updateLines ? `\nRECENT UPDATES:\n${updateLines}` : ""}
 ${decisionLines ? `\nDECISIONS:\n${decisionLines}` : ""}
 ${ruleLines ? `\nACTIVE RULES (follow these strictly):\n${ruleLines}` : ""}

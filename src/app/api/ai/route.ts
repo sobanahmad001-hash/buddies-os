@@ -374,98 +374,86 @@ export async function POST(request: NextRequest) {
 
     const recentConversation = normalizeHistory(history);
 
-    const queryList = [
-      supabase.from('projects').select('*').eq('user_id', user.id),
-      supabase
-        .from('project_tasks')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(50),
-      supabase
-        .from('project_updates')
-        .select('*, projects(name)')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(20),
-      supabase
-        .from('decisions')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(20),
-      supabase.from('rules').select('*').eq('user_id', user.id),
-      supabase
-        .from('behavior_logs')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('timestamp', { ascending: false })
-        .limit(7),
-      supabase.from('integrations').select('*').eq('user_id', user.id),
-    ];
-
-    let blockersEnabled = false;
-    try {
-      queryList.push(
-        supabase
-          .from('blockers')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(20)
-      );
-      blockersEnabled = true;
-    } catch {
-      blockersEnabled = false;
-    }
-
-    const results = await Promise.all(queryList);
-
-    const projects = results[0];
-    const tasks = results[1];
-    const updates = results[2];
-    const decisions = results[3];
-    const rules = results[4];
-    const behavior = results[5];
-    const integrations = results[6];
-    const blockers = blockersEnabled ? results[7] : { data: [] };
-
-    const rawContext = {
-      projects: projects.data || [],
-      tasks: tasks.data || [],
-      updates: updates.data || [],
-      decisions: decisions.data || [],
-      rules: rules.data || [],
-      behavior: behavior.data || [],
-      integrations: integrations.data || [],
-      blockers: blockers.data || [],
-    };
-
-    const focusedProject = contextEnabled
-      ? detectProjectFocus(
-          effectiveMessage,
-          rawContext.projects
-        )
+    // Detect project mention BEFORE loading data so we can scope the fetch
+    const mentionedProject = rawProjectsForDetection
+      ? detectProjectFocus(effectiveMessage, rawProjectsForDetection)
       : null;
 
-    const context = contextEnabled
-      ? compressContext(
-          rawContext,
-          messageType,
-          recentConversation,
-          sessionSummary,
-          contextNote,
-          focusedProject,
-          SUMMARY_FIRST_CONTEXT_ENABLED
-        )
-      : {
-          focused_project: null,
-          session_summary: sessionSummary || '',
-          context_note: contextNote || '',
-          conversation: recentConversation,
-        };
+    // Base queries — always run (lightweight)
+    const baseQueries = [
+      supabase.from('projects').select('id, name, status, updated_at').eq('user_id', user.id),
+      supabase.from('behavior_logs').select('sleep_hours, stress, confidence, mood_tag, cognitive_score, timestamp').eq('user_id', user.id).order('timestamp', { ascending: false }).limit(7),
+    ];
 
-    const systemPrompt = buildSystemPrompt(context);
+    const [{ data: allProjects }, { data: behavior }] = await Promise.all(baseQueries);
+
+    const focusedProject = contextEnabled
+      ? detectProjectFocus(effectiveMessage, allProjects ?? [])
+      : null;
+
+    // Deep queries — only run when a project is explicitly mentioned
+    let tasks: any[] = [];
+    let updates: any[] = [];
+    let decisions: any[] = [];
+    let rules: any[] = [];
+    let projectMemory: any = null;
+
+    if (focusedProject && contextEnabled) {
+      const [tRes, uRes, dRes, rRes, pmRes] = await Promise.all([
+        supabase.from('project_tasks').select('title, status, priority, due_date, project_id').eq('project_id', focusedProject.id).neq('status', 'cancelled').limit(20),
+        supabase.from('project_updates').select('content, update_type, created_at').eq('project_id', focusedProject.id).order('created_at', { ascending: false }).limit(8),
+        supabase.from('decisions').select('context, verdict, created_at').eq('user_id', user.id).eq('project_id', focusedProject.id).order('created_at', { ascending: false }).limit(5),
+        supabase.from('rules').select('rule_text, severity').eq('user_id', user.id).eq('active', true).limit(5),
+        supabase.from('ai_project_memory').select('purpose, current_stage, summary_text, active_priorities, open_blockers, next_actions').eq('project_id', focusedProject.id).eq('user_id', user.id).maybeSingle(),
+      ]);
+      tasks = tRes.data ?? [];
+      updates = uRes.data ?? [];
+      decisions = dRes.data ?? [];
+      rules = rRes.data ?? [];
+      projectMemory = pmRes.data ?? null;
+    }
+
+    // Build project directory (name + status only, all projects)
+    const projectDirectory = (allProjects ?? [])
+      .filter((p: any) => p.status === 'active')
+      .map((p: any) => ({ id: p.id, name: p.name, status: p.status }));
+
+    const systemPrompt = `You are Buddies OS — a personal AI assistant. You are like Claude but with persistent memory of your projects and work.
+
+OPERATING MODE: Lightweight chat. You know the user's projects exist. Only go deep on a project when they explicitly mention it by name.
+
+RULES:
+- Answer conversationally. Don't dump project data unless asked.
+- If user mentions a project by name, use the deep context below.
+- You can add tasks to projects: ask "which project?" if unclear.
+- Never pretend context exists when it doesn't.
+- Prefer short, direct answers. Ask one sharp question if unclear.
+
+PROJECTS (${projectDirectory.length} active):
+${projectDirectory.map((p: any) => `- ${p.name}`).join('\n') || 'None yet.'}
+
+RECENT BEHAVIOR SIGNALS:
+${(behavior ?? []).slice(0, 3).map((b: any) => `- ${new Date(b.timestamp).toLocaleDateString()}: mood=${b.mood_tag ?? '?'}, stress=${b.stress ?? '?'}, cognitive=${b.cognitive_score ?? '?'}`).join('\n') || 'No recent logs.'}
+
+${focusedProject ? `
+FOCUSED PROJECT: ${focusedProject.name}
+${projectMemory ? `Summary: ${projectMemory.summary_text ?? 'n/a'}
+Stage: ${projectMemory.current_stage ?? 'n/a'}
+Priorities: ${Array.isArray(projectMemory.active_priorities) ? projectMemory.active_priorities.join(', ') : 'n/a'}
+Blockers: ${Array.isArray(projectMemory.open_blockers) ? projectMemory.open_blockers.join(', ') : 'none'}
+Next: ${Array.isArray(projectMemory.next_actions) ? projectMemory.next_actions.join(', ') : 'n/a'}` : ''}
+
+TASKS:
+${tasks.map((t: any) => `- [${t.status}] ${t.title}`).join('\n') || 'None.'}
+
+RECENT UPDATES:
+${updates.map((u: any) => `- ${u.update_type}: ${u.content}`).join('\n') || 'None.'}
+
+RECENT DECISIONS:
+${decisions.map((d: any) => `- ${d.context} → ${d.verdict ?? 'pending'}`).join('\n') || 'None.'}
+` : ''}
+
+${recentConversation.length > 0 ? `RECENT CONVERSATION:\n${recentConversation.map((m: any) => `${m.role}: ${m.content}`).join('\n')}` : ''}`;
 
     // Build message content with images if present
     let userMessageContent: string | Array<{ type: string; text?: string; source?: { type: string; url?: string } }>;
@@ -486,7 +474,10 @@ export async function POST(request: NextRequest) {
       provider,
       model,
       system: systemPrompt,
-      messages: [{ role: 'user', content: userMessageContent }],
+      messages: [
+        ...recentConversation,
+        { role: 'user', content: userMessageContent },
+      ],
       maxTokens: 4096,
     });
 
