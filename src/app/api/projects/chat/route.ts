@@ -484,49 +484,67 @@ export async function POST(req: NextRequest) {
                 Accept: "application/vnd.github.v3+json",
               };
 
-              // Add 4s timeout to each GitHub fetch to prevent hanging.
-              const ghTimeout = { signal: AbortSignal.timeout(4000) };
+              // ── Timeout wrapper ──────────────────────────────────────────────
+              // Vercel Hobby = 10s hard limit. GitHub fetches have no timeout
+              // by default and can hang indefinitely on degraded API/network.
+              // Each fetch gets 4s. The whole block gets 5s via Promise.race.
+              const ghFetch = (url: string) =>
+                fetch(url, {
+                  headers: ghHeaders,
+                  signal: AbortSignal.timeout(4000),
+                }).catch(() => null);
 
-              const [treeRes, commitsRes, issuesRes, prsRes] = await Promise.all([
-                fetch(`https://api.github.com/repos/${repoName}/git/trees/HEAD?recursive=0`, { headers: ghHeaders, ...ghTimeout }).catch(() => null),
-                fetch(`https://api.github.com/repos/${repoName}/commits?per_page=10`, { headers: ghHeaders, ...ghTimeout }).catch(() => null),
-                fetch(`https://api.github.com/repos/${repoName}/issues?state=open&per_page=10`, { headers: ghHeaders, ...ghTimeout }).catch(() => null),
-                fetch(`https://api.github.com/repos/${repoName}/pulls?state=open&per_page=5`, { headers: ghHeaders, ...ghTimeout }).catch(() => null),
-              ]);
+              const githubBlockPromise = (async () => {
+                let ghBlock = "";
+                const [treeRes, commitsRes, issuesRes, prsRes] = await Promise.all([
+                  ghFetch(`https://api.github.com/repos/${repoName}/git/trees/HEAD?recursive=0`),
+                  ghFetch(`https://api.github.com/repos/${repoName}/commits?per_page=10`),
+                  ghFetch(`https://api.github.com/repos/${repoName}/issues?state=open&per_page=10`),
+                  ghFetch(`https://api.github.com/repos/${repoName}/pulls?state=open&per_page=5`),
+                ]);
 
-              const [treeData, commitsData, issuesData, prsData] = await Promise.all([
-                treeRes?.ok ? treeRes.json() : null,
-                commitsRes?.ok ? commitsRes.json() : null,
-                issuesRes?.ok ? issuesRes.json() : null,
-                prsRes?.ok ? prsRes.json() : null,
-              ]);
+                const [treeData, commitsData, issuesData, prsData] = await Promise.all([
+                  treeRes?.ok ? treeRes.json() : null,
+                  commitsRes?.ok ? commitsRes.json() : null,
+                  issuesRes?.ok ? issuesRes.json() : null,
+                  prsRes?.ok ? prsRes.json() : null,
+                ]);
 
-              const topFiles = (treeData?.tree ?? [])
-                .filter((f: any) => f.type === "blob" || f.type === "tree")
-                .slice(0, 40)
-                .map((f: any) => `${f.type === "tree" ? "📁" : "📄"} ${f.path}`)
-                .join("\n");
+                const topFiles = (treeData?.tree ?? [])
+                  .filter((f: any) => f.type === "blob" || f.type === "tree")
+                  .slice(0, 40)
+                  .map((f: any) => `${f.type === "tree" ? "📁" : "📄"} ${f.path}`)
+                  .join("\n");
 
-              const recentCommits = Array.isArray(commitsData)
-                ? commitsData.map((c: any) => `  - ${c.commit?.message?.split("\n")[0] ?? "?"} (${c.commit?.author?.date?.slice(0, 10) ?? "?"} by ${c.commit?.author?.name ?? "?"})`).join("\n")
-                : "";
+                const recentCommits = Array.isArray(commitsData)
+                  ? commitsData.map((c: any) => `  - ${c.commit?.message?.split("\n")[0] ?? "?"} (${c.commit?.author?.date?.slice(0, 10) ?? "?"} by ${c.commit?.author?.name ?? "?"})`).join("\n")
+                  : "";
 
-              const openIssues = Array.isArray(issuesData)
-                ? issuesData.filter((i: any) => !i.pull_request).map((i: any) => `  #${i.number}: ${i.title} [${i.state}]`).join("\n")
-                : "";
+                const openIssues = Array.isArray(issuesData)
+                  ? issuesData.filter((i: any) => !i.pull_request).map((i: any) => `  #${i.number}: ${i.title} [${i.state}]`).join("\n")
+                  : "";
 
-              const openPRs = Array.isArray(prsData)
-                ? prsData.map((p: any) => `  #${p.number}: ${p.title} (${p.head?.ref} → ${p.base?.ref})`).join("\n")
-                : "";
+                const openPRs = Array.isArray(prsData)
+                  ? prsData.map((p: any) => `  #${p.number}: ${p.title} (${p.head?.ref} → ${p.base?.ref})`).join("\n")
+                  : "";
 
-              block += `\n\nGITHUB REPO: ${repoName}\n`;
-              if (topFiles) block += `FILE STRUCTURE:\n${topFiles}\n`;
-              if (recentCommits) block += `\nRECENT COMMITS:\n${recentCommits}\n`;
-              if (openIssues) block += `\nOPEN ISSUES:\n${openIssues}\n`;
-              if (openPRs) block += `\nOPEN PULL REQUESTS:\n${openPRs}\n`;
+                ghBlock += `\n\nGITHUB REPO: ${repoName}\n`;
+                if (topFiles) ghBlock += `FILE STRUCTURE:\n${topFiles}\n`;
+                if (recentCommits) ghBlock += `\nRECENT COMMITS:\n${recentCommits}\n`;
+                if (openIssues) ghBlock += `\nOPEN ISSUES:\n${openIssues}\n`;
+                if (openPRs) ghBlock += `\nOPEN PULL REQUESTS:\n${openPRs}\n`;
+                return ghBlock;
+              })();
+
+              // 5s hard cap on the entire GitHub block
+              const blockTimeout = new Promise<string>((resolve) =>
+                setTimeout(() => resolve(""), 5000)
+              );
+
+              block += await Promise.race([githubBlockPromise, blockTimeout]);
             }
-          } catch (err: any) {
-            console.warn("[project-chat] GitHub integration error:", err?.message ?? err);
+          } catch {
+            // GitHub unavailable — skip silently, don't block the response
           }
         } else if (i.type === "supabase" && i.config?.project_url) {
           block += `\n\nSUPABASE PROJECT: ${i.config.project_url}\nConnected Supabase project for data storage and auth.\n`;
