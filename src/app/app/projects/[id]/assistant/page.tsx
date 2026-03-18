@@ -27,17 +27,95 @@ interface ActionExecutionResponse {
   data?: any;
 }
 
-function extractActionBlock(content: string): { action: BuddiesAction | null; cleanContent: string } {
-  const match = content.match(/\[BUDDIES_ACTION\]\s*([\s\S]*?)\s*\[\/BUDDIES_ACTION\]/);
-  if (!match) return { action: null, cleanContent: content };
-  
-  try {
-    const action = JSON.parse(match[1]);
-    const cleanContent = content.replace(/\[BUDDIES_ACTION\][\s\S]*?\[\/BUDDIES_ACTION\]/, '').trim();
-    return { action, cleanContent };
-  } catch {
-    return { action: null, cleanContent: content };
+const ACTION_OPEN = '[BUDDIES_ACTION]';
+const ACTION_CLOSE = '[/BUDDIES_ACTION]';
+
+function extractFirstJsonObject(input: string): string | null {
+  const start = input.indexOf('{');
+  if (start === -1) return null;
+
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let i = start; i < input.length; i++) {
+    const ch = input[i];
+
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (ch === '\\') {
+        escaped = true;
+      } else if (ch === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+
+    if (ch === '{') depth++;
+    if (ch === '}') {
+      depth--;
+      if (depth === 0) return input.slice(start, i + 1);
+    }
   }
+
+  return null;
+}
+
+function parseActionPayload(raw: string): BuddiesAction | null {
+  const text = raw.trim();
+  if (!text) return null;
+
+  try {
+    const parsed = JSON.parse(text);
+    if (!parsed?.type || !parsed?.params) return null;
+    return parsed as BuddiesAction;
+  } catch {
+    const candidate = extractFirstJsonObject(text);
+    if (!candidate) return null;
+    try {
+      const parsed = JSON.parse(candidate);
+      if (!parsed?.type || !parsed?.params) return null;
+      return parsed as BuddiesAction;
+    } catch {
+      return null;
+    }
+  }
+}
+
+function stripAllActionBlocks(content: string): string {
+  let result = content;
+  while (true) {
+    const start = result.indexOf(ACTION_OPEN);
+    if (start === -1) break;
+    const close = result.indexOf(ACTION_CLOSE, start + ACTION_OPEN.length);
+    if (close === -1) {
+      result = result.slice(0, start);
+      break;
+    }
+    result = result.slice(0, start) + result.slice(close + ACTION_CLOSE.length);
+  }
+  return result;
+}
+
+function extractActionBlock(content: string): { action: BuddiesAction | null; cleanContent: string } {
+  const start = content.indexOf(ACTION_OPEN);
+  if (start === -1) return { action: null, cleanContent: content };
+
+  const afterOpen = content.slice(start + ACTION_OPEN.length);
+  const close = afterOpen.indexOf(ACTION_CLOSE);
+  const payload = close === -1 ? afterOpen : afterOpen.slice(0, close);
+  const action = parseActionPayload(payload);
+
+  return {
+    action,
+    cleanContent: stripAllActionBlocks(content).trim(),
+  };
 }
 
 // ── Action Block Component ────────────────────────────────────────────────────

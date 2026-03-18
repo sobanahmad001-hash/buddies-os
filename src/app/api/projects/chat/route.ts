@@ -5,6 +5,120 @@ import { buildProjectMemory } from "@/lib/ai/project-memory";
 import { callAIProvider } from "@/lib/ai/providers";
 import { createActionFingerprint } from "@/lib/ai/action-fingerprint";
 
+const ACTION_OPEN = "[BUDDIES_ACTION]";
+const ACTION_CLOSE = "[/BUDDIES_ACTION]";
+
+function extractFirstJsonObject(input: string): string | null {
+  const start = input.indexOf("{");
+  if (start === -1) return null;
+
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let i = start; i < input.length; i++) {
+    const ch = input[i];
+
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (ch === "\\") {
+        escaped = true;
+      } else if (ch === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+
+    if (ch === "{") depth++;
+    if (ch === "}") {
+      depth--;
+      if (depth === 0) {
+        return input.slice(start, i + 1);
+      }
+    }
+  }
+
+  return null;
+}
+
+function parseActionBlockPayload(raw: string): Record<string, any> | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+
+  try {
+    const parsed = JSON.parse(trimmed);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    const candidate = extractFirstJsonObject(trimmed);
+    if (!candidate) return null;
+    try {
+      const parsed = JSON.parse(candidate);
+      return parsed && typeof parsed === "object" ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+}
+
+function extractFirstActionFromReply(content: string): Record<string, any> | null {
+  const start = content.indexOf(ACTION_OPEN);
+  if (start === -1) return null;
+
+  const afterOpen = content.slice(start + ACTION_OPEN.length);
+  const closeIdx = afterOpen.indexOf(ACTION_CLOSE);
+  const rawPayload = closeIdx === -1 ? afterOpen : afterOpen.slice(0, closeIdx);
+  return parseActionBlockPayload(rawPayload);
+}
+
+function stripAllActionBlocks(content: string): string {
+  let result = content;
+  while (true) {
+    const start = result.indexOf(ACTION_OPEN);
+    if (start === -1) break;
+    const close = result.indexOf(ACTION_CLOSE, start + ACTION_OPEN.length);
+    if (close === -1) {
+      result = result.slice(0, start);
+      break;
+    }
+    result = result.slice(0, start) + result.slice(close + ACTION_CLOSE.length);
+  }
+  return result;
+}
+
+function normalizeSingleActionBlock(reply: string): string {
+  const firstAction = extractFirstActionFromReply(reply);
+  const cleanText = stripAllActionBlocks(reply).trim();
+  if (!firstAction?.type || !firstAction?.params) return cleanText;
+
+  const canonical = `${ACTION_OPEN}\n${JSON.stringify(firstAction, null, 2)}\n${ACTION_CLOSE}`;
+  return cleanText ? `${cleanText}\n\n${canonical}` : canonical;
+}
+
+function isExplicitDocumentSaveRequest(message: string): boolean {
+  const text = message.toLowerCase();
+  return (
+    /\bcreate\s+document\b/.test(text) ||
+    /\bsave\b/.test(text) ||
+    /\bstore\b/.test(text) ||
+    /\bpersist\b/.test(text) ||
+    /\blog\b/.test(text) ||
+    /\badd\s+(it\s+)?to\s+(the\s+)?project\b/.test(text) ||
+    /\bnew\s+document\b/.test(text)
+  );
+}
+
+function isContentOnlyDraftRequest(message: string): boolean {
+  const text = message.toLowerCase();
+  const asksForContent = /(\bwrite\b|\bdraft\b|\bcompose\b|\bgenerate\b|\brewrite\b|\bpolish\b|\bimprove\b|\boutline\b|\bhomepage\b|\bcopy\b)/.test(text);
+  return asksForContent && !isExplicitDocumentSaveRequest(message);
+}
+
 function parseActionIntent(message: string, projectId: string) {
   const lower = message.toLowerCase().trim();
 
@@ -346,7 +460,8 @@ PROJECT RULES FOR BEHAVIOR:
 - Do not ask unnecessary questions when the project state already provides enough context.
 - Ask only the minimum sharp questions needed to remove ambiguity.
 - When the user is clearly ready, move from context to solution quickly.
-- For any project write action, require approval first through a [BUDDIES_ACTION] block.
+- For writes to project data (tasks, decisions, rules, research, updates, saved documents), require approval first through a [BUDDIES_ACTION] block.
+- If the user asks only for generated content (for example: "write", "draft", "generate copy") and does not explicitly ask to save/create a project document, return plain content with NO action block.
 - Read-only analysis, summaries, and recommendations do not need action blocks.
 - Never say "done" unless the write has actually been executed by the app after approval.
 
@@ -442,7 +557,14 @@ ${mode === "document" ? "\nYou are in DOCUMENT GENERATION mode. Return only the 
       return NextResponse.json({ error: "AI unavailable" }, { status: 500 });
     }
 
-    if (quickIntent && !reply.includes("[BUDDIES_ACTION]")) {
+    reply = normalizeSingleActionBlock(reply);
+
+    if (isContentOnlyDraftRequest(effectiveMessage)) {
+      // Hard guard: content-only drafting requests must never surface action blocks.
+      reply = stripAllActionBlocks(reply).trim();
+    }
+
+    if (quickIntent && !extractFirstActionFromReply(reply)) {
       reply = `${reply.trim()}\n\n[BUDDIES_ACTION]\n${JSON.stringify(quickIntent, null, 2)}\n[/BUDDIES_ACTION]`;
     }
 
