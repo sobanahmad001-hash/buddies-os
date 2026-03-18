@@ -658,6 +658,11 @@ ${mode === "document" ? "\nYou are in DOCUMENT GENERATION mode. Return only the 
       console.error("[project-chat] project memory refresh failed:", memoryErr?.message ?? memoryErr);
     }
 
+    // Defensive: ensure reply is always non-empty before returning
+    if (!reply || reply.trim() === "") {
+      reply = "I'm ready to help. What would you like me to do with this project?";
+    }
+
     return NextResponse.json({ reply, sessionId: activeSessionId, provider: provider ?? "anthropic", model: model ?? null });
   } catch (err: any) {
     console.error("[project-chat] unhandled error:", err);
