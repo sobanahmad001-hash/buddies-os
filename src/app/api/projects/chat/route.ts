@@ -833,27 +833,29 @@ ${referentialNote}`;
     }
 
     // ── Training log: every exchange captured ─────────────────────────────────
-    supabase.from("training_logs").insert({
-      user_id: user.id,
-      raw_input: effectiveMessage,
-      parsed_output: { reply },
-      was_confirmed: false,
-      final_output: { reply },
-      was_edited: false,
-      source: "claude",
-      model_version: model ?? "claude-haiku-4-5-20251001",
-      intent_detected: isContentOnlyDraftRequest(effectiveMessage) ? "draft" :
-                       isReferentialFollowUp(effectiveMessage) ? "referential" : "chat",
-      confidence_score: null,
-      context_snapshot: {
-        project_id: projectId,
-        session_id: activeSessionId,
-        had_project_memory: Boolean(projectMemoryRow),
-        had_ranked_memory: (rankedMemoryItems ?? []).length > 0,
-        referential: isReferentialFollowUp(effectiveMessage),
-        compressed: wasCompressed,
-      },
-    }).catch(() => {}); // fire and forget
+    (async () => {
+      await supabase.from("training_logs").insert({
+        user_id: user.id,
+        raw_input: effectiveMessage,
+        parsed_output: { reply },
+        was_confirmed: false,
+        final_output: { reply },
+        was_edited: false,
+        source: "claude",
+        model_version: model ?? "claude-haiku-4-5-20251001",
+        intent_detected: isContentOnlyDraftRequest(effectiveMessage) ? "draft" :
+                         isReferentialFollowUp(effectiveMessage) ? "referential" : "chat",
+        confidence_score: null,
+        context_snapshot: {
+          project_id: projectId,
+          session_id: activeSessionId,
+          had_project_memory: Boolean(projectMemoryRow),
+          had_ranked_memory: (rankedMemoryItems ?? []).length > 0,
+          referential: isReferentialFollowUp(effectiveMessage),
+          compressed: wasCompressed,
+        },
+      });
+    })().catch(() => {}); // fire and forget
 
     try {
       const { data: refreshTasks } = await supabase
