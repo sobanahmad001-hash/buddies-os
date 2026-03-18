@@ -561,7 +561,22 @@ ${mode === "document" ? "\nYou are in DOCUMENT GENERATION mode. Return only the 
 
     if (isContentOnlyDraftRequest(effectiveMessage)) {
       // Hard guard: content-only drafting requests must never surface action blocks.
-      reply = stripAllActionBlocks(reply).trim();
+      // If the model returned only a document action block, recover the generated content
+      // from params.content so the user still receives plain text output.
+      const firstAction = extractFirstActionFromReply(reply);
+      const plain = stripAllActionBlocks(reply).trim();
+
+      if (plain) {
+        reply = plain;
+      } else if (
+        firstAction?.type === "project.create_document" &&
+        typeof firstAction?.params?.content === "string" &&
+        firstAction.params.content.trim()
+      ) {
+        reply = firstAction.params.content.trim();
+      } else {
+        reply = "I can write that now. Please share any preferred tone, audience, and structure, or say 'use default' and I will generate the full draft.";
+      }
     }
 
     if (quickIntent && !extractFirstActionFromReply(reply)) {
