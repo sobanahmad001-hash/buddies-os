@@ -132,6 +132,41 @@ function isContentOnlyDraftRequest(message: string): boolean {
   return asksForContent && !isExplicitDocumentSaveRequest(message);
 }
 
+/**
+ * Detect short messages that implicitly reference the current session history.
+ * When true, the system prompt gets a CRITICAL override instructing the model
+ * to resolve the reference from context rather than resetting to a generic prompt.
+ */
+function isReferentialFollowUp(message: string): boolean {
+  const text = message.toLowerCase().trim();
+  // Long messages are never pure referential shorthand
+  if (text.length > 140) return false;
+
+  const patterns: RegExp[] = [
+    // "find in this chat" / "find in this thread" / "find in chat" etc.
+    /\b(find|look|check|search)\s+(it\s+)?(in|from)\s+(this\s+)?(chat|thread|conversation|history|context|session|above|earlier)/,
+    // "use this chat" / "use above" / "use earlier context" / "use what we discussed"
+    /^use\s+(this\s+)?(chat|thread|context|history|conversation|above|earlier|what\s+we|the\s+previous|the\s+last|the\s+same|default)/,
+    // "infer from this chat" / "infer it from context"
+    /\b(infer|derive|figure\s+out|work\s+out)\s+(it\s+)?(from\s+)?(this\s+)?(chat|thread|context|history|conversation|above|earlier)/,
+    // "same tone" / "same structure" / "same as above" / "keep the same"
+    /^(same|keep|maintain|stick\s+with|use\s+the\s+same)\s+(the\s+)?(tone|style|structure|audience|format|approach|voice|persona|template)/,
+    // "continue" / "proceed" / "go ahead" / "yes proceed"
+    /^(continue|proceed|go\s+ahead|do\s+it|just\s+do\s+it|yes[,.]?\s*proceed|yes[,.]?\s*go\s+ahead|just\s+draft\s+it|just\s+write\s+it)/,
+    // "from this chat" / "from earlier" / "from above"
+    /^from\s+(this\s+)?(chat|thread|context|history|conversation|session|earlier|above)/,
+    // "based on this chat" / "based on what we discussed"
+    /^based\s+on\s+(this\s+)?(chat|thread|context|history|what\s+we|the\s+above)/,
+    // "as discussed" / "as we discussed" / "as mentioned"
+    /^as\s+(we\s+)?(discussed|mentioned|agreed|decided|said|noted|talked\s+about)/,
+    // "use the above" / "above context" / "previous context"
+    /^(use\s+)?(the\s+)?(above|previous)\s+(context|tone|structure|audience|info|content|details|discussion)/,
+    // plain "use default" when there is a prior question in context
+    /^use\s+default\b/,
+  ];
+  return patterns.some((p) => p.test(text));
+}
+
 function parseActionIntent(message: string, projectId: string) {
   const lower = message.toLowerCase().trim();
 
@@ -487,6 +522,19 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const referentialNote = isReferentialFollowUp(effectiveMessage)
+      ? `
+CRITICAL — SHORT REFERENTIAL FOLLOW-UP DETECTED:
+The user's current message is a short follow-up that refers to earlier turns in this session.
+The RECENT CONVERSATION above contains the relevant context.
+You MUST:
+- Resolve any missing details (tone, audience, structure, etc.) from the recent session turns above.
+- Proceed with the task using that inferred context. Do NOT ask again for information already established.
+- Do NOT reset to a generic greeting or ask "what would you like me to do?".
+- If the prior assistant turn asked a clarifying question, treat this follow-up as answering or deferring that question to context.
+Failure to honour this rule and proceeding with a generic question or greeting is incorrect behaviour.`
+      : "";
+
     const systemPrompt = `You are the dedicated AI assistant for the project "${project.name}".
 ${project.description ? `Project description: ${project.description}` : ""}
 ${project.memory ? `Project memory: ${project.memory}` : ""}
@@ -498,6 +546,11 @@ BUDDIES OPERATING APPROACH:
 1. Context — first understand what the user is trying to achieve in this project, what constraints matter, what already exists, and what success looks like.
 2. Solution — once enough context exists, propose the best path clearly and align on it when needed.
 3. Execution — for meaningful write actions, do NOT claim the action already happened. Propose the action clearly, and include a single [BUDDIES_ACTION] JSON block so the UI can ask for approval first.
+
+HANDLING SHORT FOLLOW-UPS AND REFERENTIAL MESSAGES:
+- When the user sends a short follow-up that references the current session (e.g. "find in this chat", "use what we discussed", "same tone", "continue", "proceed", "use default"), resolve it using the RECENT CONVERSATION turns in this prompt. Do NOT ask again for details already established in the thread.
+- If the prior assistant turn asked a question with options, and the user's reply is short or deferring ("find in this chat", "use default", "from above"), infer the answer from context and proceed.
+- The phrase "What would you like me to do with this project?" is only acceptable as the very first message of a brand-new session with zero prior context. In any ongoing thread, it is ALWAYS wrong to reset to that phrase.
 
 PROJECT RULES FOR BEHAVIOR:
 - Do not jump into execution when project context is still unclear.
@@ -527,7 +580,8 @@ ${decisionLines ? `\nDECISIONS:\n${decisionLines}` : ""}
 ${ruleLines ? `\nACTIVE RULES (follow these strictly):\n${ruleLines}` : ""}
 ${researchLines ? `\nRESEARCH NOTES:\n${researchLines}` : ""}
 ${integrationsBlock}
-${mode === "document" ? "\nYou are in DOCUMENT GENERATION mode. Return only the document content in clean markdown." : ""}`;
+${mode === "document" ? "\nYou are in DOCUMENT GENERATION mode. Return only the document content in clean markdown." : ""}
+${referentialNote}`;
 
     const historyMessages = (chatHistory ?? []).map((m: any) => ({
       role: m.role as "user" | "assistant",
@@ -755,9 +809,13 @@ ${mode === "document" ? "\nYou are in DOCUMENT GENERATION mode. Return only the 
       console.error("[project-chat] project memory refresh failed:", memoryErr?.message ?? memoryErr);
     }
 
-    // Defensive: ensure reply is always non-empty before returning
+    // Defensive: ensure reply is always non-empty before returning.
+    // Never return the generic reset phrase for sessions that have history.
     if (!reply || reply.trim() === "") {
-      reply = "I'm ready to help. What would you like me to do with this project?";
+      const hasHistory = historyMessages.length > 0;
+      reply = hasHistory
+        ? "I didn't quite catch that — could you clarify what you'd like me to do next?"
+        : "I'm ready to help. What would you like me to work on for this project?";
     }
 
     return NextResponse.json({ reply, sessionId: activeSessionId, provider: provider ?? "anthropic", model: model ?? null });
