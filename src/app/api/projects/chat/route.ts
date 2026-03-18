@@ -525,7 +525,7 @@ export async function POST(req: NextRequest) {
               if (openIssues) block += `\nOPEN ISSUES:\n${openIssues}\n`;
               if (openPRs) block += `\nOPEN PULL REQUESTS:\n${openPRs}\n`;
             }
-          } catch (err) {
+          } catch (err: any) {
             console.warn("[project-chat] GitHub integration error:", err?.message ?? err);
           }
         } else if (i.type === "supabase" && i.config?.project_url) {
