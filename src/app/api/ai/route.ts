@@ -374,11 +374,6 @@ export async function POST(request: NextRequest) {
 
     const recentConversation = normalizeHistory(history);
 
-    // Detect project mention BEFORE loading data so we can scope the fetch
-    const mentionedProject = rawProjectsForDetection
-      ? detectProjectFocus(effectiveMessage, rawProjectsForDetection)
-      : null;
-
     // Base queries — always run (lightweight)
     const baseQueries = [
       supabase.from('projects').select('id, name, status, updated_at').eq('user_id', user.id),
