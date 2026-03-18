@@ -325,17 +325,20 @@ ${mode === "document" ? "\nYou are in DOCUMENT GENERATION mode. Return only the 
     let reply = "";
 
     try {
-      const selectedProvider = provider === "openai" || provider === "xai" || provider === "anthropic"
-        ? provider
-        : "anthropic";
+      type ProviderKey = "anthropic" | "openai" | "xai";
+      const rawProvider: unknown = provider;
+      const selectedProvider: ProviderKey =
+        rawProvider === "openai" || rawProvider === "xai" || rawProvider === "anthropic"
+          ? rawProvider
+          : "anthropic";
 
-      const providerAllowedModels: Record<"anthropic" | "openai" | "xai", string[]> = {
+      const providerAllowedModels: Record<ProviderKey, string[]> = {
         anthropic: ["claude-haiku-4-5-20251001", "claude-sonnet-4-5"],
         openai: ["gpt-4o-mini", "gpt-4o"],
         xai: ["grok-3-mini", "grok-3"],
       };
 
-      const providerDefaultModel: Record<"anthropic" | "openai" | "xai", string> = {
+      const providerDefaultModel: Record<ProviderKey, string> = {
         anthropic: "claude-haiku-4-5-20251001",
         openai: "gpt-4o-mini",
         xai: "grok-3-mini",
