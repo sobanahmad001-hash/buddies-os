@@ -250,6 +250,9 @@ export default function ProjectAssistantPage() {
   const { id: projectId } = useParams<{ id: string }>();
   const router = useRouter();
 
+  const getDefaultModelForProvider = (p: 'anthropic' | 'openai' | 'xai') =>
+    p === 'anthropic' ? 'claude-sonnet-4-5' : p === 'openai' ? 'gpt-4o' : 'grok-3';
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -257,7 +260,7 @@ export default function ProjectAssistantPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [provider, setProvider] = useState<'anthropic' | 'openai' | 'xai'>('anthropic');
-  const [model, setModel] = useState('');
+  const [model, setModel] = useState('claude-sonnet-4-5');
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -279,8 +282,20 @@ export default function ProjectAssistantPage() {
   useEffect(() => {
     const savedProvider = localStorage.getItem('buddies-ai-provider') as 'anthropic' | 'openai' | 'xai' | null;
     const savedModel = localStorage.getItem('buddies-ai-model');
-    if (savedProvider) setProvider(savedProvider);
-    if (savedModel) setModel(savedModel);
+    const nextProvider = savedProvider ?? 'anthropic';
+    const allowedModels = providerModels[nextProvider].map((m) => m.value);
+    const fallbackModel = getDefaultModelForProvider(nextProvider);
+    const nextModel = savedModel && allowedModels.includes(savedModel) ? savedModel : fallbackModel;
+
+    setProvider(nextProvider);
+    setModel(nextModel);
+
+    if (savedProvider !== nextProvider) {
+      localStorage.setItem('buddies-ai-provider', nextProvider);
+    }
+    if (savedModel !== nextModel) {
+      localStorage.setItem('buddies-ai-model', nextModel);
+    }
   }, []);
 
   useEffect(() => {
@@ -345,6 +360,8 @@ export default function ProjectAssistantPage() {
 
     const combinedText = [text, ...fileContextBlocks].filter(Boolean).join('\n\n');
     const requestMessage = combinedText || (imageUrls.length > 0 ? 'Please analyze the attached image(s).' : '');
+    const allowedModels = providerModels[provider].map((m) => m.value);
+    const safeModel = allowedModels.includes(model) ? model : getDefaultModelForProvider(provider);
 
     const userMsg: Message = {
       role: 'user',
@@ -362,7 +379,7 @@ export default function ProjectAssistantPage() {
       const res = await fetch('/api/projects/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId, message: requestMessage, images: imageUrls.length > 0 ? imageUrls : undefined, provider, model }),
+        body: JSON.stringify({ projectId, message: requestMessage, images: imageUrls.length > 0 ? imageUrls : undefined, provider, model: safeModel }),
       });
       const data = await res.json();
       if (data.reply) {

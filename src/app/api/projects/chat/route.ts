@@ -325,8 +325,26 @@ ${mode === "document" ? "\nYou are in DOCUMENT GENERATION mode. Return only the 
     let reply = "";
 
     try {
-      const selectedProvider = provider ?? "anthropic";
-      const selectedModel = model ?? (selectedProvider === "anthropic" ? "claude-haiku-4-5-20251001" : "gpt-4o-mini");
+      const selectedProvider = provider === "openai" || provider === "xai" || provider === "anthropic"
+        ? provider
+        : "anthropic";
+
+      const providerAllowedModels: Record<"anthropic" | "openai" | "xai", string[]> = {
+        anthropic: ["claude-haiku-4-5-20251001", "claude-sonnet-4-5"],
+        openai: ["gpt-4o-mini", "gpt-4o"],
+        xai: ["grok-3-mini", "grok-3"],
+      };
+
+      const providerDefaultModel: Record<"anthropic" | "openai" | "xai", string> = {
+        anthropic: "claude-haiku-4-5-20251001",
+        openai: "gpt-4o-mini",
+        xai: "grok-3-mini",
+      };
+
+      const normalizedModel = typeof model === "string" ? model.trim() : "";
+      const selectedModel = providerAllowedModels[selectedProvider].includes(normalizedModel)
+        ? normalizedModel
+        : providerDefaultModel[selectedProvider];
 
       // Build message content with images if present
       let userMessageContent: string | Array<{ type: string; text?: string; source?: { type: string; url?: string } }>;
