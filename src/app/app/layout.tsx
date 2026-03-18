@@ -12,6 +12,8 @@ import {
   X,
   BookOpen,
   Plug,
+  TrendingUp,
+  Code2,
 } from "lucide-react";
 import BottomNav from "@/components/BottomNav";
 
@@ -21,6 +23,8 @@ const NAV_ITEMS = [
   { to: "/app/projects",     icon: FolderKanban,    label: "Projects" },
   { to: "/app/research",     icon: BookOpen,        label: "Research" },
   { to: "/app/integrations", icon: Plug,            label: "Integrations" },
+  { to: "/app/trading",       icon: TrendingUp,      label: "Trading" },
+  { to: "/app/coding-agent",  icon: Code2,            label: "Coding Agent" },
   { to: "/app/search",       icon: Search,          label: "Search" },
 ];
 
