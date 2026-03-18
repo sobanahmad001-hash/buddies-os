@@ -86,6 +86,7 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const projectId = req.nextUrl.searchParams.get("projectId");
+  const sessionId = req.nextUrl.searchParams.get("sessionId");
   if (!projectId) return NextResponse.json({ error: "projectId required" }, { status: 400 });
 
   // Verify user owns this project
@@ -97,12 +98,30 @@ export async function GET(req: NextRequest) {
     .single();
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const { data: messages } = await supabase
+  if (sessionId) {
+    const { data: session } = await supabase
+      .from("project_chat_sessions")
+      .select("id")
+      .eq("id", sessionId)
+      .eq("project_id", projectId)
+      .eq("user_id", user.id)
+      .single();
+
+    if (!session) return NextResponse.json({ error: "Session not found" }, { status: 404 });
+  }
+
+  let query = supabase
     .from("project_chat_messages")
     .select("id, role, content, created_at")
     .eq("project_id", projectId)
     .order("created_at", { ascending: true })
     .limit(100);
+
+  if (sessionId) {
+    query = query.eq("session_id", sessionId);
+  }
+
+  const { data: messages } = await query;
 
   return NextResponse.json({ messages: messages ?? [] });
 }
@@ -121,6 +140,7 @@ export async function POST(req: NextRequest) {
 
     const {
       projectId,
+      sessionId,
       message,
       mode,
       provider,
@@ -151,6 +171,38 @@ export async function POST(req: NextRequest) {
 
     if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+    let activeSessionId = typeof sessionId === "string" && sessionId.trim() ? sessionId.trim() : null;
+
+    if (activeSessionId) {
+      const { data: existingSession } = await supabase
+        .from("project_chat_sessions")
+        .select("id")
+        .eq("id", activeSessionId)
+        .eq("project_id", projectId)
+        .eq("user_id", user.id)
+        .single();
+
+      if (!existingSession) {
+        return NextResponse.json({ error: "Session not found" }, { status: 404 });
+      }
+    } else {
+      const titleSeed = effectiveMessage.slice(0, 60) || "New chat";
+      const { data: createdSession } = await supabase
+        .from("project_chat_sessions")
+        .insert({
+          project_id: projectId,
+          user_id: user.id,
+          title: titleSeed,
+        })
+        .select("id")
+        .single();
+
+      activeSessionId = createdSession?.id ?? null;
+      if (!activeSessionId) {
+        return NextResponse.json({ error: "Failed to create chat session" }, { status: 500 });
+      }
+    }
+
     const quickIntent = parseActionIntent(effectiveMessage, projectId);
 
     if (quickIntent) {
@@ -160,6 +212,7 @@ export async function POST(req: NextRequest) {
         .from("project_chat_messages")
         .select("content, created_at")
         .eq("project_id", projectId)
+        .eq("session_id", activeSessionId)
         .eq("role", "assistant")
         .order("created_at", { ascending: false })
         .limit(8);
@@ -173,17 +226,24 @@ export async function POST(req: NextRequest) {
         const dedupeReply = "That exact action was already proposed recently in this thread. Approve the existing action card or change the request.";
         await supabase.from("project_chat_messages").insert({
           project_id: projectId,
+          session_id: activeSessionId,
           user_id: user.id,
           role: "user",
           content: effectiveMessage,
         });
         await supabase.from("project_chat_messages").insert({
           project_id: projectId,
+          session_id: activeSessionId,
           user_id: user.id,
           role: "assistant",
           content: dedupeReply,
         });
-        return NextResponse.json({ reply: dedupeReply });
+        await supabase
+          .from("project_chat_sessions")
+          .update({ updated_at: new Date().toISOString() })
+          .eq("id", activeSessionId)
+          .eq("user_id", user.id);
+        return NextResponse.json({ reply: dedupeReply, sessionId: activeSessionId });
       }
     }
 
@@ -201,7 +261,7 @@ export async function POST(req: NextRequest) {
       supabase.from("project_decisions").select("title, context, verdict, created_at").eq("project_id", projectId).order("created_at", { ascending: false }).limit(20),
       supabase.from("project_rules").select("rule_text, severity, active").eq("project_id", projectId).eq("active", true),
       supabase.from("project_research").select("topic, notes, created_at").eq("project_id", projectId).order("created_at", { ascending: false }).limit(10),
-      supabase.from("project_chat_messages").select("role, content").eq("project_id", projectId).order("created_at", { ascending: true }).limit(40),
+      supabase.from("project_chat_messages").select("role, content").eq("project_id", projectId).eq("session_id", activeSessionId).order("created_at", { ascending: true }).limit(40),
       supabase.from("integrations").select("type, name, config, status").eq("user_id", user.id).eq("status", "active"),
     ]);
 
@@ -317,6 +377,7 @@ ${mode === "document" ? "\nYou are in DOCUMENT GENERATION mode. Return only the 
 
     await supabase.from("project_chat_messages").insert({
       project_id: projectId,
+      session_id: activeSessionId,
       user_id: user.id,
       role: "user",
       content: effectiveMessage,
@@ -387,10 +448,17 @@ ${mode === "document" ? "\nYou are in DOCUMENT GENERATION mode. Return only the 
 
     await supabase.from("project_chat_messages").insert({
       project_id: projectId,
+      session_id: activeSessionId,
       user_id: user.id,
       role: "assistant",
       content: reply,
     });
+
+    await supabase
+      .from("project_chat_sessions")
+      .update({ updated_at: new Date().toISOString() })
+      .eq("id", activeSessionId)
+      .eq("user_id", user.id);
 
     try {
       const { data: refreshTasks } = await supabase
@@ -453,7 +521,7 @@ ${mode === "document" ? "\nYou are in DOCUMENT GENERATION mode. Return only the 
       console.error("[project-chat] project memory refresh failed:", memoryErr?.message ?? memoryErr);
     }
 
-    return NextResponse.json({ reply, provider: provider ?? "anthropic", model: model ?? null });
+    return NextResponse.json({ reply, sessionId: activeSessionId, provider: provider ?? "anthropic", model: model ?? null });
   } catch (err: any) {
     console.error("[project-chat] unhandled error:", err);
     return NextResponse.json({ error: err?.message ?? "Internal server error" }, { status: 500 });
@@ -472,12 +540,30 @@ export async function DELETE(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const projectId = req.nextUrl.searchParams.get("projectId");
+  const sessionId = req.nextUrl.searchParams.get("sessionId");
   if (!projectId) return NextResponse.json({ error: "projectId required" }, { status: 400 });
 
   // Verify ownership
   const { data: project } = await supabase.from("projects").select("id").eq("id", projectId).eq("user_id", user.id).single();
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  if (sessionId) {
+    const { data: session } = await supabase
+      .from("project_chat_sessions")
+      .select("id")
+      .eq("id", sessionId)
+      .eq("project_id", projectId)
+      .eq("user_id", user.id)
+      .single();
+
+    if (!session) return NextResponse.json({ error: "Session not found" }, { status: 404 });
+
+    await supabase.from("project_chat_messages").delete().eq("project_id", projectId).eq("session_id", sessionId);
+    await supabase.from("project_chat_sessions").delete().eq("id", sessionId).eq("project_id", projectId).eq("user_id", user.id);
+    return NextResponse.json({ success: true });
+  }
+
   await supabase.from("project_chat_messages").delete().eq("project_id", projectId);
+  await supabase.from("project_chat_sessions").delete().eq("project_id", projectId).eq("user_id", user.id);
   return NextResponse.json({ success: true });
 }

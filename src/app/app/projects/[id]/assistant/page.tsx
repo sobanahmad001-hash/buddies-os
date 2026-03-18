@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  Send, Copy, RotateCcw, Trash2, Check,
+  Send, Copy, RotateCcw, Trash2, Check, Plus,
   FileText, Download, AlertCircle
 } from 'lucide-react';
 import VoiceInputButton from '@/components/VoiceInputButton';
@@ -234,6 +234,7 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
 type Doc = { id: string; title: string; content: string };
 type Message = { id?: string; role: 'user' | 'assistant'; content: string; created_at?: string; ts?: string; document?: Doc; images?: string[] };
 type MessageGroup = { role: 'user' | 'assistant'; messages: Message[] };
+type ProjectSession = { id: string; title: string; created_at: string; updated_at?: string };
 
 function groupMessages(messages: Message[]): MessageGroup[] {
   const groups: MessageGroup[] = [];
@@ -254,6 +255,8 @@ export default function ProjectAssistantPage() {
     p === 'anthropic' ? 'claude-sonnet-4-5' : p === 'openai' ? 'gpt-4o' : 'grok-3';
 
   const [messages, setMessages] = useState<Message[]>([]);
+  const [sessions, setSessions] = useState<ProjectSession[]>([]);
+  const [activeSession, setActiveSession] = useState<ProjectSession | null>(null);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [histLoading, setHistLoading] = useState(true);
@@ -300,13 +303,53 @@ export default function ProjectAssistantPage() {
 
   useEffect(() => {
     if (projectId) {
-      loadHistory();
+      bootstrapProjectChats();
     }
   }, [projectId]);
 
-  async function loadHistory() {
+  async function bootstrapProjectChats() {
     if (!projectId) return;
-    const res = await fetch(`/api/projects/chat?projectId=${projectId}`);
+    const loadedSessions = await loadSessions();
+    if (loadedSessions.length > 0) {
+      await openSession(loadedSessions[0]);
+    } else {
+      setActiveSession(null);
+      setMessages([]);
+      setHistLoading(false);
+    }
+  }
+
+  async function loadSessions() {
+    if (!projectId) return [] as ProjectSession[];
+    const res = await fetch(`/api/projects/chat/sessions?projectId=${projectId}`);
+    if (!res.ok) {
+      setSessions([]);
+      return [] as ProjectSession[];
+    }
+    const data = await res.json();
+    const loaded = (data.sessions ?? []) as ProjectSession[];
+    setSessions(loaded);
+    return loaded;
+  }
+
+  async function openSession(session: ProjectSession) {
+    if (!projectId) return;
+    setActiveSession(session);
+    await loadHistory(session.id);
+  }
+
+  function startNewChat() {
+    setActiveSession(null);
+    setMessages([]);
+    setInput('');
+    if (textareaRef.current) textareaRef.current.style.height = 'auto';
+    setTimeout(() => textareaRef.current?.focus(), 0);
+  }
+
+  async function loadHistory(sessionId?: string) {
+    if (!projectId) return;
+    const q = sessionId ? `&sessionId=${sessionId}` : '';
+    const res = await fetch(`/api/projects/chat?projectId=${projectId}${q}`);
     if (res.ok) {
       const d = await res.json();
       setMessages((d.messages ?? []).map((m: any) => ({
@@ -379,9 +422,21 @@ export default function ProjectAssistantPage() {
       const res = await fetch('/api/projects/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId, message: requestMessage, images: imageUrls.length > 0 ? imageUrls : undefined, provider, model: safeModel }),
+        body: JSON.stringify({
+          projectId,
+          sessionId: activeSession?.id ?? null,
+          message: requestMessage,
+          images: imageUrls.length > 0 ? imageUrls : undefined,
+          provider,
+          model: safeModel,
+        }),
       });
       const data = await res.json();
+      if (!activeSession && data.sessionId) {
+        const loadedSessions = await loadSessions();
+        const created = loadedSessions.find((s) => s.id === data.sessionId) || null;
+        if (created) setActiveSession(created);
+      }
       if (data.reply) {
         setMessages(prev => [...prev, {
           role: 'assistant',
@@ -416,10 +471,15 @@ export default function ProjectAssistantPage() {
   }
 
   async function clearHistory() {
-    if (!projectId) return;
-    if (!confirm('Clear all chat history for this project?')) return;
-    await fetch(`/api/projects/chat?projectId=${projectId}`, { method: 'DELETE' });
-    setMessages([]);
+    if (!projectId || !activeSession) return;
+    if (!confirm('Delete this chat?')) return;
+    await fetch(`/api/projects/chat/sessions?projectId=${projectId}&id=${activeSession.id}`, { method: 'DELETE' });
+    const loadedSessions = await loadSessions();
+    if (loadedSessions.length > 0) {
+      await openSession(loadedSessions[0]);
+    } else {
+      startNewChat();
+    }
   }
 
   function copyMessage(content: string, id: string) {
@@ -496,10 +556,38 @@ export default function ProjectAssistantPage() {
           </select>
 
           <button onClick={clearHistory}
+          disabled={!activeSession}
 
-          className="shrink-0 flex items-center gap-1.5 text-[12px] text-[#737373] hover:text-[#EF4444] transition-colors px-2 py-1 rounded-lg hover:bg-[#FEF2F2]">
+          className="shrink-0 flex items-center gap-1.5 text-[12px] text-[#737373] hover:text-[#EF4444] transition-colors px-2 py-1 rounded-lg hover:bg-[#FEF2F2] disabled:opacity-40">
           <Trash2 size={13} /> <span className="hidden sm:inline">Clear history</span>
         </button>
+        </div>
+      </div>
+
+      {/* Chat submenu */}
+      <div className="px-3 sm:px-5 py-2 bg-white border-b border-[#EDE9E4] shrink-0">
+        <div className="flex items-center gap-2 overflow-x-auto">
+          <button
+            onClick={startNewChat}
+            className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#E8521A] text-white text-[12px] font-semibold hover:bg-[#c94415] transition-colors"
+          >
+            <Plus size={13} /> New chat
+          </button>
+
+          {sessions.map((session) => (
+            <button
+              key={session.id}
+              onClick={() => openSession(session)}
+              className={`shrink-0 px-3 py-1.5 rounded-lg text-[12px] border transition-colors max-w-[220px] truncate ${
+                activeSession?.id === session.id
+                  ? 'bg-[#0F0F0F] text-white border-[#0F0F0F]'
+                  : 'bg-[#F7F5F2] text-[#404040] border-[#E5E2DE] hover:bg-[#F0EDE9]'
+              }`}
+              title={session.title || 'Chat'}
+            >
+              {session.title || 'Chat'}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -609,11 +697,13 @@ export default function ProjectAssistantPage() {
                               action={action}
                               projectId={projectId}
                               onExecuted={async () => {
-                                const historyRes = await fetch(`/api/projects/chat?projectId=${projectId}`);
+                                const q = activeSession?.id ? `&sessionId=${activeSession.id}` : '';
+                                const historyRes = await fetch(`/api/projects/chat?projectId=${projectId}${q}`);
                                 if (historyRes.ok) {
                                   const historyData = await historyRes.json();
                                   setMessages(historyData.messages ?? []);
                                 }
+                                await loadSessions();
                               }}
                             />
                           )}
