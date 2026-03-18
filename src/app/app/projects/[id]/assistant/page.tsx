@@ -314,6 +314,74 @@ type Message = { id?: string; role: 'user' | 'assistant'; content: string; creat
 type MessageGroup = { role: 'user' | 'assistant'; messages: Message[] };
 type ProjectSession = { id: string; title: string; created_at: string; updated_at?: string };
 
+type ApiResponse = {
+  ok?: boolean;
+  reply?: string;
+  error?: string;
+  sessionId?: string;
+  document?: any;
+  [key: string]: any;
+};
+
+type ExtractedReply = {
+  status: 'success' | 'error' | 'empty' | 'action_only';
+  content: string;
+  hasAction: boolean;
+  document?: any;
+};
+
+/**
+ * Safely extract assistant reply from API response.
+ * Handles all failure modes to prevent blank bubbles.
+ */
+function extractAssistantReply(res: Response, data: ApiResponse): ExtractedReply {
+  // Check HTTP status first
+  if (!res.ok) {
+    const errorMsg = data?.error || `Server error: ${res.status}`;
+    return {
+      status: 'error',
+      content: `⚠️ Request failed: ${errorMsg}`,
+      hasAction: false,
+    };
+  }
+
+  // Extract reply and check if it has content
+  const reply = (data?.reply || '').trim();
+  
+  // Check if there is an action block
+  const { action: hasActionBlock } = extractActionBlock(reply);
+  const plainText = stripAllActionBlocks(reply).trim();
+
+  // Case 1: Has plain text (normal reply or text + action)
+  if (plainText) {
+    return {
+      status: 'success',
+      content: reply,
+      hasAction: Boolean(hasActionBlock),
+      document: data?.document,
+    };
+  }
+
+  // Case 2: Only action block, no plain text
+  if (hasActionBlock) {
+    return {
+      status: 'action_only',
+      content: reply, // Still return full reply with action block
+      hasAction: true,
+      document: data?.document,
+    };
+  }
+
+  // Case 3: Empty or whitespace only
+  return {
+    status: 'empty',
+    content: '⚠️ Empty response from assistant',
+    hasAction: false,
+  };
+}
+
+
+
 function groupMessages(messages: Message[]): MessageGroup[] {
   const groups: MessageGroup[] = [];
   let current: MessageGroup | null = null;
@@ -511,43 +579,22 @@ export default function ProjectAssistantPage() {
       });
       const data = await res.json();
 
-      // Always validate response status
-      if (!res.ok) {
-        const errorMsg = data?.error || `Server error: ${res.status}`;
-        setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: `⚠️ Request failed: ${errorMsg}`,
-          ts: new Date().toISOString(),
-        }]);
-        setLoading(false);
-        return;
-      }
+      // Use helper to safely extract reply and categorize response
+      const extracted = extractAssistantReply(res, data);
 
-      // Safely extract reply with fallback
-      const assistantText = (data?.reply || '').trim();
-      if (!assistantText) {
-        setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: data?.error ? `Error: ${data.error}` : '⚠️ Empty response from assistant',
-          ts: new Date().toISOString(),
-        }]);
-        setLoading(false);
-        return;
-      }
-
-      // Update session if new
-      if (!activeSession && data.sessionId) {
+      // Update session if new (only on success)
+      if (extracted.status === 'success' && !activeSession && data.sessionId) {
         const loadedSessions = await loadSessions();
         const created = loadedSessions.find((s) => s.id === data.sessionId) || null;
         if (created) setActiveSession(created);
       }
 
-      // Add assistant message with valid content
+      // Add assistant message with proper categorization
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: assistantText,
+        content: extracted.content,
         ts: new Date().toISOString(),
-        document: data.document ?? undefined,
+        document: extracted.document,
       }]);
     } catch (err: any) {
       const errorMsg = err?.message || 'Network error. Please check your connection.';
