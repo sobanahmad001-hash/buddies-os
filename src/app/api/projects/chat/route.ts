@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { buildProjectMemory } from "@/lib/ai/project-memory";
 import { callAIProvider } from "@/lib/ai/providers";
 import { createActionFingerprint } from "@/lib/ai/action-fingerprint";
+import { buildCompressedContext } from "@/lib/ai/session-compress";
+import { writeMemorySignals } from "@/lib/ai/memory-extract";
 
 const ACTION_OPEN = "[BUDDIES_ACTION]";
 const ACTION_CLOSE = "[/BUDDIES_ACTION]";
@@ -379,6 +381,17 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Mark previous exchange as implicitly confirmed (user continued the conversation)
+    if (activeSessionId) {
+      supabase.from("training_logs")
+        .update({ was_confirmed: true })
+        .eq("context_snapshot->>'session_id'", activeSessionId)
+        .eq("was_confirmed", false)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .catch(() => {});
+    }
+
     const quickIntent = parseActionIntent(effectiveMessage, projectId);
 
     if (quickIntent) {
@@ -566,6 +579,17 @@ export async function POST(req: NextRequest) {
 
     integrationsBlock = await Promise.race([integrationsBlockPromise, timeoutPromise]);
 
+    // ── Sliding window compression ────────────────────────────────────────────────
+    const rawHistory = (chatHistory ?? []).map((m: any) => ({
+      role: m.role as string,
+      content: m.content,
+    }));
+    const { summary: sessionSummaryCompressed, recentMessages: historyMessages, wasCompressed } =
+      await buildCompressedContext(rawHistory, activeSessionId, supabase);
+    const compressionNote = sessionSummaryCompressed
+      ? `\nSESSION HISTORY SUMMARY (earlier turns compressed):\n${sessionSummaryCompressed}\n`
+      : "";
+
     // ── Build persisted memory block ─────────────────────────────────────────────
     const pm = projectMemoryRow;
     const persistedMemoryBlock = pm ? `
@@ -636,6 +660,7 @@ ACTION BLOCK FORMAT:
 When proposing project actions, always include project_id: "${projectId}" in params.
 
 ${persistedMemoryBlock}
+${compressionNote}
 ${rankedMemoryBlock}
 ${taskLines ? `\nTASKS:\n${taskLines}` : "No tasks yet."}
 ${updateLines ? `\nRECENT UPDATES:\n${updateLines}` : ""}
@@ -645,11 +670,6 @@ ${researchLines ? `\nRESEARCH NOTES:\n${researchLines}` : ""}
 ${integrationsBlock}
 ${mode === "document" ? "\nYou are in DOCUMENT GENERATION mode. Return only the document content in clean markdown." : ""}
 ${referentialNote}`;
-
-    const historyMessages = (chatHistory ?? []).map((m: any) => ({
-      role: m.role as "user" | "assistant",
-      content: m.content,
-    }));
 
     await supabase.from("project_chat_messages").insert({
       project_id: projectId,
@@ -811,6 +831,29 @@ ${referentialNote}`;
         .eq("user_id", user.id);
     }
 
+    // ── Training log: every exchange captured ─────────────────────────────────
+    supabase.from("training_logs").insert({
+      user_id: user.id,
+      raw_input: effectiveMessage,
+      parsed_output: { reply },
+      was_confirmed: false,
+      final_output: { reply },
+      was_edited: false,
+      source: "claude",
+      model_version: model ?? "claude-haiku-4-5-20251001",
+      intent_detected: isContentOnlyDraftRequest(effectiveMessage) ? "draft" :
+                       isReferentialFollowUp(effectiveMessage) ? "referential" : "chat",
+      confidence_score: null,
+      context_snapshot: {
+        project_id: projectId,
+        session_id: activeSessionId,
+        had_project_memory: Boolean(projectMemoryRow),
+        had_ranked_memory: (rankedMemoryItems ?? []).length > 0,
+        referential: isReferentialFollowUp(effectiveMessage),
+        compressed: wasCompressed,
+      },
+    }).catch(() => {}); // fire and forget
+
     try {
       const { data: refreshTasks } = await supabase
         .from("project_tasks")
@@ -868,6 +911,16 @@ ${referentialNote}`;
         summary_json: compact.summary_json ?? {},
         updated_at: new Date().toISOString(),
       });
+
+      // ── Extract and write memory signals ────────────────────────────────────────
+      writeMemorySignals({
+        userId: user.id,
+        projectId,
+        sessionId: activeSessionId,
+        userMessage: effectiveMessage,
+        aiResponse: reply,
+        supabase,
+      }).catch(() => {});
     } catch (memoryErr: any) {
       console.error("[project-chat] project memory refresh failed:", memoryErr?.message ?? memoryErr);
     }

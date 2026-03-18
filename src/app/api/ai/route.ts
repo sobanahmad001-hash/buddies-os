@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { callAIProvider, getDefaultModelForProvider, normalizeProvider, type AIProvider } from '@/lib/ai/providers';
+import { buildCompressedContext } from '@/lib/ai/session-compress';
 
 const MODEL_COSTS = {
   'claude-haiku-4-5-20251001': { input: 1, output: 5 },
@@ -372,7 +373,11 @@ export async function POST(request: NextRequest) {
     const messageType = detectMessageType(effectiveMessage);
     const model = requestedModel || getDefaultModelForProvider(provider, messageType);
 
-    const recentConversation = normalizeHistory(history);
+    const { summary: sessionSummaryCompressed, recentMessages: recentConversation } =
+      await buildCompressedContext(history, sessionId, supabase);
+    const compressionNote = sessionSummaryCompressed
+      ? `\nSESSION HISTORY SUMMARY (earlier turns compressed):\n${sessionSummaryCompressed}\n`
+      : "";
 
     // Base queries — always run (lightweight)
     const baseQueries = [
@@ -423,7 +428,7 @@ RULES:
 - You can add tasks to projects: ask "which project?" if unclear.
 - Never pretend context exists when it doesn't.
 - Prefer short, direct answers. Ask one sharp question if unclear.
-
+${compressionNote}
 PROJECTS (${projectDirectory.length} active):
 ${projectDirectory.map((p: any) => `- ${p.name}`).join('\n') || 'None yet.'}
 
