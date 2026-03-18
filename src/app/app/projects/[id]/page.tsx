@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import {
   Plus,
@@ -123,41 +123,101 @@ function LinkTile({
 }
 
 function ProjectTimeline({ nodes }: { nodes: any[] }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!nodes?.length || !containerRef.current) return;
+
+    const nodeColors: Record<string, string> = {
+      research: "fill:#EFF6FF,stroke:#3B82F6,color:#1e40af",
+      decision: "fill:#FEF3C7,stroke:#F59E0B,color:#92400e",
+      task_batch: "fill:#ECFDF5,stroke:#10B981,color:#065f46",
+      document: "fill:#F5F3FF,stroke:#8B5CF6,color:#4c1d95",
+      pivot: "fill:#FEE2E2,stroke:#EF4444,color:#991b1b",
+    };
+
+    const lines = ["flowchart LR"];
+    nodes.forEach((node, i) => {
+      const label = (node.label ?? "").replace(/"/g, "'").slice(0, 28);
+      const detail = node.detail ? `\n${node.detail.slice(0, 30)}` : "";
+      const shape =
+        node.type === "decision" ? `{"${label}"}` :
+        node.type === "pivot"    ? `[/"${label}"/]` :
+                                   `["${label}"]`;
+      lines.push(`  N${i}${shape}`);
+      if (i > 0) lines.push(`  N${i - 1} --> N${i}`);
+      const style = nodeColors[node.type] ?? "fill:#F7F5F2,stroke:#E5E2DE,color:#1A1A1A";
+      lines.push(`  style N${i} ${style}`);
+    });
+
+    const diagram = lines.join("\n");
+
+    async function render() {
+      try {
+        // Dynamically import mermaid — avoids SSR issues
+        const mermaid = (await import("mermaid")).default;
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: "base",
+          themeVariables: {
+            fontFamily: "Inter, system-ui, sans-serif",
+            fontSize: "13px",
+          },
+          flowchart: { curve: "basis", padding: 20 },
+        });
+
+        const id = `timeline-${Date.now()}`;
+        const { svg } = await mermaid.render(id, diagram);
+        if (containerRef.current) {
+          containerRef.current.innerHTML = svg;
+          // Make SVG responsive
+          const svgEl = containerRef.current.querySelector("svg");
+          if (svgEl) {
+            svgEl.style.maxWidth = "100%";
+            svgEl.style.height = "auto";
+          }
+        }
+      } catch (err) {
+        // Fallback: show node list if mermaid fails
+        if (containerRef.current) {
+          containerRef.current.innerHTML = `
+            <div class="flex gap-2 overflow-x-auto pb-2">
+              ${nodes.map((n, i) => `
+                <div class="flex items-center gap-2 shrink-0">
+                  <div class="px-3 py-1.5 rounded-lg text-[11px] font-semibold border" style="
+                    background: ${n.type === "research" ? "#EFF6FF" : n.type === "decision" ? "#FEF3C7" : n.type === "task_batch" ? "#ECFDF5" : "#F5F3FF"};
+                    border-color: ${n.type === "research" ? "#3B82F6" : n.type === "decision" ? "#F59E0B" : n.type === "task_batch" ? "#10B981" : "#8B5CF6"};
+                    color: #1A1A1A;
+                  ">
+                    ${n.label?.slice(0, 25) ?? ""}
+                  </div>
+                  ${i < nodes.length - 1 ? '<span style="color:#B0ADA9;font-size:16px;">→</span>' : ""}
+                </div>
+              `).join("")}
+            </div>`;
+        }
+      }
+    }
+
+    render();
+  }, [nodes]);
+
   if (!nodes?.length) return (
     <div className="text-center py-8 text-[#B0ADA9] text-sm">
       No timeline events yet. Research, decisions, and task batches will appear here automatically.
     </div>
   );
 
-  // Build Mermaid left-to-right flowchart
-  const nodeColors: Record<string, string> = {
-    research: "fill:#EFF6FF,stroke:#3B82F6",
-    decision: "fill:#FEF3C7,stroke:#F59E0B",
-    task_batch: "fill:#ECFDF5,stroke:#10B981",
-    document: "fill:#F5F3FF,stroke:#8B5CF6",
-    pivot: "fill:#FEE2E2,stroke:#EF4444",
-  };
-
-  const lines = ["flowchart LR"];
-  nodes.forEach((node, i) => {
-    const label = node.label.replace(/"/g, "'").slice(0, 30);
-    const shape = node.type === "decision" ? `{{"${label}"}}` :
-                  node.type === "pivot" ? `[/"${label}"/]` :
-                  `["${label}"]`;
-    lines.push(`  N${i}${shape}`);
-    if (i > 0) lines.push(`  N${i-1} --> N${i}`);
-    lines.push(`  style N${i} ${nodeColors[node.type] ?? "fill:#F7F5F2,stroke:#E5E2DE"}`);
-  });
-
-  const diagram = lines.join("\n");
-
   return (
-    <div className="overflow-x-auto">
-      <div className="text-[11px] text-[#737373] mb-2">{nodes.length} events · {nodes[nodes.length-1] ? new Date(nodes[nodes.length-1].timestamp).toLocaleDateString() : ""}</div>
-      <pre className="text-[11px] bg-[#F7F5F2] p-3 rounded-xl overflow-x-auto font-mono text-[#404040]">
-        {diagram}
-      </pre>
-      <p className="text-[10px] text-[#B0ADA9] mt-1">Mermaid flowchart — paste into mermaid.live to view visually</p>
+    <div>
+      <div className="text-[11px] text-[#737373] mb-3 flex items-center gap-2">
+        <span>{nodes.length} event{nodes.length !== 1 ? "s" : ""}</span>
+        <span>·</span>
+        <span className="capitalize">{nodes[nodes.length - 1]?.type}</span>
+        <span>·</span>
+        <span>{new Date(nodes[nodes.length - 1]?.timestamp).toLocaleDateString()}</span>
+      </div>
+      <div ref={containerRef} className="overflow-x-auto min-h-[80px] flex items-center" />
     </div>
   );
 }
