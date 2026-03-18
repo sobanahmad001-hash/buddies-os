@@ -582,11 +582,17 @@ export default function ProjectAssistantPage() {
       // Use helper to safely extract reply and categorize response
       const extracted = extractAssistantReply(res, data);
 
-      // Update session if new (only on success)
-      if (extracted.status === 'success' && !activeSession && data.sessionId) {
-        const loadedSessions = await loadSessions();
-        const created = loadedSessions.find((s) => s.id === data.sessionId) || null;
-        if (created) setActiveSession(created);
+      // Update session if new — must fire for ALL non-error statuses, including
+      // 'action_only' (pure action block with no text), otherwise the returned
+      // sessionId is never stored and every subsequent message loses context.
+      if (!activeSession && data.sessionId) {
+        const newSession: ProjectSession = {
+          id: data.sessionId,
+          title: requestMessage.slice(0, 60) || 'New chat',
+          created_at: new Date().toISOString(),
+        };
+        setActiveSession(newSession);
+        loadSessions(); // refresh session list in the background
       }
 
       // Add assistant message with proper categorization

@@ -619,6 +619,14 @@ ${mode === "document" ? "\nYou are in DOCUMENT GENERATION mode. Return only the 
 
           reply = result.text?.trim() || "";
           if (reply) {
+            // Diagnostic: log raw output before any transformation so we can
+            // tell whether short responses come from the model or post-processing.
+            console.log(
+              `[project-chat] RAW provider=${providerAttempt} model=${selectedModel} chars=${reply.length}`
+            );
+            if (reply.length < 600) {
+              console.log("[project-chat] RAW_TEXT_START\n" + reply + "\n[project-chat] RAW_TEXT_END");
+            }
             providerError = null;
             break;
           }
@@ -643,19 +651,24 @@ ${mode === "document" ? "\nYou are in DOCUMENT GENERATION mode. Return only the 
 
     if (isContentOnlyDraftRequest(effectiveMessage)) {
       // Hard guard: content-only drafting requests must never surface action blocks.
-      // If the model returned only a document action block, recover the generated content
-      // from params.content so the user still receives plain text output.
+      // Recovery priority:
+      //   1. params.content from a create_document action, IF it is substantially
+      //      longer than the plain text (handles "Done. I've created…" + action block)
+      //   2. Plain text if it is the real draft content
+      //   3. Fallback prompt asking for more detail
       const firstAction = extractFirstActionFromReply(reply);
       const plain = stripAllActionBlocks(reply).trim();
-
-      if (plain) {
-        reply = plain;
-      } else if (
+      const embeddedContent =
         firstAction?.type === "project.create_document" &&
-        typeof firstAction?.params?.content === "string" &&
-        firstAction.params.content.trim()
-      ) {
-        reply = firstAction.params.content.trim();
+        typeof firstAction?.params?.content === "string"
+          ? firstAction.params.content.trim()
+          : "";
+
+      if (embeddedContent && embeddedContent.length > plain.length + 50) {
+        // Model wrapped the full draft inside the action block — recover it.
+        reply = embeddedContent;
+      } else if (plain) {
+        reply = plain;
       } else {
         reply = "I can write that now. Please share any preferred tone, audience, and structure, or say 'use default' and I will generate the full draft.";
       }
