@@ -8,6 +8,19 @@ import { createActionFingerprint } from "@/lib/ai/action-fingerprint";
 const ACTION_OPEN = "[BUDDIES_ACTION]";
 const ACTION_CLOSE = "[/BUDDIES_ACTION]";
 
+type ProviderKey = "anthropic" | "openai" | "xai";
+
+function isMissingSessionSchemaError(err: any): boolean {
+  const code = String(err?.code ?? "");
+  const message = String(err?.message ?? "").toLowerCase();
+  return (
+    code === "42P01" ||
+    code === "42703" ||
+    message.includes("project_chat_sessions") ||
+    message.includes("session_id")
+  );
+}
+
 function extractFirstJsonObject(input: string): string | null {
   const start = input.indexOf("{");
   if (start === -1) return null;
@@ -286,34 +299,48 @@ export async function POST(req: NextRequest) {
     if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     let activeSessionId = typeof sessionId === "string" && sessionId.trim() ? sessionId.trim() : null;
+    let useSessions = true;
 
-    if (activeSessionId) {
-      const { data: existingSession } = await supabase
-        .from("project_chat_sessions")
-        .select("id")
-        .eq("id", activeSessionId)
-        .eq("project_id", projectId)
-        .eq("user_id", user.id)
-        .single();
+    try {
+      if (activeSessionId) {
+        const { data: existingSession, error: existingSessionError } = await supabase
+          .from("project_chat_sessions")
+          .select("id")
+          .eq("id", activeSessionId)
+          .eq("project_id", projectId)
+          .eq("user_id", user.id)
+          .single();
 
-      if (!existingSession) {
-        return NextResponse.json({ error: "Session not found" }, { status: 404 });
+        if (existingSessionError) throw existingSessionError;
+        if (!existingSession) {
+          return NextResponse.json({ error: "Session not found" }, { status: 404 });
+        }
+      } else {
+        const titleSeed = effectiveMessage.slice(0, 60) || "New chat";
+        const { data: createdSession, error: createSessionError } = await supabase
+          .from("project_chat_sessions")
+          .insert({
+            project_id: projectId,
+            user_id: user.id,
+            title: titleSeed,
+          })
+          .select("id")
+          .single();
+
+        if (createSessionError) throw createSessionError;
+
+        activeSessionId = createdSession?.id ?? null;
+        if (!activeSessionId) {
+          return NextResponse.json({ error: "Failed to create chat session" }, { status: 500 });
+        }
       }
-    } else {
-      const titleSeed = effectiveMessage.slice(0, 60) || "New chat";
-      const { data: createdSession } = await supabase
-        .from("project_chat_sessions")
-        .insert({
-          project_id: projectId,
-          user_id: user.id,
-          title: titleSeed,
-        })
-        .select("id")
-        .single();
-
-      activeSessionId = createdSession?.id ?? null;
-      if (!activeSessionId) {
-        return NextResponse.json({ error: "Failed to create chat session" }, { status: 500 });
+    } catch (sessionErr: any) {
+      if (isMissingSessionSchemaError(sessionErr)) {
+        useSessions = false;
+        activeSessionId = null;
+        console.warn("[project-chat] session schema not available; using legacy project chat mode");
+      } else {
+        throw sessionErr;
       }
     }
 
@@ -322,14 +349,24 @@ export async function POST(req: NextRequest) {
     if (quickIntent) {
       const fingerprint = createActionFingerprint(quickIntent.type, quickIntent.params);
 
-      const { data: recentAssistant } = await supabase
-        .from("project_chat_messages")
-        .select("content, created_at")
-        .eq("project_id", projectId)
-        .eq("session_id", activeSessionId)
-        .eq("role", "assistant")
-        .order("created_at", { ascending: false })
-        .limit(8);
+      const recentAssistantQuery = useSessions && activeSessionId
+        ? supabase
+          .from("project_chat_messages")
+          .select("content, created_at")
+          .eq("project_id", projectId)
+          .eq("session_id", activeSessionId)
+          .eq("role", "assistant")
+          .order("created_at", { ascending: false })
+          .limit(8)
+        : supabase
+          .from("project_chat_messages")
+          .select("content, created_at")
+          .eq("project_id", projectId)
+          .eq("role", "assistant")
+          .order("created_at", { ascending: false })
+          .limit(8);
+
+      const { data: recentAssistant } = await recentAssistantQuery;
 
       const alreadyProposed = (recentAssistant ?? []).some((m: any) => {
         const content = String(m.content ?? "");
@@ -340,23 +377,25 @@ export async function POST(req: NextRequest) {
         const dedupeReply = "That exact action was already proposed recently in this thread. Approve the existing action card or change the request.";
         await supabase.from("project_chat_messages").insert({
           project_id: projectId,
-          session_id: activeSessionId,
+          ...(useSessions ? { session_id: activeSessionId } : {}),
           user_id: user.id,
           role: "user",
           content: effectiveMessage,
         });
         await supabase.from("project_chat_messages").insert({
           project_id: projectId,
-          session_id: activeSessionId,
+          ...(useSessions ? { session_id: activeSessionId } : {}),
           user_id: user.id,
           role: "assistant",
           content: dedupeReply,
         });
-        await supabase
-          .from("project_chat_sessions")
-          .update({ updated_at: new Date().toISOString() })
-          .eq("id", activeSessionId)
-          .eq("user_id", user.id);
+        if (useSessions && activeSessionId) {
+          await supabase
+            .from("project_chat_sessions")
+            .update({ updated_at: new Date().toISOString() })
+            .eq("id", activeSessionId)
+            .eq("user_id", user.id);
+        }
         return NextResponse.json({ reply: dedupeReply, sessionId: activeSessionId });
       }
     }
@@ -375,7 +414,9 @@ export async function POST(req: NextRequest) {
       supabase.from("project_decisions").select("title, context, verdict, created_at").eq("project_id", projectId).order("created_at", { ascending: false }).limit(20),
       supabase.from("project_rules").select("rule_text, severity, active").eq("project_id", projectId).eq("active", true),
       supabase.from("project_research").select("topic, notes, created_at").eq("project_id", projectId).order("created_at", { ascending: false }).limit(10),
-      supabase.from("project_chat_messages").select("role, content").eq("project_id", projectId).eq("session_id", activeSessionId).order("created_at", { ascending: true }).limit(40),
+      (useSessions && activeSessionId
+        ? supabase.from("project_chat_messages").select("role, content").eq("project_id", projectId).eq("session_id", activeSessionId).order("created_at", { ascending: true }).limit(40)
+        : supabase.from("project_chat_messages").select("role, content").eq("project_id", projectId).order("created_at", { ascending: true }).limit(40)),
       supabase.from("integrations").select("type, name, config, status").eq("user_id", user.id).eq("status", "active"),
     ]);
 
@@ -492,7 +533,7 @@ ${mode === "document" ? "\nYou are in DOCUMENT GENERATION mode. Return only the 
 
     await supabase.from("project_chat_messages").insert({
       project_id: projectId,
-      session_id: activeSessionId,
+      ...(useSessions ? { session_id: activeSessionId } : {}),
       user_id: user.id,
       role: "user",
       content: effectiveMessage,
@@ -501,7 +542,6 @@ ${mode === "document" ? "\nYou are in DOCUMENT GENERATION mode. Return only the 
     let reply = "";
 
     try {
-      type ProviderKey = "anthropic" | "openai" | "xai";
       const rawProvider: unknown = provider;
       const selectedProvider: ProviderKey =
         rawProvider === "openai" || rawProvider === "xai" || rawProvider === "anthropic"
@@ -520,10 +560,26 @@ ${mode === "document" ? "\nYou are in DOCUMENT GENERATION mode. Return only the 
         xai: "grok-3-mini",
       };
 
+      const providerEnvKey: Record<ProviderKey, string | undefined> = {
+        anthropic: process.env.ANTHROPIC_API_KEY,
+        openai: process.env.OPENAI_API_KEY,
+        xai: process.env.XAI_API_KEY,
+      };
+
       const normalizedModel = typeof model === "string" ? model.trim() : "";
-      const selectedModel = providerAllowedModels[selectedProvider].includes(normalizedModel)
-        ? normalizedModel
-        : providerDefaultModel[selectedProvider];
+
+      const preferredOrder: ProviderKey[] = [
+        selectedProvider,
+        ...(["anthropic", "openai", "xai"] as ProviderKey[]).filter((p) => p !== selectedProvider),
+      ];
+      const configuredOrder = preferredOrder.filter((p) => Boolean(providerEnvKey[p]));
+
+      if (configuredOrder.length === 0) {
+        return NextResponse.json(
+          { error: "No AI provider is configured. Add at least one of ANTHROPIC_API_KEY, OPENAI_API_KEY, or XAI_API_KEY." },
+          { status: 500 }
+        );
+      }
 
       // Build message content with images if present
       let userMessageContent: string | Array<{ type: string; text?: string; source?: { type: string; url?: string } }>;
@@ -540,21 +596,44 @@ ${mode === "document" ? "\nYou are in DOCUMENT GENERATION mode. Return only the 
         userMessageContent = effectiveMessage;
       }
 
-      const result = await callAIProvider({
-        provider: selectedProvider,
-        model: selectedModel,
-        system: systemPrompt,
-        messages: [
-          ...historyMessages,
-          { role: "user", content: userMessageContent },
-        ],
-      });
+      let providerError: any = null;
 
-      reply = result.text?.trim() || "";
-      if (!reply) throw new Error("No provider response");
+      for (const providerAttempt of configuredOrder) {
+        const selectedModel = providerAllowedModels[providerAttempt].includes(normalizedModel)
+          ? normalizedModel
+          : providerDefaultModel[providerAttempt];
+
+        try {
+          const result = await callAIProvider({
+            provider: providerAttempt,
+            model: selectedModel,
+            system: systemPrompt,
+            messages: [
+              ...historyMessages,
+              { role: "user", content: userMessageContent },
+            ],
+          });
+
+          reply = result.text?.trim() || "";
+          if (reply) {
+            providerError = null;
+            break;
+          }
+
+          providerError = new Error(`Empty response from ${providerAttempt}`);
+        } catch (err: any) {
+          providerError = err;
+          console.error(`[project-chat] provider attempt failed (${providerAttempt}):`, err?.message ?? err);
+        }
+      }
+
+      if (!reply) {
+        throw providerError || new Error("No provider response");
+      }
     } catch (err: any) {
       console.error("[project-chat] provider error:", err?.message ?? err);
-      return NextResponse.json({ error: "AI unavailable" }, { status: 500 });
+      const message = err?.message ? String(err.message) : "AI unavailable";
+      return NextResponse.json({ error: message }, { status: 500 });
     }
 
     reply = normalizeSingleActionBlock(reply);
@@ -585,17 +664,19 @@ ${mode === "document" ? "\nYou are in DOCUMENT GENERATION mode. Return only the 
 
     await supabase.from("project_chat_messages").insert({
       project_id: projectId,
-      session_id: activeSessionId,
+      ...(useSessions ? { session_id: activeSessionId } : {}),
       user_id: user.id,
       role: "assistant",
       content: reply,
     });
 
-    await supabase
-      .from("project_chat_sessions")
-      .update({ updated_at: new Date().toISOString() })
-      .eq("id", activeSessionId)
-      .eq("user_id", user.id);
+    if (useSessions && activeSessionId) {
+      await supabase
+        .from("project_chat_sessions")
+        .update({ updated_at: new Date().toISOString() })
+        .eq("id", activeSessionId)
+        .eq("user_id", user.id);
+    }
 
     try {
       const { data: refreshTasks } = await supabase
