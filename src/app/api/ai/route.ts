@@ -498,7 +498,7 @@ ${recentConversation.length > 0 ? `RECENT CONVERSATION:\n${recentConversation.ma
     return NextResponse.json({
       response: text,
       contextUsed: {
-        focusedProject: context.focused_project?.name || null,
+        focusedProject: focusedProject?.name || null,
         usedSessionSummary: Boolean(sessionSummary),
         usedContextNote: Boolean(contextNote),
         historyCount: recentConversation.length,
