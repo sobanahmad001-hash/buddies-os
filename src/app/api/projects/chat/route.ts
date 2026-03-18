@@ -383,13 +383,14 @@ export async function POST(req: NextRequest) {
 
     // Mark previous exchange as implicitly confirmed (user continued the conversation)
     if (activeSessionId) {
-      supabase.from("training_logs")
-        .update({ was_confirmed: true })
-        .eq("context_snapshot->>'session_id'", activeSessionId)
-        .eq("was_confirmed", false)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .catch(() => {});
+      (async () => {
+        await supabase.from("training_logs")
+          .update({ was_confirmed: true })
+          .eq("context_snapshot->>'session_id'", activeSessionId)
+          .eq("was_confirmed", false)
+          .order("created_at", { ascending: false })
+          .limit(1);
+      })().catch(() => {});
     }
 
     const quickIntent = parseActionIntent(effectiveMessage, projectId);
