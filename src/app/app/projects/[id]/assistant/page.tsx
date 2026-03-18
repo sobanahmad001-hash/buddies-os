@@ -41,7 +41,7 @@ function extractActionBlock(content: string): { action: BuddiesAction | null; cl
 }
 
 // ── Action Block Component ────────────────────────────────────────────────────
-function ActionBlock({ action, projectId, onExecuted }: { action: BuddiesAction; projectId: string; onExecuted?: (result: ActionExecutionResponse) => void }) {
+function ActionBlock({ action, projectId, sessionId, onExecuted }: { action: BuddiesAction; projectId: string; sessionId?: string | null; onExecuted?: (result: ActionExecutionResponse) => void }) {
   const [executing, setExecuting] = useState(false);
   const [executed, setExecuted] = useState(false);
   const [declined, setDeclined] = useState(false);
@@ -57,7 +57,7 @@ function ActionBlock({ action, projectId, onExecuted }: { action: BuddiesAction;
       const res = await fetch('/api/projects/action', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(action),
+        body: JSON.stringify({ action, sessionId: sessionId ?? null }),
       });
       
       const data: ActionExecutionResponse = await res.json();
@@ -696,6 +696,7 @@ export default function ProjectAssistantPage() {
                             <ActionBlock
                               action={action}
                               projectId={projectId}
+                              sessionId={activeSession?.id ?? null}
                               onExecuted={async () => {
                                 const q = activeSession?.id ? `&sessionId=${activeSession.id}` : '';
                                 const historyRes = await fetch(`/api/projects/chat?projectId=${projectId}${q}`);

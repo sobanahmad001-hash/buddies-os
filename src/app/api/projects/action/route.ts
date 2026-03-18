@@ -18,6 +18,18 @@ interface ActionRequest {
   params: Record<string, any>;
 }
 
+function extractActionBlock(content: string): ActionRequest | null {
+  const match = content.match(/\[BUDDIES_ACTION\]\s*([\s\S]*?)\s*\[\/BUDDIES_ACTION\]/);
+  if (!match) return null;
+  try {
+    const parsed = JSON.parse(match[1]);
+    if (!parsed?.type || !parsed?.params) return null;
+    return parsed as ActionRequest;
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const cookieStore = await cookies();
@@ -43,7 +55,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    const action: ActionRequest = await req.json();
+    const payload = await req.json();
+    const action: ActionRequest = payload?.action?.type ? payload.action : payload;
+    const sessionId = typeof payload?.sessionId === "string" ? payload.sessionId : null;
+
     if (!action?.type || !action?.params) {
       return NextResponse.json(
         { error: "Missing action type or params" },
@@ -65,19 +80,40 @@ export async function POST(req: NextRequest) {
         Object.entries(action.params || {}).filter(([k]) => k !== "_fingerprint")
       ));
 
-    const { data: recentMessages } = await supabase
+    let recentQuery = supabase
       .from("project_chat_messages")
       .select("content")
       .eq("project_id", projectId)
       .eq("role", "assistant")
       .order("created_at", { ascending: false })
-      .limit(20);
+      .limit(30);
 
-    const fingerprintCount = (recentMessages ?? []).filter((m: any) =>
-      String(m.content ?? "").includes(String(fingerprint))
-    ).length;
+    if (sessionId) {
+      recentQuery = recentQuery.eq("session_id", sessionId);
+    }
 
-    if (fingerprintCount === 0) {
+    const { data: recentMessages } = await recentQuery;
+
+    const matchedProposal = (recentMessages ?? []).some((m: any) => {
+      const content = String(m.content ?? "");
+      if (!content.includes("[BUDDIES_ACTION]")) return false;
+
+      const block = extractActionBlock(content);
+      if (!block) return false;
+
+      const blockFingerprint =
+        block.params?._fingerprint ||
+        createActionFingerprint(
+          block.type,
+          Object.fromEntries(
+            Object.entries(block.params || {}).filter(([k]) => k !== "_fingerprint")
+          )
+        );
+
+      return String(blockFingerprint) === String(fingerprint);
+    });
+
+    if (!matchedProposal) {
       return NextResponse.json(
         {
           ok: false,
