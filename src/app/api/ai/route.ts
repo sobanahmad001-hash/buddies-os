@@ -517,3 +517,37 @@ ${recentConversation.length > 0 ? `RECENT CONVERSATION:\n${recentConversation.ma
   }
 }
 
+// ── Record when user edits AI output (training signal) ─────────────────────
+export async function PATCH(request: NextRequest) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const { original, edited, context } = await request.json();
+    if (!original || !edited) return NextResponse.json({ error: 'original and edited required' }, { status: 400 });
+
+    await supabase.from('training_logs').insert({
+      user_id: user.id,
+      raw_input: original,
+      parsed_output: { original },
+      was_confirmed: true,
+      final_output: { edited },
+      was_edited: true,
+      source: 'claude',
+      model_version: context?.model ?? 'unknown',
+      intent_detected: context?.intent ?? 'edit',
+      confidence_score: null,
+      correction_delta: {
+        original_length: original.length,
+        edited_length: edited.length,
+        context: context ?? {},
+      },
+    });
+
+    return NextResponse.json({ logged: true });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
+

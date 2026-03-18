@@ -82,18 +82,32 @@ type ActivityPatterns = {
   window_days: number;
   active_projects: string[];
   touched_projects: string[];
-  stats: {
-    updates: number;
-    blockers: number;
-    tasks_changed: number;
-    decisions: number;
-  };
+  stats: { updates: number; blockers: number; tasks_changed: number; decisions: number; };
   execution_pace: string;
   blocker_pressure: string;
   decision_tempo: string;
   strongest_focus: string | null;
   suggested_next_move: string;
   summary: string;
+  behavior?: {
+    log_count_30d: number;
+    avg_sleep_7d: number | null;
+    avg_stress_7d: number | null;
+    avg_cognitive_7d: number | null;
+    avg_cognitive_30d: number | null;
+    correlations: {
+      sleep_vs_cognitive: number | null;
+      stress_vs_cognitive: number | null;
+    };
+    decision_outcomes: {
+      overall_success_rate: number | null;
+      success_rate_high_sleep: number | null;
+      success_rate_low_sleep: number | null;
+      success_rate_high_cog: number | null;
+      success_rate_low_cog: number | null;
+    };
+    pattern_insights: string[];
+  };
 };
 
 function timeAgo(d: string) {
@@ -580,6 +594,91 @@ export default function DashboardPage() {
                   <p className="text-[12px] text-[#737373]">Pattern summary unavailable right now.</p>
                 )}
               </div>
+
+              {/* Cognitive Pattern Card */}
+              {activityPatterns?.behavior && (
+                <div className="bg-white border border-[#E5E2DE] rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Brain size={13} className="text-[#E8521A]" />
+                    <h2 className="text-[12px] font-semibold text-[#1A1A1A] uppercase tracking-wide">Cognitive Patterns</h2>
+                    <span className="text-[10px] text-[#737373] ml-auto">30-day analysis</span>
+                  </div>
+                  {/* Averages strip */}
+                  <div className="grid grid-cols-3 gap-2 mb-4">
+                    {[
+                      { label: "Avg Sleep", value: activityPatterns.behavior.avg_sleep_7d, unit: "h", good: 7 },
+                      { label: "Avg Stress", value: activityPatterns.behavior.avg_stress_7d, unit: "/10", good: null },
+                      { label: "Cognitive", value: activityPatterns.behavior.avg_cognitive_7d, unit: "", good: 70 },
+                    ].map(({ label, value, unit, good }) => (
+                      <div key={label} className="bg-[#FAF9F7] rounded-lg p-2 text-center">
+                        <p className="text-[10px] text-[#737373] mb-0.5">{label}</p>
+                        <p className={`text-[15px] font-bold ${
+                          value == null ? "text-[#B0ADA9]" :
+                          good === null ? (value >= 6 ? "text-[#EF4444]" : value >= 4 ? "text-[#EAB308]" : "text-[#10B981]") :
+                          value >= good ? "text-[#10B981]" : "text-[#EAB308]"
+                        }`}>
+                          {value != null ? `${value}${unit}` : "—"}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Correlations */}
+                  <div className="space-y-2 mb-3">
+                    {[
+                      { label: "Sleep → Cognitive", value: activityPatterns.behavior.correlations.sleep_vs_cognitive },
+                      { label: "Stress → Cognitive", value: activityPatterns.behavior.correlations.stress_vs_cognitive },
+                    ].map(({ label, value }) => (
+                      value != null && (
+                        <div key={label} className="flex items-center justify-between">
+                          <span className="text-[11px] text-[#737373]">{label}</span>
+                          <div className="flex items-center gap-2">
+                            <div className="w-20 h-1.5 bg-[#F0EDE9] rounded-full overflow-hidden">
+                              <div className="h-full rounded-full transition-all"
+                                style={{
+                                  width: `${Math.abs(value) * 100}%`,
+                                  backgroundColor: Math.abs(value) > 0.5 ? "#E8521A" : Math.abs(value) > 0.3 ? "#EAB308" : "#B0ADA9",
+                                }} />
+                            </div>
+                            <span className={`text-[11px] font-semibold w-10 text-right ${Math.abs(value) > 0.5 ? "text-[#E8521A]" : "text-[#737373]"}`}>
+                              {value > 0 ? "+" : ""}{value}
+                            </span>
+                          </div>
+                        </div>
+                      )
+                    ))}
+                  </div>
+                  {/* Decision outcomes */}
+                  {activityPatterns.behavior.decision_outcomes.success_rate_high_sleep != null && (
+                    <div className="bg-[#F7F5F2] rounded-lg p-3 mb-3">
+                      <p className="text-[10px] font-semibold text-[#737373] uppercase tracking-wide mb-2">Decision Success Rate</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="text-center">
+                          <p className="text-[14px] font-bold text-[#10B981]">{activityPatterns.behavior.decision_outcomes.success_rate_high_sleep}%</p>
+                          <p className="text-[9px] text-[#737373]">7h+ sleep</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-[14px] font-bold text-[#EAB308]">{activityPatterns.behavior.decision_outcomes.success_rate_low_sleep ?? "—"}%</p>
+                          <p className="text-[9px] text-[#737373]">&lt;7h sleep</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {/* Pattern insights */}
+                  {activityPatterns.behavior.pattern_insights.length > 0 && (
+                    <div className="space-y-1.5">
+                      {activityPatterns.behavior.pattern_insights.map((insight, i) => (
+                        <div key={i} className="flex items-start gap-2 bg-[#FFF8F5] border border-[#E8521A20] rounded-lg p-2">
+                          <span className="text-[10px] shrink-0 mt-0.5">💡</span>
+                          <p className="text-[11px] text-[#404040] leading-snug">{insight}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {activityPatterns.behavior.log_count_30d < 5 && (
+                    <p className="text-[11px] text-[#B0ADA9] mt-2">Log daily behavior to unlock pattern correlations.</p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

@@ -541,6 +541,27 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // ── Training log: record every confirmed action execution ──────────────────
+    try {
+      await supabase.from("training_logs").insert({
+        user_id: user.id,
+        raw_input: JSON.stringify(action),
+        parsed_output: action,
+        was_confirmed: true,
+        final_output: { type: action.type, params: action.params, result },
+        was_edited: false,
+        source: "claude",
+        model_version: "project-assistant",
+        intent_detected: action.type,
+        confidence_score: 1.0,
+        context_snapshot: {
+          project_id: action.params?.project_id ?? null,
+          session_id: sessionId ?? null,
+          executed_at: new Date().toISOString(),
+        },
+      });
+    } catch { /* non-blocking */ }
+
     return NextResponse.json({
       ok: true,
       status: "executed",
