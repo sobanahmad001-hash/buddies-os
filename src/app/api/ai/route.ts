@@ -13,6 +13,7 @@ const MODEL_COSTS = {
 } as const;
 
 type MessageType = 'chat' | 'analysis' | 'decision';
+const SUMMARY_FIRST_CONTEXT_ENABLED = process.env.MAIN_AI_SUMMARY_FIRST !== 'false';
 
 function calculateCost(model: string, inputTokens: number, outputTokens: number): number {
   const costs =
@@ -70,15 +71,17 @@ function normalizeHistory(history: any[]) {
 
 function detectProjectFocus(
   message: string,
-  sessionSummary: string,
-  contextNote: string,
   projects: any[]
 ) {
-  const haystack = `${contextNote}\n${sessionSummary}\n${message}`.toLowerCase();
+  const haystack = ` ${message.toLowerCase()} `;
 
   return (
     projects.find(
-      (p) => p?.name && haystack.includes(String(p.name).toLowerCase())
+      (p) => {
+        if (!p?.name) return false;
+        const projectName = String(p.name).toLowerCase().trim();
+        return projectName.length > 0 && haystack.includes(` ${projectName} `);
+      }
     ) || null
   );
 }
@@ -89,7 +92,8 @@ function compressContext(
   recentConversation: Array<{ role: string; content: string }>,
   sessionSummary: string,
   contextNote: string,
-  focusedProject: any | null
+  focusedProject: any | null,
+  summaryFirstMode: boolean
 ) {
   const activeProjects =
     raw.projects?.filter((p: any) => p.status === 'active') || [];
@@ -122,6 +126,28 @@ function compressContext(
     })
     .slice(0, 8);
 
+  const summaryOverview = {
+    active_project_count: activeProjects.length,
+    open_blocker_count: openBlockers.length,
+    in_progress_task_count: (raw.tasks || []).filter((t: any) => t.status === 'in_progress').length,
+    high_priority_task_count: (raw.tasks || []).filter((t: any) => t.priority && t.priority >= 4).length,
+    recent_update_count: (raw.updates || []).length,
+    recent_decision_count: (raw.decisions || []).length,
+    project_health_snapshot: activeProjects.slice(0, 8).map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      status: p.status,
+      health: p.health || 'unknown',
+      current_focus: p.current_focus || null,
+    })),
+  };
+
+  const projectDirectory = activeProjects.slice(0, 20).map((p: any) => ({
+    id: p.id,
+    name: p.name,
+    status: p.status,
+  }));
+
   const base = {
     focused_project: focusedProject
       ? {
@@ -135,15 +161,32 @@ function compressContext(
       : null,
     session_summary: sessionSummary || '',
     context_note: contextNote || '',
-    active_projects: activeProjects.slice(0, 10),
-    current_tasks: relevantTasks,
-    recent_updates: relevantUpdates.map((u: any) => ({
-      ...u,
-      project_name: u.projects?.name || u.project_name || 'unknown',
-    })),
-    recent_decisions: relevantDecisions,
-    open_blockers: openBlockers,
-    active_rules: activeRules,
+    active_projects: focusedProject ? activeProjects.slice(0, 10) : [],
+    current_tasks:
+      summaryFirstMode && !focusedProject
+        ? []
+        : relevantTasks,
+    recent_updates:
+      summaryFirstMode && !focusedProject
+        ? []
+        : relevantUpdates.map((u: any) => ({
+            ...u,
+            project_name: u.projects?.name || u.project_name || 'unknown',
+          })),
+    recent_decisions:
+      summaryFirstMode && !focusedProject
+        ? []
+        : relevantDecisions,
+    open_blockers:
+      summaryFirstMode && !focusedProject
+        ? []
+        : openBlockers,
+    active_rules:
+      summaryFirstMode && !focusedProject
+        ? []
+        : activeRules,
+    overview: summaryOverview,
+    project_directory: projectDirectory,
     mood_trend: (raw.behavior || []).slice(0, 3),
     conversation: recentConversation,
     integrations: (raw.integrations || []).slice(0, 10),
@@ -171,6 +214,25 @@ function buildSystemPrompt(context: any): string {
 - health: ${context.focused_project.health || 'unknown'}
 - current_focus: ${context.focused_project.current_focus || 'n/a'}
 - next_milestone: ${context.focused_project.next_milestone || 'n/a'}`
+    );
+  }
+
+  if (context.overview) {
+    sections.push(
+      `CROSS-PROJECT OVERVIEW:
+- active_projects: ${context.overview.active_project_count}
+- open_blockers: ${context.overview.open_blocker_count}
+- in_progress_tasks: ${context.overview.in_progress_task_count}
+- high_priority_tasks: ${context.overview.high_priority_task_count}
+- recent_updates: ${context.overview.recent_update_count}
+- recent_decisions: ${context.overview.recent_decision_count}`
+    );
+  }
+
+  if (context.project_directory?.length) {
+    sections.push(
+      `PROJECT DIRECTORY (use this to disambiguate target project when needed):
+${context.project_directory.map((p: any) => `- ${p.name} [${p.status || 'unknown'}]`).join('\n')}`
     );
   }
 
@@ -263,6 +325,8 @@ OPERATING RULES:
 - Prefer concrete, operational answers over generic advice.
 - Do not answer like a fresh chatbot unless context is truly missing.
 - When context is partial, say what you know and continue from it.
+- For project write actions from Main AI (e.g., add task/update), if no project is explicitly mentioned, ask a single short follow-up question to select the target project.
+- Only use deep project context when the user explicitly names a project.
 
 ${sections.join('\n\n')}`;
 }
@@ -380,8 +444,6 @@ export async function POST(request: NextRequest) {
     const focusedProject = contextEnabled
       ? detectProjectFocus(
           effectiveMessage,
-          sessionSummary,
-          contextNote,
           rawContext.projects
         )
       : null;
@@ -393,7 +455,8 @@ export async function POST(request: NextRequest) {
           recentConversation,
           sessionSummary,
           contextNote,
-          focusedProject
+          focusedProject,
+          SUMMARY_FIRST_CONTEXT_ENABLED
         )
       : {
           focused_project: null,
