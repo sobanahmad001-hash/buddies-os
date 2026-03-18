@@ -414,9 +414,12 @@ export async function POST(req: NextRequest) {
       supabase.from("project_decisions").select("title, context, verdict, created_at").eq("project_id", projectId).order("created_at", { ascending: false }).limit(20),
       supabase.from("project_rules").select("rule_text, severity, active").eq("project_id", projectId).eq("active", true),
       supabase.from("project_research").select("topic, notes, created_at").eq("project_id", projectId).order("created_at", { ascending: false }).limit(10),
+      // Load chat history: session-specific if available, otherwise recent project messages.
+      // Session mode: load up to 50 messages from the same session (preserves full context)
+      // Legacy mode: load only last 20 messages from entire project (prevents old cross-session noise)
       (useSessions && activeSessionId
-        ? supabase.from("project_chat_messages").select("role, content").eq("project_id", projectId).eq("session_id", activeSessionId).order("created_at", { ascending: true }).limit(40)
-        : supabase.from("project_chat_messages").select("role, content").eq("project_id", projectId).order("created_at", { ascending: true }).limit(40)),
+        ? supabase.from("project_chat_messages").select("role, content").eq("project_id", projectId).eq("session_id", activeSessionId).order("created_at", { ascending: true }).limit(50)
+        : supabase.from("project_chat_messages").select("role, content").eq("project_id", projectId).order("created_at", { ascending: true }).limit(20)),
       supabase.from("integrations").select("type, name, config, status").eq("user_id", user.id).eq("status", "active"),
     ]);
 
