@@ -10,7 +10,6 @@ import {
   Bot,
   FlaskConical,
   FileText,
-  Code2,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 
@@ -22,7 +21,6 @@ const TABS = [
   { label: 'Work',      suffix: '/tasks',      icon: CheckSquare },
   { label: 'Research',  suffix: '/research',   icon: FlaskConical},
   { label: 'Documents', suffix: '/documents',  icon: FileText    },
-  { label: 'Code',      suffix: '/code',       icon: Code2       },
 ];
 
 export default function ProjectLayout({ children }: { children: React.ReactNode }) {
