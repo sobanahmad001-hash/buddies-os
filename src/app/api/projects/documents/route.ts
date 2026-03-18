@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-  const { projectId, title, content } = await req.json();
+  const { projectId, title, content, doc_type, source } = await req.json();
   if (!projectId || !title || !content) return NextResponse.json({ error: "projectId, title, content required" }, { status: 400 });
   if (!await verifyOwner(supabase, projectId, user.id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -48,6 +48,8 @@ export async function POST(req: NextRequest) {
     user_id: user.id,
     title,
     content,
+    doc_type: doc_type ?? 'note',
+    source: source ?? 'user',
   }).select().single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

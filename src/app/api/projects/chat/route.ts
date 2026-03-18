@@ -460,6 +460,7 @@ export async function POST(req: NextRequest) {
       { data: projectMemoryRow },
       { data: rankedMemoryItems },
       { data: projectDocs },
+      { data: projectFiles },
     ] = await Promise.all([
       supabase.from("project_tasks").select("title, status, priority, due_date").eq("project_id", projectId).neq("status", "cancelled"),
       supabase.from("project_updates").select("content, update_type, next_actions, created_at").eq("project_id", projectId).order("created_at", { ascending: false }).limit(20),
@@ -484,6 +485,13 @@ export async function POST(req: NextRequest) {
         .order("is_living", { ascending: false })
         .order("created_at", { ascending: false })
         .limit(8),
+      // ── Uploaded files context ──
+      supabase.from("project_files")
+        .select("filename, file_type, summary, extracted_text, created_at")
+        .eq("project_id", projectId)
+        .not("summary", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(3),
     ]);
 
     // ── Document context ──────────────────────────────────────────────────────────
@@ -496,6 +504,12 @@ export async function POST(req: NextRequest) {
     ].filter(Boolean).join("\n\n");
 
     const taskLines = (tasks ?? []).map((t: any) => `- [${t.status}] ${t.title}${t.priority === 1 ? " (urgent)" : ""}${t.due_date ? ` due ${t.due_date}` : ""}`).join("\n");
+
+    const filesBlock = (projectFiles ?? []).length > 0
+      ? `\nUPLOADED FILES (available as project context):\n${(projectFiles ?? []).map((f: any) =>
+        `- ${f.filename} (${f.file_type}): ${f.summary ?? ""}${f.extracted_text ? `\n  Content: ${f.extracted_text.slice(0, 400)}…` : ""}`
+      ).join("\n")}`
+      : "";
     const updateLines = (updates ?? []).slice(0, 10).map((u: any) => `[${u.update_type}] ${u.content}`).join("\n");
     const decisionLines = (projectDecisions ?? []).map((d: any) => `- ${d.title}: ${d.verdict ?? "pending"}`).join("\n");
     const ruleLines = (projectRules ?? []).map((r: any) => `- [S${r.severity}] ${r.rule_text}`).join("\n");
@@ -680,6 +694,7 @@ When proposing project actions, always include project_id: "${projectId}" in par
 ${persistedMemoryBlock}
 ${compressionNote}
 ${rankedMemoryBlock}${docsBlock ? `\n${docsBlock}` : ""}
+${filesBlock}
 ${taskLines ? `\nTASKS:\n${taskLines}` : "No tasks yet."}
 ${updateLines ? `\nRECENT UPDATES:\n${updateLines}` : ""}
 ${decisionLines ? `\nDECISIONS:\n${decisionLines}` : ""}
