@@ -27,25 +27,25 @@ function renderMarkdown(text: string): React.ReactNode[] {
       nodes.push(<CodeBlock key={k()} code={codeLines.join("\n")} lang={lang} />);
       i++; continue;
     }
-    if (line.startsWith("# "))  { nodes.push(<h1 key={k()} className="text-xl font-bold text-[#1A1A1A] mt-6 mb-3 first:mt-0">{inlineRender(line.slice(2))}</h1>); i++; continue; }
-    if (line.startsWith("## ")) { nodes.push(<h2 key={k()} className="text-lg font-bold text-[#1A1A1A] mt-5 mb-2 first:mt-0">{inlineRender(line.slice(3))}</h2>); i++; continue; }
-    if (line.startsWith("### ")){ nodes.push(<h3 key={k()} className="text-base font-semibold text-[#1A1A1A] mt-4 mb-1.5 first:mt-0">{inlineRender(line.slice(4))}</h3>); i++; continue; }
-    if (line.match(/^[-*]{3,}$/)) { nodes.push(<hr key={k()} className="border-[#E5E2DE] my-4" />); i++; continue; }
+    if (line.startsWith("# "))  { nodes.push(<h1 key={k()} className="text-xl font-bold text-[#C8C5C0] mt-6 mb-3 first:mt-0">{inlineRender(line.slice(2))}</h1>); i++; continue; }
+    if (line.startsWith("## ")) { nodes.push(<h2 key={k()} className="text-lg font-bold text-[#C8C5C0] mt-5 mb-2 first:mt-0">{inlineRender(line.slice(3))}</h2>); i++; continue; }
+    if (line.startsWith("### ")){ nodes.push(<h3 key={k()} className="text-base font-semibold text-[#C8C5C0] mt-4 mb-1.5 first:mt-0">{inlineRender(line.slice(4))}</h3>); i++; continue; }
+    if (line.match(/^[-*]{3,}$/)) { nodes.push(<hr key={k()} className="border-[#2D2D2D] my-4" />); i++; continue; }
     if (line.startsWith("> ")) { nodes.push(<blockquote key={k()} className="border-l-4 border-[#B5622A] pl-4 my-3 text-[#737373] italic">{inlineRender(line.slice(2))}</blockquote>); i++; continue; }
     if (line.match(/^[-*+] /)) {
       const items: string[] = [];
       while (i < lines.length && lines[i].match(/^[-*+] /)) { items.push(lines[i].slice(2)); i++; }
-      nodes.push(<ul key={k()} className="list-none my-3 space-y-2 pl-1">{items.map((item, j) => (<li key={j} className="flex items-start gap-2.5 text-[15px] text-[#1A1A1A]"><span className="mt-2 w-1.5 h-1.5 rounded-full bg-[#B5622A] shrink-0" /><span className="leading-relaxed">{inlineRender(item)}</span></li>))}</ul>);
+      nodes.push(<ul key={k()} className="list-none my-3 space-y-2 pl-1">{items.map((item, j) => (<li key={j} className="flex items-start gap-2.5 text-[15px] text-[#C8C5C0]"><span className="mt-2 w-1.5 h-1.5 rounded-full bg-[#B5622A] shrink-0" /><span className="leading-relaxed">{inlineRender(item)}</span></li>))}</ul>);
       continue;
     }
     if (line.match(/^\d+\. /)) {
       const items: string[] = [];
       while (i < lines.length && lines[i].match(/^\d+\. /)) { items.push(lines[i].replace(/^\d+\. /, "")); i++; }
-      nodes.push(<ol key={k()} className="list-none my-3 space-y-2 pl-1">{items.map((item, j) => (<li key={j} className="flex items-start gap-2.5 text-[15px] text-[#1A1A1A]"><span className="shrink-0 w-5 h-5 rounded-full bg-[#F0EDE9] text-[#B5622A] text-[11px] font-bold flex items-center justify-center">{j + 1}</span><span className="leading-relaxed">{inlineRender(item)}</span></li>))}</ol>);
+      nodes.push(<ol key={k()} className="list-none my-3 space-y-2 pl-1">{items.map((item, j) => (<li key={j} className="flex items-start gap-2.5 text-[15px] text-[#C8C5C0]"><span className="shrink-0 w-5 h-5 rounded-full bg-[#1E1E1E] text-[#B5622A] text-[11px] font-bold flex items-center justify-center">{j + 1}</span><span className="leading-relaxed">{inlineRender(item)}</span></li>))}</ol>);
       continue;
     }
     if (line.trim() === "") { nodes.push(<div key={k()} className="h-3" />); i++; continue; }
-    nodes.push(<p key={k()} className="text-[15px] text-[#1A1A1A] leading-relaxed">{inlineRender(line)}</p>);
+    nodes.push(<p key={k()} className="text-[15px] text-[#C8C5C0] leading-relaxed">{inlineRender(line)}</p>);
     i++;
   }
   return nodes;
@@ -54,9 +54,9 @@ function renderMarkdown(text: string): React.ReactNode[] {
 function inlineRender(text: string): React.ReactNode {
   const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|\[.+?\]\(.+?\))/g);
   return parts.map((part, i) => {
-    if (part.startsWith("**") && part.endsWith("**")) return <strong key={i} className="font-semibold text-[#1A1A1A]">{part.slice(2,-2)}</strong>;
+    if (part.startsWith("**") && part.endsWith("**")) return <strong key={i} className="font-semibold text-[#C8C5C0]">{part.slice(2,-2)}</strong>;
     if (part.startsWith("*") && part.endsWith("*")) return <em key={i} className="italic">{part.slice(1,-1)}</em>;
-    if (part.startsWith("`") && part.endsWith("`")) return <code key={i} className="font-mono text-[13px] bg-[#F0EDE9] text-[#B5622A] px-1.5 py-0.5 rounded">{part.slice(1,-1)}</code>;
+    if (part.startsWith("`") && part.endsWith("`")) return <code key={i} className="font-mono text-[13px] bg-[#1E1E1E] text-[#B5622A] px-1.5 py-0.5 rounded">{part.slice(1,-1)}</code>;
     const lm = part.match(/\[(.+?)\]\((.+?)\)/);
     if (lm) return <a key={i} href={lm[2]} target="_blank" rel="noopener noreferrer" className="text-[#B5622A] underline hover:text-[#9A4E20]">{lm[1]}</a>;
     return part;
@@ -70,7 +70,7 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
       <div className="flex items-center justify-between px-4 py-2.5 bg-[#1A1A1A]">
         <span className="text-[11px] text-[#737373] font-mono uppercase tracking-wider">{lang || "code"}</span>
         <button onClick={() => { navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-          className="flex items-center gap-1.5 text-[11px] text-[#B0ADA9] hover:text-white transition-colors">
+          className="flex items-center gap-1.5 text-[11px] text-[#525252] hover:text-white transition-colors">
           {copied ? <Check size={12} /> : <Copy size={12} />}{copied ? "Copied" : "Copy"}
         </button>
       </div>
@@ -132,6 +132,9 @@ export default function AIPage() {
   const [selectedModel, setSelectedModel] = useState("gpt-4.1");
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [sessionSummary, setSessionSummary] = useState("");
+  const [projects, setProjects] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
+  const [showProjectPicker, setShowProjectPicker] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -140,6 +143,15 @@ export default function AIPage() {
 
   useEffect(() => { loadSessions(); }, []);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
+
+  useEffect(() => {
+    supabase
+      .from("projects")
+      .select("id, name, status")
+      .eq("status", "active")
+      .order("updated_at", { ascending: false })
+      .then(({ data }) => setProjects(data ?? []));
+  }, []);
 
   useEffect(() => {
     const p = localStorage.getItem("buddies-ai-provider");
@@ -304,8 +316,7 @@ export default function AIPage() {
           images: imageUrls.length > 0 ? imageUrls : undefined,
           sessionSummary: sessionSummary || undefined,
           provider: selectedProvider,
-          model: selectedModel,
-        }),
+          model: selectedModel,          selectedProjectIds: selectedProjectIds.length > 0 ? selectedProjectIds : undefined,        }),
         signal: controller.signal,
       });
 
@@ -365,7 +376,7 @@ export default function AIPage() {
   const messageGroups = groupMessages(messages);
 
   return (
-    <div className="flex flex-1 overflow-hidden bg-[#FAFAF8]">
+    <div className="flex flex-1 overflow-hidden bg-[#0D0D0D]">
 
       {/* Mobile overlay */}
       {sidebarOpen && (
@@ -393,7 +404,7 @@ export default function AIPage() {
                 {items.map(s => (
                   <div key={s.id} onClick={() => openSession(s)}
                     className={`group relative mx-2 mb-1 px-3 py-2.5 rounded-lg cursor-pointer transition-all
-                      ${activeSession?.id === s.id ? "bg-[#1E1E1E] text-white" : "text-[#737373] hover:bg-[#1A1A1A] hover:text-[#B0ADA9]"}`}>
+                      ${activeSession?.id === s.id ? "bg-[#1E1E1E] text-white" : "text-[#737373] hover:bg-[#1A1A1A] hover:text-[#525252]"}`}>
                     <div className="flex items-start gap-2.5">
                       <MessageSquare size={13} className="shrink-0 mt-0.5 opacity-60" />
                       <span className="text-[12px] leading-snug line-clamp-2 flex-1">{s.title}</span>
@@ -415,16 +426,16 @@ export default function AIPage() {
       <div className="flex flex-col flex-1 overflow-hidden">
 
         {/* Header — clean */}
-        <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-[#E5E2DE] shrink-0">
+        <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-[#2D2D2D] shrink-0">
           <div className="flex items-center gap-3">
             {/* Hamburger */}
             <button onClick={() => setSidebarOpen(v => !v)}
-              className="flex flex-col justify-center items-center w-8 h-8 gap-1.5 text-[#737373] hover:text-[#1A1A1A] rounded-lg hover:bg-[#F0EDE9] transition-colors">
+              className="flex flex-col justify-center items-center w-8 h-8 gap-1.5 text-[#737373] hover:text-[#C8C5C0] rounded-lg hover:bg-[#1E1E1E] transition-colors">
               <span className="w-4 h-0.5 bg-current rounded-full" />
               <span className="w-4 h-0.5 bg-current rounded-full" />
               <span className="w-4 h-0.5 bg-current rounded-full" />
             </button>
-            <span className="text-[15px] font-semibold text-[#1A1A1A]">
+            <span className="text-[15px] font-semibold text-[#C8C5C0]">
               {activeSession?.title ?? "Buddies AI"}
             </span>
           </div>
@@ -441,8 +452,8 @@ export default function AIPage() {
             </button>
 
             {modelOpen && (
-              <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-[#E5E2DE] rounded-xl shadow-lg overflow-hidden z-50">
-                <div className="px-4 py-2.5 border-b border-[#E5E2DE] bg-[#FAF9F7]">
+              <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-[#2D2D2D] rounded-xl shadow-lg overflow-hidden z-50">
+                <div className="px-4 py-2.5 border-b border-[#2D2D2D] bg-[#111111]">
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-[#737373] mb-2">Provider</p>
                   <div className="flex gap-2">
                     {[{ id: "anthropic", label: "Claude" }, { id: "openai", label: "OpenAI" }, { id: "xai", label: "Grok" }].map(p => (
@@ -453,7 +464,7 @@ export default function AIPage() {
                         setSelectedModel(next);
                         localStorage.setItem("buddies-ai-model", next);
                       }} className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors
-                        ${selectedProvider === p.id ? "bg-[#0F0F0F] text-white" : "bg-[#F0EDE9] text-[#404040] hover:bg-[#E5E2DE]"}`}>
+                        ${selectedProvider === p.id ? "bg-[#0F0F0F] text-white" : "bg-[#1E1E1E] text-[#A8A5A0] hover:bg-[#E5E2DE]"}`}>
                         {p.label}
                       </button>
                     ))}
@@ -472,7 +483,7 @@ export default function AIPage() {
                   ).map(m => (
                     <button key={m.value} onClick={() => { setSelectedModel(m.value); localStorage.setItem("buddies-ai-model", m.value); setModelOpen(false); }}
                       className={`w-full text-left px-4 py-2.5 text-[13px] transition-colors
-                        ${selectedModel === m.value ? "bg-[#F0EDE9] text-[#B5622A] font-medium" : "text-[#1A1A1A] hover:bg-[#F7F5F2]"}`}>
+                        ${selectedModel === m.value ? "bg-[#1E1E1E] text-[#B5622A] font-medium" : "text-[#C8C5C0] hover:bg-[#111111]"}`}>
                       {m.label}
                     </button>
                   ))}
@@ -490,14 +501,14 @@ export default function AIPage() {
             {messages.length === 0 && (
               <div className="flex flex-col items-center text-center pt-16">
                 <div className="w-12 h-12 rounded-2xl bg-[#0F0F0F] flex items-center justify-center text-xl mb-5">🧠</div>
-                <h2 className="text-[22px] font-bold text-[#1A1A1A] mb-2">Buddies AI</h2>
+                <h2 className="text-[22px] font-bold text-[#C8C5C0] mb-2">Buddies AI</h2>
                 <p className="text-[14px] text-[#737373] mb-10 max-w-[420px] leading-relaxed">
                   Your personal AI. Knows your projects, tracks patterns, remembers context across sessions.
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-[600px]">
                   {SUGGESTIONS.map(s => (
                     <button key={s} onClick={() => send(s)}
-                      className="text-left text-[13px] text-[#737373] bg-white border border-[#E5E2DE] rounded-xl px-4 py-4 hover:border-[#B5622A] hover:text-[#1A1A1A] hover:shadow-sm transition-all">
+                      className="text-left text-[13px] text-[#737373] bg-white border border-[#2D2D2D] rounded-xl px-4 py-4 hover:border-[#B5622A] hover:text-[#C8C5C0] hover:shadow-sm transition-all">
                       {s}
                     </button>
                   ))}
@@ -521,25 +532,25 @@ export default function AIPage() {
                       return (
                         <div key={mIdx} onMouseEnter={() => setHoveredId(msgId)} onMouseLeave={() => setHoveredId(null)} className="group">
                           {isEditing ? (
-                            <div className="bg-white border border-[#E5E2DE] rounded-xl p-4">
+                            <div className="bg-white border border-[#2D2D2D] rounded-xl p-4">
                               <textarea value={editText} onChange={e => setEditText(e.target.value)}
-                                className="w-full bg-transparent text-[15px] text-[#1A1A1A] resize-none focus:outline-none leading-relaxed min-h-[80px]" />
+                                className="w-full bg-transparent text-[15px] text-[#C8C5C0] resize-none focus:outline-none leading-relaxed min-h-[80px]" />
                               <div className="flex gap-2 mt-3">
                                 <button onClick={() => saveEdit(globalIdx)} className="px-3 py-1.5 rounded-lg bg-[#B5622A] text-white text-[12px] font-medium hover:bg-[#9A4E20]">Save</button>
-                                <button onClick={cancelEdit} className="px-3 py-1.5 rounded-lg bg-[#F0EDE9] text-[#1A1A1A] text-[12px] font-medium hover:bg-[#E5E2DE]">Cancel</button>
+                                <button onClick={cancelEdit} className="px-3 py-1.5 rounded-lg bg-[#1E1E1E] text-[#C8C5C0] text-[12px] font-medium hover:bg-[#E5E2DE]">Cancel</button>
                               </div>
                             </div>
                           ) : (
                             <>
-                              <div className={`rounded-2xl px-5 py-4 ${group.role === "assistant" ? "bg-white border border-[#E5E2DE]" : "bg-[#F0EDE9]"}`}>
+                              <div className={`rounded-2xl px-5 py-4 ${group.role === "assistant" ? "bg-white border border-[#2D2D2D]" : "bg-[#1E1E1E]"}`}>
                                 {group.role === "user" ? (
                                   <div>
-                                    <p className="text-[15px] text-[#1A1A1A] leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                                    <p className="text-[15px] text-[#C8C5C0] leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                                     {msg.images && msg.images.length > 0 && (
                                       <div className="flex flex-wrap gap-2 mt-2">
                                         {msg.images.map((url, ii) => (
                                           // eslint-disable-next-line @next/next/no-img-element
-                                          <img key={ii} src={url} alt="attachment" className="max-w-[200px] max-h-[200px] rounded-lg object-cover border border-[#E5E2DE]" />
+                                          <img key={ii} src={url} alt="attachment" className="max-w-[200px] max-h-[200px] rounded-lg object-cover border border-[#2D2D2D]" />
                                         ))}
                                       </div>
                                     )}
@@ -558,21 +569,21 @@ export default function AIPage() {
                                 )}
                               </div>
                               <div className={`flex items-center gap-3 mt-2 transition-opacity ${hoveredId === msgId ? "opacity-100" : "opacity-0"}`}>
-                                {msg.ts && <span className="text-[11px] text-[#B0ADA9]">{new Date(msg.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>}
+                                {msg.ts && <span className="text-[11px] text-[#525252]">{new Date(msg.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>}
                                 <button onClick={() => copyMessage(msg.content, msgId)}
-                                  className="flex items-center gap-1 text-[11px] text-[#B0ADA9] hover:text-[#1A1A1A] transition-colors">
+                                  className="flex items-center gap-1 text-[11px] text-[#525252] hover:text-[#C8C5C0] transition-colors">
                                   {copiedId === msgId ? <Check size={12} /> : <Copy size={12} />}
                                   {copiedId === msgId ? "Copied" : "Copy"}
                                 </button>
                                 {group.role === "user" && (
                                   <button onClick={() => startEdit(msg, globalIdx)}
-                                    className="flex items-center gap-1 text-[11px] text-[#B0ADA9] hover:text-[#1A1A1A] transition-colors">
+                                    className="flex items-center gap-1 text-[11px] text-[#525252] hover:text-[#C8C5C0] transition-colors">
                                     <Edit2 size={12} /> Edit
                                   </button>
                                 )}
                                 {group.role === "assistant" && mIdx === group.messages.length - 1 && gIdx === messageGroups.length - 1 && (
                                   <button onClick={regenerate} disabled={loading}
-                                    className="flex items-center gap-1 text-[11px] text-[#B0ADA9] hover:text-[#1A1A1A] transition-colors disabled:opacity-40">
+                                    className="flex items-center gap-1 text-[11px] text-[#525252] hover:text-[#C8C5C0] transition-colors disabled:opacity-40">
                                     <RotateCcw size={12} /> Regenerate
                                   </button>
                                 )}
@@ -591,7 +602,7 @@ export default function AIPage() {
             {loading && (
               <div className="flex gap-4 items-start mb-8">
                 <div className="w-8 h-8 rounded-full bg-[#0F0F0F] flex items-center justify-center text-[15px] shrink-0">🤖</div>
-                <div className="bg-white border border-[#E5E2DE] rounded-2xl px-5 py-4">
+                <div className="bg-white border border-[#2D2D2D] rounded-2xl px-5 py-4">
                   <div className="flex gap-1.5 items-center h-6">
                     {[0,1,2].map(i => <div key={i} className="w-2 h-2 rounded-full bg-[#B0ADA9] animate-bounce" style={{ animationDelay: `${i*0.15}s` }} />)}
                   </div>
@@ -603,7 +614,7 @@ export default function AIPage() {
         </div>
 
         {/* Input */}
-        <div className="px-4 py-4 bg-white border-t border-[#E5E2DE] shrink-0" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
+        <div className="px-4 py-4 bg-white border-t border-[#2D2D2D] shrink-0" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
           <div className="max-w-[760px] mx-auto">
 
             {/* Large text warning */}
@@ -618,7 +629,7 @@ export default function AIPage() {
             {attachedFiles.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-2">
                 {attachedFiles.map((file, i) => (
-                  <div key={i} className="flex items-center gap-1.5 px-2 py-1 bg-[#F0EDE9] rounded-lg text-[12px] text-[#737373]">
+                  <div key={i} className="flex items-center gap-1.5 px-2 py-1 bg-[#1E1E1E] rounded-lg text-[12px] text-[#737373]">
                     {file.type.startsWith("image/") ? "🖼️" : file.name.endsWith(".zip") ? "📦" : "📄"}
                     {file.name.slice(0, 20)}{file.name.length > 20 ? "…" : ""}
                     <button onClick={() => setAttachedFiles(prev => prev.filter((_, j) => j !== i))} className="ml-0.5 hover:text-[#B5622A] transition-colors">✕</button>
@@ -626,8 +637,46 @@ export default function AIPage() {
                 ))}
               </div>
             )}
-
-            <div className="bg-[#F7F5F2] rounded-2xl px-4 py-3 border border-[#E5E2DE] focus-within:border-[#B5622A] transition-colors">
+            {/* Project context selector */}
+            <div className="mb-2 flex items-center gap-2 flex-wrap">
+              {selectedProjectIds.map(id => {
+                const p = projects.find(x => x.id === id);
+                if (!p) return null;
+                return (
+                  <div key={id} className="flex items-center gap-1 px-2.5 py-1 bg-[#B5622A15] border border-[#B5622A30] rounded-full text-[11px] font-medium text-[#B5622A]">
+                    <span>📁</span>{p.name}
+                    <button onClick={() => setSelectedProjectIds(prev => prev.filter(x => x !== id))} className="ml-0.5 hover:text-red-500 transition-colors">✕</button>
+                  </div>
+                );
+              })}
+              <div className="relative">
+                <button onClick={() => setShowProjectPicker(v => !v)}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-full border border-[#E5E2DE] text-[11px] text-[#737373] hover:border-[#B5622A] hover:text-[#1A1A1A] transition-colors bg-white">
+                  📁 {selectedProjectIds.length === 0 ? "Add project context" : `+${projects.length - selectedProjectIds.length} more`}
+                </button>
+                {showProjectPicker && (
+                  <div className="absolute bottom-full mb-1 left-0 w-[200px] bg-white border border-[#E5E2DE] rounded-xl shadow-lg z-50 overflow-hidden">
+                    <div className="p-2">
+                      <p className="text-[10px] font-bold text-[#737373] uppercase tracking-widest px-2 mb-1.5">Project context</p>
+                      <button onClick={() => { setSelectedProjectIds([]); setShowProjectPicker(false); }}
+                        className="w-full text-left px-2 py-1.5 text-[11px] text-[#737373] hover:bg-[#F7F5F2] rounded-lg transition-colors mb-1">
+                        ✕ Clear all (general chat)
+                      </button>
+                      {projects.map(p => (
+                        <button key={p.id} onClick={() => setSelectedProjectIds(prev => prev.includes(p.id) ? prev.filter(x => x !== p.id) : [...prev, p.id])}
+                          className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[#F7F5F2] transition-colors">
+                          <div className={`w-3.5 h-3.5 rounded border-2 flex items-center justify-center ${selectedProjectIds.includes(p.id) ? "bg-[#B5622A] border-[#B5622A]" : "border-[#E5E2DE]"}`}>
+                            {selectedProjectIds.includes(p.id) && <span className="text-white text-[8px] font-bold">✓</span>}
+                          </div>
+                          <span className="text-[11px] text-[#1A1A1A] truncate">{p.name}</span>
+                        </button>
+                      ))}
+                      <button onClick={() => setShowProjectPicker(false)} className="w-full mt-1 py-1 text-[11px] text-[#737373] border-t border-[#E5E2DE] transition-colors hover:text-[#1A1A1A]">Done</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>            <div className="bg-[#111111] rounded-2xl px-4 py-3 border border-[#2D2D2D] focus-within:border-[#B5622A] transition-colors">
               <div className="flex items-center gap-2 pb-2">
                 <VoiceInputButton onTranscript={t => { setInput(t); setTimeout(() => textareaRef.current?.focus(), 0); }} />
                 <FileUpload onFilesSelected={f => setAttachedFiles(prev => [...prev, ...f])} />
@@ -637,7 +686,7 @@ export default function AIPage() {
                 <textarea ref={textareaRef} value={input} onChange={autoResize} onKeyDown={handleKey}
                   placeholder="Ask anything, mention a project by name for deep context..."
                   rows={2}
-                  className="flex-1 bg-transparent text-[15px] text-[#1A1A1A] placeholder-[#B0ADA9] resize-none focus:outline-none leading-relaxed"
+                  className="flex-1 bg-transparent text-[15px] text-[#C8C5C0] placeholder-[#B0ADA9] resize-none focus:outline-none leading-relaxed"
                   style={{ maxHeight: "180px", minHeight: "52px" }} />
                 {input.length > 8000 && (
                   <span className={`text-[10px] font-mono shrink-0 self-end mb-1 ${input.length > MAX_CHARS ? "text-red-500" : "text-amber-500"}`}>
@@ -651,7 +700,7 @@ export default function AIPage() {
                   </button>
                 ) : (
                   <button onClick={() => send()} disabled={!input.trim() && attachedFiles.length === 0}
-                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all disabled:bg-[#E5E2DE] disabled:text-[#B0ADA9] bg-[#B5622A] text-white hover:bg-[#9A4E20]">
+                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all disabled:bg-[#E5E2DE] disabled:text-[#525252] bg-[#B5622A] text-white hover:bg-[#9A4E20]">
                     <Send size={15} />
                   </button>
                 )}
