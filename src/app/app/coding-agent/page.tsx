@@ -421,16 +421,28 @@ RULES:
       setMessages(prev => [...prev, assistantMsg]);
 
       // Save session
-      if (activeSessionId) {
-        fetch("/api/ai/sessions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sessionId: activeSessionId, messages: updatedMessages, agent_type: "coding_agent" }) }).catch(() => {});
-      } else {
-        const saveRes = await fetch("/api/ai/sessions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: userMsg.slice(0, 50), messages: updatedMessages, agent_type: "coding_agent" }) }).catch(() => null);
-        if (saveRes?.ok) {
-          const { sessionId } = await saveRes.json();
-          if (sessionId) setActiveSessionId(sessionId);
+      try {
+        if (activeSessionId) {
+          await fetch("/api/ai/sessions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sessionId: activeSessionId, messages: updatedMessages, agent_type: "coding_agent" }),
+          });
+        } else {
+          const saveRes = await fetch("/api/ai/sessions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title: userMsg.slice(0, 50), messages: updatedMessages, agent_type: "coding_agent" }),
+          });
+          if (saveRes.ok) {
+            const saveData = await saveRes.json();
+            if (saveData?.sessionId) setActiveSessionId(saveData.sessionId);
+          }
         }
+        await loadSessions();
+      } catch (sessionErr) {
+        console.error("[coding-agent] session save failed:", sessionErr);
       }
-      await loadSessions();
     } catch {
       setMessages(prev => [...prev, { role: "assistant", content: "Connection error. Try again." }]);
     }

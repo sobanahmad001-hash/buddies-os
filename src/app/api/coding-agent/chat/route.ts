@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
         ...historyMessages,
         { role: "user", content: userContent },
       ],
-      maxTokens: 4096,
+      maxTokens: 8192,
     });
 
     return NextResponse.json({
