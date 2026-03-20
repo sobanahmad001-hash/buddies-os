@@ -135,17 +135,15 @@ export async function POST(req: NextRequest) {
       ));
     const threadKey = sessionId || "legacy";
 
-    let recentQuery = supabase
+    // Don't filter by session_id — look across all recent messages in the project
+    // This ensures multi-action proposals are found even after reload
+    const recentQuery = supabase
       .from("project_chat_messages")
       .select("content")
       .eq("project_id", projectId)
       .eq("role", "assistant")
       .order("created_at", { ascending: false })
-      .limit(30);
-
-    if (sessionId) {
-      recentQuery = recentQuery.eq("session_id", sessionId);
-    }
+      .limit(60);
 
     const { data: recentMessages } = await recentQuery;
 

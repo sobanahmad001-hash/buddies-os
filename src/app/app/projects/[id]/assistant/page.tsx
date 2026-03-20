@@ -846,17 +846,24 @@ export default function ProjectAssistantPage() {
                           {/* Action block */}
                           {action && (
                             <ActionBlock
+                              key={`${action.type}-${JSON.stringify(action.params).slice(0, 40)}`}
                               action={action}
                               projectId={projectId}
                               sessionId={activeSession?.id ?? null}
-                              onExecuted={async () => {
-                                const q = activeSession?.id ? `&sessionId=${activeSession.id}` : '';
-                                const historyRes = await fetch(`/api/projects/chat?projectId=${projectId}${q}`);
-                                if (historyRes.ok) {
-                                  const historyData = await historyRes.json();
-                                  setMessages(historyData.messages ?? []);
-                                }
-                                await loadSessions();
+                              onExecuted={async (result) => {
+                                // Don't reload full message history — it destroys pending ActionBlock states
+                                // Just refresh sessions in background and let existing message state stand
+                                // A soft reload happens when user sends next message
+                                loadSessions();
+                                // Only do a full reload after a short delay so all action cards have time to complete
+                                setTimeout(async () => {
+                                  const q = activeSession?.id ? `&sessionId=${activeSession.id}` : '';
+                                  const historyRes = await fetch(`/api/projects/chat?projectId=${projectId}${q}`);
+                                  if (historyRes.ok) {
+                                    const historyData = await historyRes.json();
+                                    setMessages(historyData.messages ?? []);
+                                  }
+                                }, 3000);
                               }}
                             />
                           )}
