@@ -144,7 +144,7 @@ function ActionBlock({ action, projectId, sessionId, onExecuted }: { action: Bud
       setExecuted(true);
       setSuccess(true);
       onExecuted?.(data);
-      setTimeout(() => setSuccess(false), 2000);
+      // Keep success state permanently — resetting caused pointer-event blocking on adjacent cards
     } catch (err: any) {
       setError(err.message || 'Failed to execute action');
     } finally {
@@ -166,12 +166,9 @@ function ActionBlock({ action, projectId, sessionId, onExecuted }: { action: Bud
 
   if (success) {
     return (
-      <div className="bg-[#DCFCE7] border border-[#86EFAC] rounded-xl p-4 mt-4 flex items-center gap-3">
-        <Check size={18} className="text-[#16A34A] shrink-0" />
-        <div>
-        <p className="text-[13px] font-semibold text-[#166534]">Action Executed</p>
-          <p className="text-[12px] text-[#15803D] mt-0.5">{action.type} executed successfully.</p>
-        </div>
+      <div className="flex items-center gap-2 mt-3 px-3 py-2 bg-[#DCFCE7] border border-[#86EFAC] rounded-lg">
+        <Check size={13} className="text-[#16A34A] shrink-0" />
+        <p className="text-[12px] font-semibold text-[#166534]">{action.description}</p>
       </div>
     );
   }
@@ -800,7 +797,21 @@ export default function ProjectAssistantPage() {
                   {group.messages.map((msg, mIdx) => {
                     const msgId = `${gIdx}-${mIdx}`;
                     const isLast = gIdx === messageGroups.length - 1 && mIdx === group.messages.length - 1;
-                    const { action, cleanContent } = group.role === 'assistant' ? extractActionBlock(msg.content) : { action: null, cleanContent: msg.content };
+                    // Extract ALL action blocks from this message
+                    const allActionBlocks: BuddiesAction[] = [];
+                    let cleanContent = msg.content;
+                    if (group.role === 'assistant') {
+                      let remaining = msg.content;
+                      let safetyCount = 0;
+                      while (remaining.includes(ACTION_OPEN) && safetyCount < 10) {
+                        const { action: extracted, cleanContent: afterExtract } = extractActionBlock(remaining);
+                        if (extracted) { allActionBlocks.push(extracted); remaining = afterExtract; }
+                        else break;
+                        safetyCount++;
+                      }
+                      cleanContent = remaining.trim();
+                    }
+                    const action = allActionBlocks[0] ?? null;
                     
                     return (
                       <div key={mIdx}
@@ -859,19 +870,15 @@ export default function ProjectAssistantPage() {
                               </div>
                             </div>
                           )}
-                          {/* Action block */}
-                          {action && (
+                          {/* All action blocks — rendered independently */}
+                          {allActionBlocks.map((act, actIdx) => (
                             <ActionBlock
-                              key={`${action.type}-${JSON.stringify(action.params).slice(0, 40)}`}
-                              action={action}
+                              key={`${act.type}-${actIdx}-${JSON.stringify(act.params).slice(0, 40)}`}
+                              action={act}
                               projectId={projectId}
                               sessionId={activeSession?.id ?? null}
-                              onExecuted={async (result) => {
-                                // Don't reload full message history — it destroys pending ActionBlock states
-                                // Just refresh sessions in background and let existing message state stand
-                                // A soft reload happens when user sends next message
+                              onExecuted={async () => {
                                 loadSessions();
-                                // Only do a full reload after a short delay so all action cards have time to complete
                                 setTimeout(async () => {
                                   const q = activeSession?.id ? `&sessionId=${activeSession.id}` : '';
                                   const historyRes = await fetch(`/api/projects/chat?projectId=${projectId}${q}`);
@@ -879,10 +886,10 @@ export default function ProjectAssistantPage() {
                                     const historyData = await historyRes.json();
                                     setMessages(historyData.messages ?? []);
                                   }
-                                }, 3000);
+                                }, 5000);
                               }}
                             />
-                          )}
+                          ))}
                         </div>
                         {/* Hover actions */}
                         <div className={`flex items-center gap-3 mt-2 transition-opacity ${hoveredId === msgId ? 'opacity-100' : 'opacity-0'}`}>

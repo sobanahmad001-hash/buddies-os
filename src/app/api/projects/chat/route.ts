@@ -115,6 +115,28 @@ function normalizeSingleActionBlock(reply: string): string {
   return cleanText ? `${cleanText}\n\n${canonical}` : canonical;
 }
 
+function normalizeAllActionBlocks(reply: string): string {
+  const actions: Record<string, any>[] = [];
+  let tempReply = reply;
+  let safeCount = 0;
+  while (tempReply.includes(ACTION_OPEN) && safeCount < 10) {
+    const action = extractFirstActionFromReply(tempReply);
+    if (!action?.type || !action?.params) break;
+    actions.push(action);
+    // Strip the first occurrence
+    const start = tempReply.indexOf(ACTION_OPEN);
+    const afterOpen = tempReply.slice(start + ACTION_OPEN.length);
+    const closeIdx = afterOpen.indexOf(ACTION_CLOSE);
+    if (closeIdx === -1) { tempReply = tempReply.slice(0, start); break; }
+    tempReply = tempReply.slice(0, start) + tempReply.slice(start + ACTION_OPEN.length + closeIdx + ACTION_CLOSE.length);
+    safeCount++;
+  }
+  const cleanText = tempReply.trim();
+  if (actions.length === 0) return cleanText;
+  const blocks = actions.map(a => `${ACTION_OPEN}\n${JSON.stringify(a, null, 2)}\n${ACTION_CLOSE}`);
+  return [cleanText, ...blocks].filter(Boolean).join("\n\n");
+}
+
 function isExplicitDocumentSaveRequest(message: string): boolean {
   const text = message.toLowerCase();
   return (
@@ -675,6 +697,7 @@ PROJECT RULES FOR BEHAVIOR:
 - Ask only the minimum sharp questions needed to remove ambiguity.
 - When the user is clearly ready, move from context to solution quickly.
 - For writes to project data (tasks, decisions, rules, research, updates, saved documents), require approval first through a [BUDDIES_ACTION] block.
+- When creating MULTIPLE tasks, include ALL [BUDDIES_ACTION] blocks in a single response — one block per task. Do NOT send them one at a time. The UI handles multiple blocks correctly.
 - If the user asks only for generated content (for example: "write", "draft", "generate copy") and does not explicitly ask to save/create a project document, return plain content with NO action block.
 - Read-only analysis, summaries, and recommendations do not need action blocks.
 - Never say "done" unless the write has actually been executed by the app after approval.
@@ -817,7 +840,7 @@ ${referentialNote}`;
       return NextResponse.json({ error: message }, { status: 500 });
     }
 
-    reply = normalizeSingleActionBlock(reply);
+    reply = normalizeAllActionBlocks(reply);
 
     if (isContentOnlyDraftRequest(effectiveMessage)) {
       // Hard guard: content-only drafting requests must never surface action blocks.
