@@ -169,7 +169,7 @@ export default function CodingAgentPage() {
   const [prResult, setPrResult] = useState<string | null>(null);
 
   // Model
-  const [selectedModel, setSelectedModel] = useState<"claude-sonnet-4-5" | "gpt-4o">("claude-sonnet-4-5");
+  const [selectedModel, setSelectedModel] = useState<"gpt-4.1" | "claude-sonnet-4-5">("gpt-4.1");
 
   // Images
   const [attachedImages, setAttachedImages] = useState<File[]>([]);
@@ -368,14 +368,15 @@ FILE EXPLORER CONTEXT:
 RULES:
 - Write production-quality code only. No TODOs, no placeholders.
 - Always specify the exact file path before any code block.
-- When proposing file changes, use this exact format:
+- When proposing file changes, use EXACTLY this format with no markdown code fences inside:
   [FILE_CHANGE]
-  {"path": "src/exact/path/file.ts", "content": "// complete file content", "description": "What this fixes"}
+  {"path": "src/exact/path/file.ts", "content": "// complete file content here", "description": "What this fixes"}
   [/FILE_CHANGE]
-- Multiple FILE_CHANGE blocks are supported � use one per file.
-- After FILE_CHANGE blocks say: "Ready to apply � click Apply Changes below."
+- CRITICAL: The content between [FILE_CHANGE] and [/FILE_CHANGE] must be raw JSON only. No \`\`\`json wrappers. No markdown. Raw JSON object only.
+- Multiple FILE_CHANGE blocks are supported — use one per file.
+- After FILE_CHANGE blocks say: "Ready to apply — click Apply Changes below."
 - For PR creation: [CREATE_PR] title="..." branch="fix/..." body="..."
-- Be surgical � only change what needs changing.
+- Be surgical — only change what needs changing.
 - When you see an error, trace it to the root cause before proposing a fix.`;
 
     try {
@@ -385,7 +386,7 @@ RULES:
         body: JSON.stringify({
           message: userMsg,
           history: messages.slice(-14).map(m => ({ role: m.role, content: m.content })),
-          provider: selectedModel === "gpt-4o" ? "openai" : "anthropic",
+          provider: selectedModel === "claude-sonnet-4-5" ? "anthropic" : "openai",
           model: selectedModel,
           systemPrompt,
           images: imageUrls.length > 0 ? imageUrls : undefined,
@@ -401,14 +402,19 @@ RULES:
       let match;
       while ((match = fileChangeRegex.exec(reply)) !== null) {
         try {
-          const parsed = JSON.parse(match[1]);
+          // Strip markdown code fences GPT-4o adds even when told not to
+          const raw = match[1]
+            .replace(/^\s*```(?:json)?\s*/i, "")
+            .replace(/\s*```\s*$/, "")
+            .trim();
+          const parsed = JSON.parse(raw);
           if (parsed.path && parsed.content) newChanges.push(parsed);
         } catch {}
       }
       if (newChanges.length > 0) setFileChanges(prev => [...prev, ...newChanges]);
 
       // Parse PR signal
-      const prMatch = reply.match(/\[CREATE_PR\]\s*title="([^"]+)"\s*branch="([^"]+)"(?:\s*body="([^"]*)")?/);
+      const prMatch = reply.match(/\[CREATE_PR\][^\n]*title="([^"]+)"[^\n]*branch="([^"]+)"(?:[^\n]*body="([^"]*)")?/s);
       if (prMatch) setPendingPR({ title: prMatch[1], branch: prMatch[2], body: prMatch[3] ?? "" });
 
       const cleanReply = reply
@@ -488,8 +494,8 @@ RULES:
   }
 
   const CODING_MODELS = [
+    { model: "gpt-4.1" as const,          label: "GPT-4.1",    provider: "openai"    },
     { model: "claude-sonnet-4-5" as const, label: "Sonnet 4.5", provider: "anthropic" },
-    { model: "gpt-4o" as const, label: "GPT-4o", provider: "openai" },
   ];
 
   return (

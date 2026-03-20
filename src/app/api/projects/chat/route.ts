@@ -742,17 +742,17 @@ ${referentialNote}`;
       const selectedProvider: ProviderKey =
         rawProvider === "openai" || rawProvider === "xai" || rawProvider === "anthropic"
           ? rawProvider
-          : "anthropic";
+          : "openai";  // Default to OpenAI
 
       const providerAllowedModels: Record<ProviderKey, string[]> = {
         anthropic: ["claude-haiku-4-5-20251001", "claude-sonnet-4-5"],
-        openai: ["gpt-4o-mini", "gpt-4o"],
+        openai: ["gpt-4.1-mini", "gpt-4.1", "gpt-4.1-nano"],
         xai: ["grok-3-mini", "grok-3"],
       };
 
       const providerDefaultModel: Record<ProviderKey, string> = {
         anthropic: "claude-haiku-4-5-20251001",
-        openai: "gpt-4o-mini",
+        openai: "gpt-4.1",          // GPT-4.1: 1M context, best instruction following
         xai: "grok-3-mini",
       };
 

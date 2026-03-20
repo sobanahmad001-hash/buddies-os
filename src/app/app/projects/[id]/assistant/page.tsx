@@ -395,7 +395,7 @@ export default function ProjectAssistantPage() {
   const router = useRouter();
 
   const getDefaultModelForProvider = (p: 'anthropic' | 'openai' | 'xai') =>
-    p === 'anthropic' ? 'claude-sonnet-4-5' : p === 'openai' ? 'gpt-4o' : 'grok-3';
+    p === 'anthropic' ? 'claude-sonnet-4-5' : p === 'openai' ? 'gpt-4.1' : 'grok-3';
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [sessions, setSessions] = useState<ProjectSession[]>([]);
@@ -405,8 +405,8 @@ export default function ProjectAssistantPage() {
   const [histLoading, setHistLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [provider, setProvider] = useState<'anthropic' | 'openai' | 'xai'>('anthropic');
-  const [model, setModel] = useState('claude-sonnet-4-5');
+  const [provider, setProvider] = useState<'anthropic' | 'openai' | 'xai'>('openai');
+  const [model, setModel] = useState('gpt-4.1');
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -416,8 +416,8 @@ export default function ProjectAssistantPage() {
       { label: 'Claude Haiku', value: 'claude-haiku-4-5-20251001' },
     ],
     openai: [
-      { label: 'GPT-4o', value: 'gpt-4o' },
-      { label: 'GPT-4o Mini', value: 'gpt-4o-mini' },
+      { label: 'GPT-4.1',      value: 'gpt-4.1' },
+      { label: 'GPT-4.1 Mini', value: 'gpt-4.1-mini' },
     ],
     xai: [
       { label: 'Grok 3', value: 'grok-3' },

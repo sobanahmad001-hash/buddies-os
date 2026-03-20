@@ -142,8 +142,9 @@ export function getDefaultModelForProvider(provider: AIProvider, messageType: "c
   }
 
   if (provider === "openai") {
-    if (messageType === "chat") return "gpt-4o-mini";
-    return "gpt-4o";
+    // GPT-4.1 family — 1M context, best instruction following (March 2026)
+    if (messageType === "chat") return "gpt-4.1-mini";
+    return "gpt-4.1";
   }
 
   if (messageType === "chat") return "grok-3-mini";

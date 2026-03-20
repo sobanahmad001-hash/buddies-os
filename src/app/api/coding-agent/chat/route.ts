@@ -21,8 +21,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "message required" }, { status: 400 });
     }
 
-    const effectiveProvider = provider === "openai" ? "openai" : "anthropic";
-    const effectiveModel = model ?? (effectiveProvider === "openai" ? "gpt-4o" : "claude-sonnet-4-5");
+    const effectiveProvider = provider === "anthropic" ? "anthropic" : "openai";
+    const effectiveModel = model ?? (effectiveProvider === "anthropic" ? "claude-sonnet-4-5" : "gpt-4.1");
 
     // Build user content — support images
     let userContent: any = message || "Please analyze the attached image(s).";

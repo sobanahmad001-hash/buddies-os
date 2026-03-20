@@ -367,7 +367,9 @@ export async function POST(request: NextRequest) {
 
     const effectiveMessage = message || 'Please analyze the attached image(s).';
 
-    const provider: AIProvider = normalizeProvider(body.provider);
+    // Default to OpenAI (gpt-4.1 family) with Claude as fallback
+    const rawProvider = body.provider;
+    const provider: AIProvider = rawProvider ? normalizeProvider(rawProvider) : "openai";
     const requestedModel = body.model;
 
     const messageType = detectMessageType(effectiveMessage);
@@ -470,16 +472,34 @@ ${recentConversation.length > 0 ? `RECENT CONVERSATION:\n${recentConversation.ma
       userMessageContent = effectiveMessage;
     }
 
-    const aiResult = await callAIProvider({
-      provider,
-      model,
-      system: systemPrompt,
-      messages: [
-        ...(recentConversation as Array<{ role: 'user' | 'assistant'; content: string }>),
-        { role: 'user', content: userMessageContent },
-      ],
-      maxTokens: 4096,
-    });
+    let aiResult;
+    try {
+      aiResult = await callAIProvider({
+        provider,
+        model,
+        system: systemPrompt,
+        messages: [
+          ...(recentConversation as Array<{ role: 'user' | 'assistant'; content: string }>),
+          { role: 'user', content: userMessageContent },
+        ],
+        maxTokens: 4096,
+      });
+      if (!aiResult.text?.trim()) throw new Error("Empty response");
+    } catch (primaryErr: any) {
+      // Fallback to Claude if OpenAI fails or returns empty
+      console.warn(`[ai] primary provider (${provider}/${model}) failed: ${primaryErr?.message}. Falling back to Claude.`);
+      const fallbackModel = messageType === 'chat' ? 'claude-haiku-4-5-20251001' : 'claude-sonnet-4-5';
+      aiResult = await callAIProvider({
+        provider: 'anthropic',
+        model: fallbackModel,
+        system: systemPrompt,
+        messages: [
+          ...(recentConversation as Array<{ role: 'user' | 'assistant'; content: string }>),
+          { role: 'user', content: userMessageContent },
+        ],
+        maxTokens: 4096,
+      });
+    }
 
     const text = aiResult.text;
     const inputTokens = aiResult.inputTokens || 0;

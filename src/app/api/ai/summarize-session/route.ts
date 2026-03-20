@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@/lib/supabase/server';
+import { callAIProvider } from '@/lib/ai/providers';
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,19 +20,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Messages required' }, { status: 400 });
     }
 
-    const anthropic = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
-    });
-
     const transcript = messages
       .slice(-20)
       .map((m: any) => `${m.role}: ${m.content}`)
       .join('\n');
 
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5',
-      max_tokens: 1200,
-      temperature: 0,
+    const aiResult = await callAIProvider({
+      provider: 'openai',
+      model: 'gpt-4.1-mini',
+      system: 'You are a structured summarizer. Return only valid JSON, no prose.',
       messages: [
         {
           role: 'user',
@@ -55,13 +51,10 @@ Conversation:
 ${transcript}`,
         },
       ],
+      maxTokens: 1200,
     });
 
-    const text =
-      response.content
-        ?.filter((block: any) => block.type === 'text')
-        .map((block: any) => block.text)
-        .join('') || '{}';
+    const text = aiResult.text || '{}';
 
     let parsed: any = {};
     try {
