@@ -294,6 +294,11 @@ export default function TradingPage() {
   const [goldPrice, setGoldPrice] = useState<number | null>(null);
   const [signalData, setSignalData] = useState<SignalData | null>(null);
   const [signalLoading, setSignalLoading] = useState(false);
+  const [activeSymbol, setActiveSymbol] = useState("XAU/USD");
+  const [accounts, setAccounts] = useState<any[]>([]);
+  const [watchlist, setWatchlist] = useState<any[]>([]);
+  const [showAddAccount, setShowAddAccount] = useState(false);
+  const [accountForm, setAccountForm] = useState({ account_number: "", account_type: "demo", server: "Exness-Trial", balance: "", currency: "USD" });
   const [activeTab, setActiveTab] = useState<"terminal" | "trades" | "journal">("terminal");
   const [analysisTab, setAnalysisTab] = useState<"signal" | "fundamental" | "technical" | "chat">("signal");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -305,7 +310,7 @@ export default function TradingPage() {
   const [analysisLoading, setAnalysisLoading] = useState<Record<string, boolean>>({});
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { loadAll(); }, []);
+  useEffect(() => { loadAll(); loadAccounts(); loadWatchlist(); }, []);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
   async function loadAll() {
@@ -319,10 +324,55 @@ export default function TradingPage() {
     setGoldPrice(tradingRes.gold_price);
   }
 
+  async function loadAccounts() {
+    try {
+      const res = await fetch("/api/trading/account");
+      const data = await res.json();
+      setAccounts(data.accounts ?? []);
+    } catch {}
+  }
+
+  async function loadWatchlist() {
+    const { data } = await supabase.from("trading_watchlist").select("*").order("sort_order");
+    setWatchlist(data ?? []);
+  }
+
+  async function switchSymbol(symbol: string) {
+    setActiveSymbol(symbol);
+    setSignalData(null);
+    setSignalLoading(true);
+    try {
+      const res = await fetch(`/api/trading/signals?symbol=${encodeURIComponent(symbol)}`);
+      const data = await res.json();
+      setSignalData(data);
+      if (data.currentPrice) setGoldPrice(data.currentPrice);
+    } catch {}
+    setSignalLoading(false);
+  }
+
+  async function addAccount() {
+    await fetch("/api/trading/account", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "add_account",
+        account_number: accountForm.account_number,
+        account_type: accountForm.account_type,
+        server: accountForm.server,
+        balance: parseFloat(accountForm.balance) || 0,
+        currency: accountForm.currency,
+        broker: "exness",
+      }),
+    });
+    setShowAddAccount(false);
+    setAccountForm({ account_number: "", account_type: "demo", server: "Exness-Trial", balance: "", currency: "USD" });
+    await loadAccounts();
+  }
+
   async function loadSignals() {
     setSignalLoading(true);
     try {
-      const res = await fetch("/api/trading/signals");
+      const res = await fetch(`/api/trading/signals?symbol=${encodeURIComponent(activeSymbol)}`);
       const data = await res.json();
       setSignalData(data);
       if (data.currentPrice) setGoldPrice(data.currentPrice);
@@ -336,7 +386,7 @@ export default function TradingPage() {
       const res = await fetch("/api/trading/analysis", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type, currentPrice: goldPrice, signalData }),
+        body: JSON.stringify({ type, currentPrice: goldPrice, signalData, instrument: activeSymbol }),
       });
       const data = await res.json();
       setAnalysisContent(p => ({ ...p, [type]: data.content ?? "" }));
@@ -358,7 +408,7 @@ export default function TradingPage() {
       const res = await fetch("/api/trading/analysis", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "decision", question: userMsg, currentPrice: goldPrice, signalData }),
+        body: JSON.stringify({ type: "decision", question: userMsg, currentPrice: goldPrice, signalData, instrument: activeSymbol }),
       });
       const data = await res.json();
       setMessages(prev => [...prev, { role: "assistant", content: data.content ?? "No response.", type: "decision" }]);
@@ -416,7 +466,41 @@ export default function TradingPage() {
           <div className="text-[22px] font-black text-white font-mono">
             {goldPrice ? `$${goldPrice.toLocaleString()}` : "—"}
           </div>
-          <p className="text-[10px] text-[#525252]">XAU/USD · 1H</p>
+          <p className="text-[10px] text-[#525252]">{activeSymbol} · 1H</p>
+        </div>
+
+        {/* Asset switcher / Watchlist */}
+        <div className="px-3 py-2 border-b border-[#1E1E1E]">
+          <p className="text-[9px] font-bold text-[#525252] uppercase tracking-widest mb-1.5">Watchlist</p>
+          <div className="space-y-0.5">
+            {watchlist.length === 0
+              ? (["XAU/USD", "XAG/USD", "ETH/USD", "BTC/USD"] as string[]).map(s => (
+                <button key={s} onClick={() => switchSymbol(s)}
+                  className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-[11px] transition-colors
+                    ${activeSymbol === s ? "bg-[#B5622A20] text-[#B5622A] font-semibold border border-[#B5622A30]" : "text-[#737373] hover:bg-[#1A1A1A] hover:text-[#C8C5C0]"}`}>
+                  <span>{s}</span>
+                  {activeSymbol === s && signalData?.currentPrice && (
+                    <span className="text-[10px] font-mono">${signalData.currentPrice.toLocaleString()}</span>
+                  )}
+                </button>
+              ))
+              : watchlist.map((w: any) => (
+                <button key={w.symbol} onClick={() => switchSymbol(w.symbol)}
+                  className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-[11px] transition-colors
+                    ${activeSymbol === w.symbol ? "bg-[#B5622A20] text-[#B5622A] font-semibold border border-[#B5622A30]" : "text-[#737373] hover:bg-[#1A1A1A] hover:text-[#C8C5C0]"}`}>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[9px] text-[#525252]">
+                      {w.asset_type === "crypto" ? "₿" : w.asset_type === "commodity" ? "◈" : "€"}
+                    </span>
+                    <span>{w.display_name ?? w.symbol}</span>
+                  </div>
+                  {activeSymbol === w.symbol && signalData?.currentPrice && (
+                    <span className="text-[10px] font-mono">${signalData.currentPrice.toLocaleString()}</span>
+                  )}
+                </button>
+              ))
+            }
+          </div>
         </div>
 
         {/* Stats strip */}
@@ -465,6 +549,71 @@ export default function TradingPage() {
             <TrendingUp size={11} /> 🌊 Momentum Setup
           </button>
         </div>
+
+        {/* Exness Account Panel */}
+        <div className="p-3 border-t border-[#1E1E1E]">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[9px] font-bold text-[#525252] uppercase tracking-widest">Accounts</p>
+            <button onClick={() => setShowAddAccount(v => !v)}
+              className="text-[9px] text-[#B5622A] hover:text-[#9A4E20] transition-colors font-semibold">+ Add</button>
+          </div>
+          {accounts.length === 0 && !showAddAccount && (
+            <button onClick={() => setShowAddAccount(true)}
+              className="w-full text-[10px] text-[#525252] hover:text-[#737373] text-center py-2 border border-dashed border-[#2D2D2D] rounded-lg transition-colors">
+              Connect Exness demo
+            </button>
+          )}
+          {accounts.map((acc: any) => (
+            <div key={acc.id} className="bg-[#1A1A1A] rounded-lg px-2 py-2 mb-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-semibold text-[#C8C5C0]">{acc.account_number}</span>
+                <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
+                  acc.account_type === "demo" ? "bg-[#3B82F620] text-[#3B82F6]" : "bg-[#10B98120] text-[#10B981]"
+                }`}>{acc.account_type.toUpperCase()}</span>
+              </div>
+              <div className="flex items-center justify-between mt-1">
+                <span className="text-[10px] text-[#525252]">Balance</span>
+                <span className="text-[11px] font-mono font-bold text-[#C8C5C0]">${parseFloat(acc.balance || 0).toFixed(2)}</span>
+              </div>
+            </div>
+          ))}
+          {showAddAccount && (
+            <div className="bg-[#1A1A1A] rounded-lg p-2 space-y-1.5 mt-1">
+              <input
+                value={accountForm.account_number}
+                onChange={e => setAccountForm(p => ({ ...p, account_number: e.target.value }))}
+                placeholder="Account number"
+                className="w-full px-2 py-1.5 bg-[#0D0D0D] border border-[#2D2D2D] rounded text-[11px] text-[#C8C5C0] focus:outline-none focus:border-[#B5622A]"
+              />
+              <input
+                value={accountForm.balance}
+                onChange={e => setAccountForm(p => ({ ...p, balance: e.target.value }))}
+                placeholder="Balance (USD)"
+                type="number"
+                className="w-full px-2 py-1.5 bg-[#0D0D0D] border border-[#2D2D2D] rounded text-[11px] text-[#C8C5C0] focus:outline-none focus:border-[#B5622A]"
+              />
+              <div className="flex gap-1">
+                {(["demo", "live"] as const).map(t => (
+                  <button key={t} onClick={() => setAccountForm(p => ({ ...p, account_type: t }))}
+                    className={`flex-1 py-1 rounded text-[10px] font-semibold transition-colors capitalize
+                      ${accountForm.account_type === t ? "bg-[#B5622A] text-white" : "bg-[#2D2D2D] text-[#737373]"}`}>
+                    {t}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-1">
+                <button onClick={addAccount}
+                  className="flex-1 py-1.5 bg-[#B5622A] text-white text-[10px] font-bold rounded hover:bg-[#9A4E20] transition-colors">
+                  Save
+                </button>
+                <button onClick={() => setShowAddAccount(false)}
+                  className="px-3 py-1.5 bg-[#2D2D2D] text-[#737373] text-[10px] rounded">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── Center: Chart + Indicators ─────────────────────────────────────── */}
@@ -494,7 +643,7 @@ export default function TradingPage() {
             {/* Chart */}
             <div className="bg-[#111111] border border-[#1E1E1E] rounded-xl overflow-hidden">
               <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#1E1E1E]">
-                <span className="text-[11px] font-bold text-[#737373] uppercase tracking-wider">XAU/USD · 1H</span>
+                <span className="text-[11px] font-bold text-[#737373] uppercase tracking-wider">{activeSymbol} · 1H</span>
                 <div className="flex items-center gap-3 text-[10px] text-[#525252]">
                   <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-[#10B981] inline-block rounded" /> Support</span>
                   <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-[#EF4444] inline-block rounded" /> Resistance</span>
@@ -572,7 +721,7 @@ export default function TradingPage() {
                         {t.direction.toUpperCase()}
                       </span>
                       <div>
-                        <p className="text-[12px] font-semibold text-[#C8C5C0]">XAUUSD @ ${t.entry_price}</p>
+                        <p className="text-[12px] font-semibold text-[#C8C5C0]">{activeSymbol.replace("/","")} @ ${t.entry_price}</p>
                         <p className="text-[10px] text-[#525252]">{t.lot_size ?? "—"} lots · Step {t.ladder_step}</p>
                       </div>
                     </div>
@@ -599,7 +748,7 @@ export default function TradingPage() {
                     {t.direction.toUpperCase()}
                   </span>
                   <div>
-                    <p className="text-[12px] text-[#C8C5C0]">XAUUSD @ ${t.entry_price} → ${t.exit_price ?? "—"}</p>
+                    <p className="text-[12px] text-[#C8C5C0]">{activeSymbol.replace("/","")} @ ${t.entry_price} → ${t.exit_price ?? "—"}</p>
                     <p className="text-[10px] text-[#525252]">Step {t.ladder_step}</p>
                   </div>
                 </div>
@@ -766,7 +915,7 @@ export default function TradingPage() {
                     ${msg.role === "user" ? "bg-[#B5622A15] border border-[#B5622A30]" : "bg-[#1A1A1A] border border-[#2D2D2D]"}`}>
                     <p className="text-[12px] text-[#C8C5C0] leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                     {msg.type === "decision" && (
-                      <p className="text-[9px] text-[#525252] mt-1">Analysed by Claude Sonnet</p>
+                      <p className="text-[9px] text-[#525252] mt-1">Analysed by GPT-4.1</p>
                     )}
                   </div>
                 </div>
@@ -795,7 +944,7 @@ export default function TradingPage() {
                   <Send size={13} className="text-white" />
                 </button>
               </div>
-              <p className="text-[9px] text-[#3A3A3A] mt-1.5 text-center">Claude Sonnet for decisions · GPT-4.1 for research</p>
+              <p className="text-[9px] text-[#3A3A3A] mt-1.5 text-center">GPT-4.1 for all analysis · multi-asset</p>
             </div>
           </div>
         )}
