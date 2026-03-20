@@ -323,6 +323,50 @@ export default function CodingAgentPage() {
     setFileLoading(false);
   }
 
+  // Auto-find relevant file from user message if no file is open
+  async function findRelevantFile(message: string): Promise<string | null> {
+    if (!fileTree.length) return null;
+    const msg = message.toLowerCase();
+
+    // Flatten all file paths
+    function flattenTree(nodes: FileNode[]): string[] {
+      const paths: string[] = [];
+      for (const n of nodes) {
+        if (n.type === "blob") paths.push(n.path);
+        if (n.children) paths.push(...flattenTree(n.children));
+      }
+      return paths;
+    }
+    const allPaths = flattenTree(fileTree);
+
+    // Score each file against the message
+    const scored = allPaths.map(path => {
+      const parts = path.toLowerCase().split("/");
+      const filename = parts[parts.length - 1].replace(/\.tsx?$/, "").replace(/[-_]/g, " ");
+      let score = 0;
+      // Direct mention of file/component name
+      if (msg.includes(filename)) score += 10;
+      // Path segment mentions
+      parts.forEach(p => { if (msg.includes(p.replace(/[-_]/g, " "))) score += 3; });
+      // Route/API mentions
+      if (msg.includes("route") && path.includes("route.ts")) score += 5;
+      if (msg.includes("action") && path.includes("action")) score += 5;
+      if (msg.includes("project") && path.includes("project")) score += 3;
+      if (msg.includes("trading") && path.includes("trading")) score += 5;
+      if (msg.includes("coding") && path.includes("coding")) score += 5;
+      if (msg.includes("dashboard") && path.includes("dashboard")) score += 3;
+      if (msg.includes("auth") && (path.includes("auth") || path.includes("login"))) score += 5;
+      if (msg.includes("api") && path.includes("api")) score += 2;
+      // Error/fix patterns
+      if ((msg.includes("error") || msg.includes("bug") || msg.includes("fix")) && path.endsWith("route.ts")) score += 2;
+      return { path, score };
+    });
+
+    const best = scored.sort((a, b) => b.score - a.score)[0];
+    if (best && best.score >= 3) return best.path;
+    return null;
+  }
+
   async function send() {
     if (!input.trim() || loading) return;
     const userMsg = input;
@@ -331,6 +375,16 @@ export default function CodingAgentPage() {
     setInput("");
     if (textareaRef.current) textareaRef.current.style.height = "auto";
     setLoading(true);
+
+    // Auto-load relevant file if none is open
+    if (!selectedFile && fileTree.length > 0) {
+      const relevantPath = await findRelevantFile(userMsg);
+      if (relevantPath) {
+        await selectFile(relevantPath);
+        // Small delay to let fileContent state update
+        await new Promise(resolve => setTimeout(resolve, 800));
+      }
+    }
 
     // Upload images
     const imageUrls: string[] = [];
@@ -352,9 +406,11 @@ export default function CodingAgentPage() {
     if (selectedTask) contextParts.push(`Active task:\n${selectedTask.title}\n${selectedTask.description ?? ""}`);
     if (selectedRepo) contextParts.push(`Repository: ${selectedRepo}`);
     if (selectedFile && fileContent) {
-      contextParts.push(`Currently viewing: ${selectedFile}\n\`\`\`\n${fileContent.slice(0, 3000)}${fileContent.length > 3000 ? "\n... (truncated)" : ""}\n\`\`\``);
+      contextParts.push(`FILE OPEN: ${selectedFile}\n\`\`\`\n${fileContent.slice(0, 4000)}${fileContent.length > 4000 ? "\n... (truncated, file continues)" : ""}\n\`\`\``);
+    } else if (selectedFile) {
+      contextParts.push(`File selected: ${selectedFile} (loading content...)`);
     }
-    if (recentCommits.length > 0) contextParts.push(`Recent commits:\n${recentCommits.join("\n")}`);
+    if (recentCommits.length > 0) contextParts.push(`Recent commits:\n${recentCommits.slice(0, 3).join("\n")}`);
 
     const systemPrompt = `You are a senior software engineer and coding agent for Buddies OS.
 
@@ -364,6 +420,11 @@ FILE EXPLORER CONTEXT:
 - The user can see the file tree on the left and view any file in the center panel
 - When they ask about a file or function, assume they may have it open
 - Reference specific file paths when making suggestions
+
+PROACTIVE FILE AWARENESS:
+- If the user describes a bug or feature and you can identify the relevant file from the repo structure, tell them: "I can see this likely involves [file path] — let me look at it. Click that file in the explorer and I'll give you the exact fix."
+- If a FILE OPEN section is present above, use it as your primary source of truth. Reference specific line numbers and function names.
+- If no file is open but you know which file is relevant from context, name it explicitly.
 
 RULES:
 - Write production-quality code only. No TODOs, no placeholders.
@@ -499,7 +560,7 @@ RULES:
   ];
 
   return (
-    <div className="flex h-full bg-[#0D0D0D] text-white overflow-hidden select-none">
+    <div className="flex h-full bg-[#0D0D0D] text-white overflow-hidden">
 
       {/* -- Panel 1: Session history ---------------------------------------- */}
       <div className="w-[180px] shrink-0 flex flex-col border-r border-[#1E1E1E] bg-[#111111]">
