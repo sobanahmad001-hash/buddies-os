@@ -46,10 +46,10 @@ export default function SearchPage() {
     <div className="flex-1 overflow-auto">
       <div className="p-8 max-w-[800px]">
         <div className="mb-6">
-          <h1 className="text-[20px] font-semibold text-[#1A1A1A] mb-4">Search</h1>
-          <div className="flex items-center gap-3 bg-white border border-[#E5E2DE] rounded-xl px-4 py-3 focus-within:border-[#CC785C]/50 transition-colors">
+          <h1 className="text-[20px] font-semibold text-[#C8C5C0] mb-4">Search</h1>
+          <div className="flex items-center gap-3 bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl px-4 py-3 focus-within:border-[#CC785C]/50 transition-colors">
             <Search size={16} className="text-[#737373] shrink-0" />
-            <input className="flex-1 bg-transparent outline-none text-[14px] text-[#404040] placeholder:text-[#999]"
+            <input className="flex-1 bg-transparent outline-none text-[14px] text-[#A8A5A0] placeholder:text-[#999]"
               placeholder="Search projects, updates, decisions, rules..."
               value={query} onChange={e => setQuery(e.target.value)} autoFocus />
             {loading && <div className="w-4 h-4 border-2 border-[#CC785C] border-t-transparent rounded-full animate-spin shrink-0" />}
@@ -69,9 +69,9 @@ export default function SearchPage() {
             <div className="space-y-2">
               {results.projects.map(p => (
                 <div key={p.id} onClick={() => router.push(`/app/projects/${p.id}`)}
-                  className="bg-white border border-[#E5E2DE] rounded-xl px-4 py-3 cursor-pointer hover:border-[#CC785C]/40 transition-colors">
+                  className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl px-4 py-3 cursor-pointer hover:border-[#CC785C]/40 transition-colors">
                   <div className="flex items-center justify-between">
-                    <span className="text-[13px] font-semibold text-[#1A1A1A]">{p.name}</span>
+                    <span className="text-[13px] font-semibold text-[#C8C5C0]">{p.name}</span>
                     <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#DCFCE7] text-[#2D6A4F] capitalize">{p.status}</span>
                   </div>
                   {p.description && <p className="text-[12px] text-[#737373] mt-1">{p.description}</p>}
@@ -90,12 +90,12 @@ export default function SearchPage() {
             <div className="space-y-2">
               {results.updates.map(u => (
                 <div key={u.id} onClick={() => router.push(`/app/projects/${u.project_id}`)}
-                  className="bg-white border border-[#E5E2DE] rounded-xl px-4 py-3 cursor-pointer hover:border-[#CC785C]/40 transition-colors">
+                  className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl px-4 py-3 cursor-pointer hover:border-[#CC785C]/40 transition-colors">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-[11px] text-[#CC785C] font-semibold">{projects[u.project_id] ?? "Unknown project"}</span>
                     <span className="text-[11px] text-[#737373]">{timeAgo(u.created_at)}</span>
                   </div>
-                  <p className="text-[13px] text-[#404040] line-clamp-2">{u.content}</p>
+                  <p className="text-[13px] text-[#A8A5A0] line-clamp-2">{u.content}</p>
                 </div>
               ))}
             </div>
@@ -111,14 +111,14 @@ export default function SearchPage() {
             <div className="space-y-2">
               {results.decisions.map(d => (
                 <div key={d.id} onClick={() => router.push("/app/search")}
-                  className="bg-white border border-[#E5E2DE] rounded-xl px-4 py-3 cursor-pointer hover:border-[#CC785C]/40 transition-colors">
+                  className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl px-4 py-3 cursor-pointer hover:border-[#CC785C]/40 transition-colors">
                   <div className="flex items-center gap-2 mb-1">
                     <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${d.verdict === "enter" ? "bg-[#DCFCE7] text-[#2D6A4F]" : d.verdict === "wait" ? "bg-[#FEF9C3] text-[#92400E]" : "bg-[#FEE2E2] text-[#EF4444]"}`}>
                       {d.verdict ?? "—"}
                     </span>
                     <span className="text-[11px] text-[#737373]">{timeAgo(d.created_at)}</span>
                   </div>
-                  <p className="text-[13px] text-[#404040] line-clamp-2">{d.context}</p>
+                  <p className="text-[13px] text-[#A8A5A0] line-clamp-2">{d.context}</p>
                 </div>
               ))}
             </div>
@@ -134,9 +134,9 @@ export default function SearchPage() {
             <div className="space-y-2">
               {results.rules.map(r => (
                 <div key={r.id} onClick={() => router.push("/app/search")}
-                  className="bg-white border border-[#E5E2DE] rounded-xl px-4 py-3 cursor-pointer hover:border-[#CC785C]/40 transition-colors flex items-center gap-3">
-                  <p className="text-[13px] text-[#404040] flex-1">{r.rule_text}</p>
-                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${r.severity === 3 ? "bg-[#FEE2E2] text-[#EF4444]" : r.severity === 2 ? "bg-[#FEF9C3] text-[#92400E]" : "bg-[#F7F5F2] text-[#737373]"}`}>
+                  className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl px-4 py-3 cursor-pointer hover:border-[#CC785C]/40 transition-colors flex items-center gap-3">
+                  <p className="text-[13px] text-[#A8A5A0] flex-1">{r.rule_text}</p>
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${r.severity === 3 ? "bg-[#FEE2E2] text-[#EF4444]" : r.severity === 2 ? "bg-[#FEF9C3] text-[#92400E]" : "bg-[#111111] text-[#737373]"}`}>
                     {r.severity === 3 ? "High" : r.severity === 2 ? "Medium" : "Low"}
                   </span>
                 </div>

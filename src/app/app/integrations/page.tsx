@@ -74,7 +74,7 @@ export default function IntegrationsPage() {
       <div className="max-w-[700px]">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-[20px] font-semibold text-[#1A1A1A]">Integrations</h1>
+            <h1 className="text-[20px] font-semibold text-[#C8C5C0]">Integrations</h1>
             <p className="text-sm text-[#737373] mt-0.5">Connect tools so Buddies can use them as context.</p>
           </div>
           <button onClick={() => setShowAdd(!showAdd)}
@@ -84,12 +84,12 @@ export default function IntegrationsPage() {
         </div>
 
         {showAdd && (
-          <div className="bg-white border border-[#E5E2DE] rounded-xl p-5 mb-6">
+          <div className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl p-5 mb-6">
             <div className="grid grid-cols-2 gap-3 mb-3">
               <div>
                 <label className="text-[10px] font-bold text-[#737373] uppercase tracking-wider block mb-1">Type</label>
                 <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}
-                  className="w-full text-sm px-3 py-2 border border-[#E5E2DE] rounded-lg">
+                  className="w-full text-sm px-3 py-2 border border-[#2D2D2D] rounded-lg">
                   <option value="github">GitHub</option>
                   <option value="supabase">Supabase</option>
                   <option value="vercel">Vercel</option>
@@ -100,21 +100,21 @@ export default function IntegrationsPage() {
               <div>
                 <label className="text-[10px] font-bold text-[#737373] uppercase tracking-wider block mb-1">Name</label>
                 <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
-                  placeholder="e.g. buddies-os repo" className="w-full text-sm px-3 py-2 border border-[#E5E2DE] rounded-lg" />
+                  placeholder="e.g. buddies-os repo" className="w-full text-sm px-3 py-2 border border-[#2D2D2D] rounded-lg" />
               </div>
             </div>
             <div className="mb-3">
               <label className="text-[10px] font-bold text-[#737373] uppercase tracking-wider block mb-1">Config (JSON or key=value)</label>
               <textarea value={form.config} onChange={e => setForm({ ...form, config: e.target.value })}
                 rows={3} placeholder='{"org_or_user":"myorg","repo_url":"https://github.com/org/repo","access_token":"ghp_..."}'
-                className="w-full text-sm px-3 py-2 border border-[#E5E2DE] rounded-lg font-mono text-xs resize-none" />
+                className="w-full text-sm px-3 py-2 border border-[#2D2D2D] rounded-lg font-mono text-xs resize-none" />
             </div>
             <div className="flex gap-2">
               <button onClick={handleAdd} disabled={saving}
                 className="px-4 py-2 bg-[#B5622A] text-white text-xs font-semibold rounded-lg hover:bg-[#9A4E20] disabled:opacity-50">
                 {saving ? "Saving..." : "Save Integration"}
               </button>
-              <button onClick={() => setShowAdd(false)} className="px-4 py-2 text-xs text-[#737373] hover:text-[#1A1A1A]">Cancel</button>
+              <button onClick={() => setShowAdd(false)} className="px-4 py-2 text-xs text-[#737373] hover:text-[#C8C5C0]">Cancel</button>
             </div>
           </div>
         )}
@@ -122,8 +122,8 @@ export default function IntegrationsPage() {
         {loading ? (
           <div className="text-sm text-[#737373]">Loading…</div>
         ) : integrations.length === 0 ? (
-          <div className="bg-white border border-[#E5E2DE] rounded-xl p-8 text-center">
-            <Plug size={32} className="text-[#B0ADA9] mx-auto mb-3" />
+          <div className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl p-8 text-center">
+            <Plug size={32} className="text-[#525252] mx-auto mb-3" />
             <p className="text-sm text-[#737373]">No integrations yet. Connect GitHub, Supabase, or other tools.</p>
           </div>
         ) : (
@@ -132,12 +132,12 @@ export default function IntegrationsPage() {
               const meta = TYPE_META[i.type] ?? { icon: Globe, color: "#737373", label: i.type };
               const Icon = meta.icon;
               return (
-                <div key={i.id} className="bg-white border border-[#E5E2DE] rounded-xl px-4 py-3 flex items-center gap-3">
+                <div key={i.id} className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl px-4 py-3 flex items-center gap-3">
                   <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: meta.color + "15" }}>
                     <Icon size={16} style={{ color: meta.color }} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-[#1A1A1A] truncate">{i.name}</div>
+                    <div className="text-sm font-medium text-[#C8C5C0] truncate">{i.name}</div>
                     <div className="text-[11px] text-[#737373]">
                       {meta.label} · {new Date(i.created_at).toLocaleDateString()}
                       {i.config?.repo_url && (
@@ -150,9 +150,9 @@ export default function IntegrationsPage() {
                   <button onClick={() => toggleStatus(i)} title={i.status === "active" ? "Deactivate" : "Activate"}>
                     {i.status === "active"
                       ? <CheckCircle2 size={16} className="text-green-500" />
-                      : <XCircle size={16} className="text-[#B0ADA9]" />}
+                      : <XCircle size={16} className="text-[#525252]" />}
                   </button>
-                  <button onClick={() => handleDelete(i.id)} className="text-[#B0ADA9] hover:text-red-500">
+                  <button onClick={() => handleDelete(i.id)} className="text-[#525252] hover:text-red-500">
                     <Trash2 size={14} />
                   </button>
                 </div>

@@ -61,14 +61,14 @@ function SuggestedTasks({ tasks, projects, onSend }: {
       {expanded && (
         <div className="px-4 pb-4 space-y-2">
           {tasks.map((task, i) => (
-            <div key={i} className="flex items-start gap-2 bg-white rounded-lg p-3 border border-[#2D2D2D]">
+            <div key={i} className="flex items-start gap-2 bg-[#1A1A1A] rounded-lg p-3 border border-[#2D2D2D]">
               <div className="flex-1 min-w-0">
                 <p className="text-[12px] text-[#C8C5C0] leading-relaxed">{task}</p>
                 {projects.length > 0 && (
                   <select
                     value={targetProject[i] ?? ""}
                     onChange={e => setTargetProject(p => ({ ...p, [i]: e.target.value }))}
-                    className="mt-1.5 text-[11px] px-2 py-1 border border-[#2D2D2D] rounded-lg bg-white focus:outline-none focus:border-[#B5622A] w-full"
+                    className="mt-1.5 text-[11px] px-2 py-1 border border-[#2D2D2D] rounded-lg bg-[#1A1A1A] focus:outline-none focus:border-[#B5622A] w-full"
                   >
                     <option value="">Select project to send to...</option>
                     {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -309,7 +309,7 @@ export default function ResearchPage() {
       <div className="flex-1 flex flex-col overflow-hidden">
 
         {/* Header — project selector */}
-        <div className="px-6 py-3 bg-white border-b border-[#2D2D2D] shrink-0">
+        <div className="px-6 py-3 bg-[#1A1A1A] border-b border-[#2D2D2D] shrink-0">
           <div className="flex items-center gap-3 max-w-[800px]">
             <div className="flex items-center gap-1.5">
               <Globe size={14} className="text-[#B5622A]" />
@@ -327,13 +327,13 @@ export default function ResearchPage() {
 
               <div className="relative">
                 <button onClick={() => setShowProjectPicker(v => !v)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#2D2D2D] bg-white text-[11px] text-[#737373] hover:border-[#B5622A] hover:text-[#C8C5C0] transition-colors">
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#2D2D2D] bg-[#1A1A1A] text-[11px] text-[#737373] hover:border-[#B5622A] hover:text-[#C8C5C0] transition-colors">
                   <FolderKanban size={11} />
                   {selectedProjectIds.length === 0 ? "Link projects" : `+${projects.length - selectedProjects.length} more`}
                   <ChevronDown size={10} />
                 </button>
                 {showProjectPicker && (
-                  <div className="absolute right-0 top-full mt-1 w-[200px] bg-white border border-[#2D2D2D] rounded-xl shadow-lg z-50 overflow-hidden">
+                  <div className="absolute right-0 top-full mt-1 w-[200px] bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl shadow-lg z-50 overflow-hidden">
                     <div className="p-2">
                       <p className="text-[10px] font-bold text-[#737373] uppercase tracking-widest px-2 mb-2">Select projects</p>
                       {projects.map(p => (
@@ -381,7 +381,7 @@ export default function ResearchPage() {
                 <div className="grid grid-cols-2 gap-3 max-w-[600px] mx-auto mt-6">
                   {STARTERS.map(s => (
                     <button key={s} onClick={() => { setInput(s); setTimeout(() => textareaRef.current?.focus(), 0); }}
-                      className="text-left text-[12px] text-[#737373] bg-white border border-[#2D2D2D] rounded-xl px-4 py-3 hover:border-[#B5622A] hover:text-[#C8C5C0] hover:shadow-sm transition-all leading-relaxed">
+                      className="text-left text-[12px] text-[#737373] bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl px-4 py-3 hover:border-[#B5622A] hover:text-[#C8C5C0] hover:shadow-sm transition-all leading-relaxed">
                       {s}
                     </button>
                   ))}
@@ -398,7 +398,7 @@ export default function ResearchPage() {
                 <div className={`flex-1 max-w-[90%] ${msg.role === "user" ? "flex justify-end" : ""}`}>
                   <div className={`rounded-2xl px-5 py-4 ${msg.role === "user"
                     ? "bg-[#B5622A15] border border-[#B5622A30] inline-block"
-                    : "bg-white border border-[#2D2D2D] w-full"}`}>
+                    : "bg-[#1A1A1A] border border-[#2D2D2D] w-full"}`}>
                     {msg.role === "user"
                       ? <p className="text-[14px] text-[#C8C5C0] leading-relaxed">{msg.content}</p>
                       : (
@@ -427,7 +427,7 @@ export default function ResearchPage() {
             {loading && (
               <div className="flex gap-4 mb-6">
                 <div className="w-8 h-8 rounded-full bg-[#0F0F0F] flex items-center justify-center text-[13px] shrink-0">🔍</div>
-                <div className="bg-white border border-[#2D2D2D] rounded-2xl px-5 py-4">
+                <div className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-2xl px-5 py-4">
                   <div className="flex items-center gap-2">
                     <div className="flex gap-1">
                       {[0, 1, 2].map(i => <div key={i} className="w-2 h-2 rounded-full bg-[#B0ADA9] animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}
@@ -443,7 +443,7 @@ export default function ResearchPage() {
         </div>
 
         {/* Input */}
-        <div className="px-6 py-4 bg-white border-t border-[#2D2D2D] shrink-0">
+        <div className="px-6 py-4 bg-[#1A1A1A] border-t border-[#2D2D2D] shrink-0">
           <div className="max-w-[800px] mx-auto">
             {selectedProjectIds.length > 0 && (
               <div className="flex items-center gap-1.5 mb-2 text-[11px] text-[#737373]">

@@ -384,7 +384,7 @@ export default function AIPage() {
       )}
 
       {/* Session sidebar */}
-      <div className={`flex flex-col bg-[#0F0F0F] border-r border-[#1E1E1E] transition-all duration-200 shrink-0
+      <div className={`flex flex-col bg-[#1A1A1A] border-r border-[#1E1E1E] transition-all duration-200 shrink-0
         md:relative fixed left-0 top-0 h-full z-40
         ${sidebarOpen ? "w-[240px]" : "w-0 overflow-hidden"}`}>
 
@@ -426,7 +426,7 @@ export default function AIPage() {
       <div className="flex flex-col flex-1 overflow-hidden">
 
         {/* Header — clean */}
-        <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-[#2D2D2D] shrink-0">
+        <div className="flex items-center justify-between px-4 py-3 bg-[#1A1A1A] border-b border-[#2D2D2D] shrink-0">
           <div className="flex items-center gap-3">
             {/* Hamburger */}
             <button onClick={() => setSidebarOpen(v => !v)}
@@ -443,7 +443,7 @@ export default function AIPage() {
           {/* Model selector */}
           <div className="relative">
             <button onClick={() => setModelOpen(!modelOpen)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#0F0F0F] text-white text-[11px] font-medium hover:bg-[#1A1A1A] transition-colors">
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#1A1A1A] text-white text-[11px] font-medium hover:bg-[#1A1A1A] transition-colors">
               <div className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
               <span className="capitalize">{selectedProvider}</span>
               <span className="text-white/40">·</span>
@@ -452,7 +452,7 @@ export default function AIPage() {
             </button>
 
             {modelOpen && (
-              <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-[#2D2D2D] rounded-xl shadow-lg overflow-hidden z-50">
+              <div className="absolute right-0 top-full mt-2 w-64 bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl shadow-lg overflow-hidden z-50">
                 <div className="px-4 py-2.5 border-b border-[#2D2D2D] bg-[#111111]">
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-[#737373] mb-2">Provider</p>
                   <div className="flex gap-2">
@@ -464,7 +464,7 @@ export default function AIPage() {
                         setSelectedModel(next);
                         localStorage.setItem("buddies-ai-model", next);
                       }} className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors
-                        ${selectedProvider === p.id ? "bg-[#0F0F0F] text-white" : "bg-[#1E1E1E] text-[#A8A5A0] hover:bg-[#E5E2DE]"}`}>
+                        ${selectedProvider === p.id ? "bg-[#1A1A1A] text-white" : "bg-[#1E1E1E] text-[#A8A5A0] hover:bg-[#2D2D2D]"}`}>
                         {p.label}
                       </button>
                     ))}
@@ -500,7 +500,7 @@ export default function AIPage() {
             {/* Empty state */}
             {messages.length === 0 && (
               <div className="flex flex-col items-center text-center pt-16">
-                <div className="w-12 h-12 rounded-2xl bg-[#0F0F0F] flex items-center justify-center text-xl mb-5">🧠</div>
+                <div className="w-12 h-12 rounded-2xl bg-[#1A1A1A] flex items-center justify-center text-xl mb-5">🧠</div>
                 <h2 className="text-[22px] font-bold text-[#C8C5C0] mb-2">Buddies AI</h2>
                 <p className="text-[14px] text-[#737373] mb-10 max-w-[420px] leading-relaxed">
                   Your personal AI. Knows your projects, tracks patterns, remembers context across sessions.
@@ -508,7 +508,7 @@ export default function AIPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-[600px]">
                   {SUGGESTIONS.map(s => (
                     <button key={s} onClick={() => send(s)}
-                      className="text-left text-[13px] text-[#737373] bg-white border border-[#2D2D2D] rounded-xl px-4 py-4 hover:border-[#B5622A] hover:text-[#C8C5C0] hover:shadow-sm transition-all">
+                      className="text-left text-[13px] text-[#737373] bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl px-4 py-4 hover:border-[#B5622A] hover:text-[#C8C5C0] hover:shadow-sm transition-all">
                       {s}
                     </button>
                   ))}
@@ -521,7 +521,7 @@ export default function AIPage() {
               <div key={gIdx} className="mb-8">
                 <div className="flex gap-4 items-start">
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0
-                    ${group.role === "assistant" ? "bg-[#0F0F0F] text-[15px]" : "bg-[#B5622A] text-white text-[12px] font-bold"}`}>
+                    ${group.role === "assistant" ? "bg-[#1A1A1A] text-[15px]" : "bg-[#B5622A] text-white text-[12px] font-bold"}`}>
                     {group.role === "assistant" ? "🤖" : "S"}
                   </div>
                   <div className="flex-1 space-y-4">
@@ -532,17 +532,17 @@ export default function AIPage() {
                       return (
                         <div key={mIdx} onMouseEnter={() => setHoveredId(msgId)} onMouseLeave={() => setHoveredId(null)} className="group">
                           {isEditing ? (
-                            <div className="bg-white border border-[#2D2D2D] rounded-xl p-4">
+                            <div className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl p-4">
                               <textarea value={editText} onChange={e => setEditText(e.target.value)}
                                 className="w-full bg-transparent text-[15px] text-[#C8C5C0] resize-none focus:outline-none leading-relaxed min-h-[80px]" />
                               <div className="flex gap-2 mt-3">
                                 <button onClick={() => saveEdit(globalIdx)} className="px-3 py-1.5 rounded-lg bg-[#B5622A] text-white text-[12px] font-medium hover:bg-[#9A4E20]">Save</button>
-                                <button onClick={cancelEdit} className="px-3 py-1.5 rounded-lg bg-[#1E1E1E] text-[#C8C5C0] text-[12px] font-medium hover:bg-[#E5E2DE]">Cancel</button>
+                                <button onClick={cancelEdit} className="px-3 py-1.5 rounded-lg bg-[#1E1E1E] text-[#C8C5C0] text-[12px] font-medium hover:bg-[#2D2D2D]">Cancel</button>
                               </div>
                             </div>
                           ) : (
                             <>
-                              <div className={`rounded-2xl px-5 py-4 ${group.role === "assistant" ? "bg-white border border-[#2D2D2D]" : "bg-[#1E1E1E]"}`}>
+                              <div className={`rounded-2xl px-5 py-4 ${group.role === "assistant" ? "bg-[#1A1A1A] border border-[#2D2D2D]" : "bg-[#1E1E1E]"}`}>
                                 {group.role === "user" ? (
                                   <div>
                                     <p className="text-[15px] text-[#C8C5C0] leading-relaxed whitespace-pre-wrap">{msg.content}</p>
@@ -559,7 +559,7 @@ export default function AIPage() {
                                   <div className="prose-sm">
                                     {renderMarkdown(msg.content)}
                                     {msg.webSearchUsed && (
-                                      <div className="mt-3 pt-2.5 border-t border-[#F0EDE9]">
+                                      <div className="mt-3 pt-2.5 border-t border-[#2D2D2D]">
                                         <span className="flex items-center gap-1 text-[10px] font-medium text-[#3B82F6]">
                                           <Globe size={10} /> Web searched
                                         </span>
@@ -601,8 +601,8 @@ export default function AIPage() {
             {/* Loading */}
             {loading && (
               <div className="flex gap-4 items-start mb-8">
-                <div className="w-8 h-8 rounded-full bg-[#0F0F0F] flex items-center justify-center text-[15px] shrink-0">🤖</div>
-                <div className="bg-white border border-[#2D2D2D] rounded-2xl px-5 py-4">
+                <div className="w-8 h-8 rounded-full bg-[#1A1A1A] flex items-center justify-center text-[15px] shrink-0">🤖</div>
+                <div className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-2xl px-5 py-4">
                   <div className="flex gap-1.5 items-center h-6">
                     {[0,1,2].map(i => <div key={i} className="w-2 h-2 rounded-full bg-[#B0ADA9] animate-bounce" style={{ animationDelay: `${i*0.15}s` }} />)}
                   </div>
@@ -614,7 +614,7 @@ export default function AIPage() {
         </div>
 
         {/* Input */}
-        <div className="px-4 py-4 bg-white border-t border-[#2D2D2D] shrink-0" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
+        <div className="px-4 py-4 bg-[#1A1A1A] border-t border-[#2D2D2D] shrink-0" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
           <div className="max-w-[760px] mx-auto">
 
             {/* Large text warning */}
@@ -651,27 +651,27 @@ export default function AIPage() {
               })}
               <div className="relative">
                 <button onClick={() => setShowProjectPicker(v => !v)}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-full border border-[#E5E2DE] text-[11px] text-[#737373] hover:border-[#B5622A] hover:text-[#1A1A1A] transition-colors bg-white">
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-full border border-[#2D2D2D] text-[11px] text-[#737373] hover:border-[#B5622A] hover:text-[#C8C5C0] transition-colors bg-[#1A1A1A]">
                   📁 {selectedProjectIds.length === 0 ? "Add project context" : `+${projects.length - selectedProjectIds.length} more`}
                 </button>
                 {showProjectPicker && (
-                  <div className="absolute bottom-full mb-1 left-0 w-[200px] bg-white border border-[#E5E2DE] rounded-xl shadow-lg z-50 overflow-hidden">
+                  <div className="absolute bottom-full mb-1 left-0 w-[200px] bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl shadow-lg z-50 overflow-hidden">
                     <div className="p-2">
                       <p className="text-[10px] font-bold text-[#737373] uppercase tracking-widest px-2 mb-1.5">Project context</p>
                       <button onClick={() => { setSelectedProjectIds([]); setShowProjectPicker(false); }}
-                        className="w-full text-left px-2 py-1.5 text-[11px] text-[#737373] hover:bg-[#F7F5F2] rounded-lg transition-colors mb-1">
+                        className="w-full text-left px-2 py-1.5 text-[11px] text-[#737373] hover:bg-[#111111] rounded-lg transition-colors mb-1">
                         ✕ Clear all (general chat)
                       </button>
                       {projects.map(p => (
                         <button key={p.id} onClick={() => setSelectedProjectIds(prev => prev.includes(p.id) ? prev.filter(x => x !== p.id) : [...prev, p.id])}
-                          className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[#F7F5F2] transition-colors">
-                          <div className={`w-3.5 h-3.5 rounded border-2 flex items-center justify-center ${selectedProjectIds.includes(p.id) ? "bg-[#B5622A] border-[#B5622A]" : "border-[#E5E2DE]"}`}>
+                          className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[#111111] transition-colors">
+                          <div className={`w-3.5 h-3.5 rounded border-2 flex items-center justify-center ${selectedProjectIds.includes(p.id) ? "bg-[#B5622A] border-[#B5622A]" : "border-[#2D2D2D]"}`}>
                             {selectedProjectIds.includes(p.id) && <span className="text-white text-[8px] font-bold">✓</span>}
                           </div>
-                          <span className="text-[11px] text-[#1A1A1A] truncate">{p.name}</span>
+                          <span className="text-[11px] text-[#C8C5C0] truncate">{p.name}</span>
                         </button>
                       ))}
-                      <button onClick={() => setShowProjectPicker(false)} className="w-full mt-1 py-1 text-[11px] text-[#737373] border-t border-[#E5E2DE] transition-colors hover:text-[#1A1A1A]">Done</button>
+                      <button onClick={() => setShowProjectPicker(false)} className="w-full mt-1 py-1 text-[11px] text-[#737373] border-t border-[#2D2D2D] transition-colors hover:text-[#C8C5C0]">Done</button>
                     </div>
                   </div>
                 )}
@@ -686,7 +686,7 @@ export default function AIPage() {
                 <textarea ref={textareaRef} value={input} onChange={autoResize} onKeyDown={handleKey}
                   placeholder="Ask anything, mention a project by name for deep context..."
                   rows={2}
-                  className="flex-1 bg-transparent text-[15px] text-[#C8C5C0] placeholder-[#B0ADA9] resize-none focus:outline-none leading-relaxed"
+                  className="flex-1 bg-transparent text-[15px] text-[#C8C5C0] placeholder-[#3A3A3A] resize-none focus:outline-none leading-relaxed"
                   style={{ maxHeight: "180px", minHeight: "52px" }} />
                 {input.length > 8000 && (
                   <span className={`text-[10px] font-mono shrink-0 self-end mb-1 ${input.length > MAX_CHARS ? "text-red-500" : "text-amber-500"}`}>
@@ -700,7 +700,7 @@ export default function AIPage() {
                   </button>
                 ) : (
                   <button onClick={() => send()} disabled={!input.trim() && attachedFiles.length === 0}
-                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all disabled:bg-[#E5E2DE] disabled:text-[#525252] bg-[#B5622A] text-white hover:bg-[#9A4E20]">
+                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all disabled:bg-[#2D2D2D] disabled:text-[#525252] bg-[#B5622A] text-white hover:bg-[#9A4E20]">
                     <Send size={15} />
                   </button>
                 )}

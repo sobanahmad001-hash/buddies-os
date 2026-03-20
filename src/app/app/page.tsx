@@ -121,9 +121,9 @@ function timeAgo(d: string) {
 
 function AlertCard({ alert }: { alert: Alert }) {
   const cfg = {
-    alert: { icon: AlertCircle, cls: "border-[#FEE2E2] bg-[#FEF2F2]", iconCls: "text-[#EF4444]" },
-    warn: { icon: AlertTriangle, cls: "border-[#FEF9C3] bg-[#FEFCE8]", iconCls: "text-[#EAB308]" },
-    info: { icon: Info, cls: "border-[#DBEAFE] bg-[#EFF6FF]", iconCls: "text-[#2C5F8A]" },
+    alert: { icon: AlertCircle, cls: "border-[#EF444430] bg-[#1A0D0D]", iconCls: "text-[#EF4444]" },
+    warn: { icon: AlertTriangle, cls: "border-[#EAB30830] bg-[#1A1800]", iconCls: "text-[#EAB308]" },
+    info: { icon: Info, cls: "border-[#3B82F630] bg-[#0D1220]", iconCls: "text-[#2C5F8A]" },
   }[alert.severity];
 
   const Icon = cfg.icon;
@@ -131,7 +131,7 @@ function AlertCard({ alert }: { alert: Alert }) {
   return (
     <div className={`flex items-start gap-2.5 px-3 py-2.5 rounded-xl border ${cfg.cls}`}>
       <Icon size={13} className={`${cfg.iconCls} shrink-0 mt-0.5`} />
-      <p className="text-[12px] text-[#404040] leading-snug">{alert.message}</p>
+      <p className="text-[12px] text-[#A8A5A0] leading-snug">{alert.message}</p>
     </div>
   );
 }
@@ -141,7 +141,7 @@ function MomentumBar({ value, max }: { value: number; max: number }) {
   const color = pct > 60 ? "#2D6A4F" : pct > 30 ? "#EAB308" : "#EF4444";
 
   return (
-    <div className="w-full bg-[#F7F5F2] rounded-full h-1.5">
+    <div className="w-full bg-[#111111] rounded-full h-1.5">
       <div
         className="h-1.5 rounded-full transition-all"
         style={{ width: `${pct}%`, backgroundColor: color }}
@@ -159,12 +159,12 @@ function Pill({
 }) {
   const cls =
     tone === "good"
-      ? "bg-[#DCFCE7] text-[#2D6A4F]"
+      ? "bg-[#10B98120] text-[#10B981]"
       : tone === "warn"
-      ? "bg-[#FEF9C3] text-[#92400E]"
+      ? "bg-[#EAB30820] text-[#EAB308]"
       : tone === "bad"
-      ? "bg-[#FEE2E2] text-[#DC2626]"
-      : "bg-[#F0EDE9] text-[#737373]";
+      ? "bg-[#EF444420] text-[#EF4444]"
+      : "bg-[#1E1E1E] text-[#737373]";
 
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${cls}`}>
@@ -359,7 +359,7 @@ export default function DashboardPage() {
       <div className="p-4 md:p-8 max-w-[1100px]">
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h1 className="text-[18px] font-semibold text-[#1A1A1A]">Dashboard</h1>
+            <h1 className="text-[18px] font-semibold text-[#C8C5C0]">Dashboard</h1>
             <p className="text-[12px] text-[#737373] mt-0.5 hidden md:block">
               System view across momentum, memory, execution, and recent operating patterns
             </p>
@@ -368,7 +368,7 @@ export default function DashboardPage() {
           <button
             onClick={generateSummary}
             disabled={summaryLoading}
-            className="flex items-center gap-2 px-3 py-1.5 border border-[#E5E2DE] text-[#737373] text-[12px] rounded-lg hover:border-[#CC785C] hover:text-[#CC785C] transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-3 py-1.5 border border-[#2D2D2D] text-[#737373] text-[12px] rounded-lg hover:border-[#CC785C] hover:text-[#CC785C] transition-colors disabled:opacity-50"
           >
             {summaryLoading ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
             <span>Weekly Digest</span>
@@ -417,10 +417,10 @@ export default function DashboardPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-[1.25fr_0.75fr] gap-4">
           <div className="space-y-4">
-            <div className="bg-white border border-[#E5E2DE] rounded-xl p-4">
+            <div className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl p-4">
               <div className="flex items-center gap-2 mb-3">
                 <TrendingUp size={13} className="text-[#CC785C]" />
-                <h2 className="text-[12px] font-semibold text-[#1A1A1A] uppercase tracking-wide">Projects in Motion</h2>
+                <h2 className="text-[12px] font-semibold text-[#C8C5C0] uppercase tracking-wide">Projects in Motion</h2>
                 <span className="text-[10px] text-[#737373] ml-auto">7-day activity</span>
               </div>
 
@@ -435,7 +435,7 @@ export default function DashboardPage() {
                       className="cursor-pointer group"
                     >
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-[12px] text-[#404040] group-hover:text-[#CC785C] transition-colors">
+                        <span className="text-[12px] text-[#A8A5A0] group-hover:text-[#CC785C] transition-colors">
                           {p.name}
                         </span>
                         <div className="flex items-center gap-2">
@@ -457,10 +457,10 @@ export default function DashboardPage() {
               </button>
             </div>
 
-            <div className="bg-white border border-[#E5E2DE] rounded-xl p-4">
+            <div className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl p-4">
               <div className="flex items-center gap-2 mb-3">
                 <CheckSquare size={13} className="text-[#2C5F8A]" />
-                <h2 className="text-[12px] font-semibold text-[#1A1A1A] uppercase tracking-wide">Open Work</h2>
+                <h2 className="text-[12px] font-semibold text-[#C8C5C0] uppercase tracking-wide">Open Work</h2>
                 <span className="text-[10px] text-[#737373] ml-auto">{tasks.length} open</span>
               </div>
 
@@ -469,9 +469,9 @@ export default function DashboardPage() {
               ) : (
                 <div className="space-y-3">
                   {taskGroups.slice(0, 4).map((group) => (
-                    <div key={group.projectName} className="bg-[#FAF9F7] border border-[#EDE8E2] rounded-xl p-3">
+                    <div key={group.projectName} className="bg-[#111111] border border-[#2D2D2D] rounded-xl p-3">
                       <div className="flex items-center justify-between mb-2">
-                        <p className="text-[12px] font-semibold text-[#1A1A1A]">{group.projectName}</p>
+                        <p className="text-[12px] font-semibold text-[#C8C5C0]">{group.projectName}</p>
                         <span className="text-[10px] text-[#737373]">{group.items.length} items</span>
                       </div>
                       <div className="space-y-2">
@@ -479,7 +479,7 @@ export default function DashboardPage() {
                           <div key={task.id} className="flex items-start gap-2">
                             <div className="w-1.5 h-1.5 rounded-full bg-[#CC785C] mt-1.5 shrink-0" />
                             <div className="min-w-0 flex-1">
-                              <p className="text-[12px] text-[#404040] leading-relaxed">{task.title}</p>
+                              <p className="text-[12px] text-[#A8A5A0] leading-relaxed">{task.title}</p>
                               <p className="text-[10px] text-[#737373] mt-0.5">
                                 priority {task.priority ?? 2}
                                 {task.due_date ? ` · due ${task.due_date}` : ""}
@@ -495,10 +495,10 @@ export default function DashboardPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-white border border-[#E5E2DE] rounded-xl p-4">
+              <div className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <Brain size={13} className="text-[#7C3AED]" />
-                  <h2 className="text-[12px] font-semibold text-[#1A1A1A] uppercase tracking-wide">
+                  <h2 className="text-[12px] font-semibold text-[#C8C5C0] uppercase tracking-wide">
                     Recent Decisions and Blockers
                   </h2>
                 </div>
@@ -509,8 +509,8 @@ export default function DashboardPage() {
                       <p className="text-[11px] font-semibold text-[#737373] uppercase tracking-wide mb-2">Decisions</p>
                       <div className="space-y-2">
                         {decisions.map((d) => (
-                          <div key={d.id} className="bg-[#FAF9F7] border border-[#EDE8E2] rounded-xl p-3">
-                            <p className="text-[12px] text-[#404040] leading-relaxed">{d.content}</p>
+                          <div key={d.id} className="bg-[#111111] border border-[#2D2D2D] rounded-xl p-3">
+                            <p className="text-[12px] text-[#A8A5A0] leading-relaxed">{d.content}</p>
                             <p className="text-[10px] text-[#737373] mt-1">{timeAgo(d.created_at)}</p>
                           </div>
                         ))}
@@ -523,9 +523,9 @@ export default function DashboardPage() {
                       <p className="text-[11px] font-semibold text-[#737373] uppercase tracking-wide mb-2">Blockers</p>
                       <div className="space-y-2">
                         {blockers.map((b) => (
-                          <div key={b.id} className="bg-[#FEF2F2] border border-[#FEE2E2] rounded-xl p-3">
+                          <div key={b.id} className="bg-[#1A0D0D] border border-[#EF444430] rounded-xl p-3">
                             <div className="flex items-center justify-between gap-2">
-                              <p className="text-[12px] text-[#404040] leading-relaxed">{b.content}</p>
+                              <p className="text-[12px] text-[#A8A5A0] leading-relaxed">{b.content}</p>
                               {b.severity ? <Pill tone="bad">sev {b.severity}</Pill> : null}
                             </div>
                             <p className="text-[10px] text-[#737373] mt-1">{timeAgo(b.created_at)}</p>
@@ -541,10 +541,10 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              <div className="bg-white border border-[#E5E2DE] rounded-xl p-4">
+              <div className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <Brain size={13} className="text-[#7C3AED]" />
-                  <h2 className="text-[12px] font-semibold text-[#1A1A1A] uppercase tracking-wide">
+                  <h2 className="text-[12px] font-semibold text-[#C8C5C0] uppercase tracking-wide">
                     Last 7 Days Pattern Summary
                   </h2>
                 </div>
@@ -560,36 +560,36 @@ export default function DashboardPage() {
                     {activityPatterns.strongest_focus && (
                       <div>
                         <p className="text-[11px] font-semibold text-[#737373] uppercase tracking-wide mb-1">Strongest Focus</p>
-                        <p className="text-[13px] text-[#1A1A1A]">{activityPatterns.strongest_focus}</p>
+                        <p className="text-[13px] text-[#C8C5C0]">{activityPatterns.strongest_focus}</p>
                       </div>
                     )}
 
                     <div>
                       <p className="text-[11px] font-semibold text-[#737373] uppercase tracking-wide mb-1">Summary</p>
-                      <p className="text-[12px] text-[#404040] leading-relaxed">{activityPatterns.summary}</p>
+                      <p className="text-[12px] text-[#A8A5A0] leading-relaxed">{activityPatterns.summary}</p>
                     </div>
 
                     <div>
                       <p className="text-[11px] font-semibold text-[#737373] uppercase tracking-wide mb-1">Suggested Next Move</p>
-                      <p className="text-[12px] text-[#404040] leading-relaxed">{activityPatterns.suggested_next_move}</p>
+                      <p className="text-[12px] text-[#A8A5A0] leading-relaxed">{activityPatterns.suggested_next_move}</p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 pt-1">
-                      <div className="bg-[#FAF9F7] rounded-lg p-2">
+                      <div className="bg-[#111111] rounded-lg p-2">
                         <p className="text-[10px] text-[#737373]">Updates</p>
-                        <p className="text-[14px] font-semibold text-[#1A1A1A]">{activityPatterns.stats.updates}</p>
+                        <p className="text-[14px] font-semibold text-[#C8C5C0]">{activityPatterns.stats.updates}</p>
                       </div>
-                      <div className="bg-[#FAF9F7] rounded-lg p-2">
+                      <div className="bg-[#111111] rounded-lg p-2">
                         <p className="text-[10px] text-[#737373]">Tasks changed</p>
-                        <p className="text-[14px] font-semibold text-[#1A1A1A]">{activityPatterns.stats.tasks_changed}</p>
+                        <p className="text-[14px] font-semibold text-[#C8C5C0]">{activityPatterns.stats.tasks_changed}</p>
                       </div>
-                      <div className="bg-[#FAF9F7] rounded-lg p-2">
+                      <div className="bg-[#111111] rounded-lg p-2">
                         <p className="text-[10px] text-[#737373]">Blockers</p>
-                        <p className="text-[14px] font-semibold text-[#1A1A1A]">{activityPatterns.stats.blockers}</p>
+                        <p className="text-[14px] font-semibold text-[#C8C5C0]">{activityPatterns.stats.blockers}</p>
                       </div>
-                      <div className="bg-[#FAF9F7] rounded-lg p-2">
+                      <div className="bg-[#111111] rounded-lg p-2">
                         <p className="text-[10px] text-[#737373]">Decisions</p>
-                        <p className="text-[14px] font-semibold text-[#1A1A1A]">{activityPatterns.stats.decisions}</p>
+                        <p className="text-[14px] font-semibold text-[#C8C5C0]">{activityPatterns.stats.decisions}</p>
                       </div>
                     </div>
                   </div>
@@ -600,10 +600,10 @@ export default function DashboardPage() {
 
               {/* Cognitive Pattern Card */}
               {activityPatterns?.behavior && (
-                <div className="bg-white border border-[#E5E2DE] rounded-xl p-4">
+                <div className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl p-4">
                   <div className="flex items-center gap-2 mb-3">
                     <Brain size={13} className="text-[#B5622A]" />
-                    <h2 className="text-[12px] font-semibold text-[#1A1A1A] uppercase tracking-wide">Cognitive Patterns</h2>
+                    <h2 className="text-[12px] font-semibold text-[#C8C5C0] uppercase tracking-wide">Cognitive Patterns</h2>
                     <span className="text-[10px] text-[#737373] ml-auto">30-day analysis</span>
                   </div>
                   {/* Averages strip */}
@@ -613,10 +613,10 @@ export default function DashboardPage() {
                       { label: "Avg Stress", value: activityPatterns.behavior.avg_stress_7d, unit: "/10", good: null },
                       { label: "Cognitive", value: activityPatterns.behavior.avg_cognitive_7d, unit: "", good: 70 },
                     ].map(({ label, value, unit, good }) => (
-                      <div key={label} className="bg-[#FAF9F7] rounded-lg p-2 text-center">
+                      <div key={label} className="bg-[#111111] rounded-lg p-2 text-center">
                         <p className="text-[10px] text-[#737373] mb-0.5">{label}</p>
                         <p className={`text-[15px] font-bold ${
-                          value == null ? "text-[#B0ADA9]" :
+                          value == null ? "text-[#525252]" :
                           good === null ? (value >= 6 ? "text-[#EF4444]" : value >= 4 ? "text-[#EAB308]" : "text-[#10B981]") :
                           value >= good ? "text-[#10B981]" : "text-[#EAB308]"
                         }`}>
@@ -635,7 +635,7 @@ export default function DashboardPage() {
                         <div key={label} className="flex items-center justify-between">
                           <span className="text-[11px] text-[#737373]">{label}</span>
                           <div className="flex items-center gap-2">
-                            <div className="w-20 h-1.5 bg-[#F0EDE9] rounded-full overflow-hidden">
+                            <div className="w-20 h-1.5 bg-[#1E1E1E] rounded-full overflow-hidden">
                               <div className="h-full rounded-full transition-all"
                                 style={{
                                   width: `${Math.abs(value) * 100}%`,
@@ -652,7 +652,7 @@ export default function DashboardPage() {
                   </div>
                   {/* Decision outcomes */}
                   {activityPatterns.behavior.decision_outcomes.success_rate_high_sleep != null && (
-                    <div className="bg-[#F7F5F2] rounded-lg p-3 mb-3">
+                    <div className="bg-[#111111] rounded-lg p-3 mb-3">
                       <p className="text-[10px] font-semibold text-[#737373] uppercase tracking-wide mb-2">Decision Success Rate</p>
                       <div className="grid grid-cols-2 gap-2">
                         <div className="text-center">
@@ -670,15 +670,15 @@ export default function DashboardPage() {
                   {activityPatterns.behavior.pattern_insights.length > 0 && (
                     <div className="space-y-1.5">
                       {activityPatterns.behavior.pattern_insights.map((insight, i) => (
-                        <div key={i} className="flex items-start gap-2 bg-[#FAF5EF] border border-[#B5622A20] rounded-lg p-2">
+                        <div key={i} className="flex items-start gap-2 bg-[#1A1A1A] border border-[#B5622A20] rounded-lg p-2">
                           <span className="text-[10px] shrink-0 mt-0.5">💡</span>
-                          <p className="text-[11px] text-[#404040] leading-snug">{insight}</p>
+                          <p className="text-[11px] text-[#A8A5A0] leading-snug">{insight}</p>
                         </div>
                       ))}
                     </div>
                   )}
                   {activityPatterns.behavior.log_count_30d < 5 && (
-                    <p className="text-[11px] text-[#B0ADA9] mt-2">Log daily behavior to unlock pattern correlations.</p>
+                    <p className="text-[11px] text-[#525252] mt-2">Log daily behavior to unlock pattern correlations.</p>
                   )}
                 </div>
               )}
@@ -686,10 +686,10 @@ export default function DashboardPage() {
           </div>
 
           <div className="space-y-4">
-            <div className="bg-white border border-[#E5E2DE] rounded-xl p-4">
+            <div className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl p-4">
               <div className="flex items-center gap-2 mb-3">
                 <ArrowRight size={13} className="text-[#CC785C]" />
-                <h2 className="text-[12px] font-semibold text-[#1A1A1A] uppercase tracking-wide">Assistant Suggestions</h2>
+                <h2 className="text-[12px] font-semibold text-[#C8C5C0] uppercase tracking-wide">Assistant Suggestions</h2>
               </div>
 
               {nextSteps.length > 0 ? (
@@ -698,9 +698,9 @@ export default function DashboardPage() {
                     <button
                       key={n.id}
                       onClick={() => router.push("/app/ai")}
-                      className="w-full text-left bg-[#FAF9F7] border border-[#EDE8E2] rounded-xl p-3 hover:border-[#CC785C]/40 hover:bg-white transition-colors"
+                      className="w-full text-left bg-[#111111] border border-[#2D2D2D] rounded-xl p-3 hover:border-[#CC785C]/40 hover:bg-[#1A1A1A] transition-colors"
                     >
-                      <p className="text-[12px] text-[#404040] leading-relaxed">{n.content}</p>
+                      <p className="text-[12px] text-[#A8A5A0] leading-relaxed">{n.content}</p>
                       <p className="text-[10px] text-[#737373] mt-1">{timeAgo(n.created_at)}</p>
                     </button>
                   ))}
@@ -708,15 +708,15 @@ export default function DashboardPage() {
               ) : sessionCompact?.current_focus || sessionCompact?.summary ? (
                 <div className="space-y-2">
                   {sessionCompact?.current_focus && (
-                    <div className="bg-[#FAF9F7] border border-[#EDE8E2] rounded-xl p-3">
+                    <div className="bg-[#111111] border border-[#2D2D2D] rounded-xl p-3">
                       <p className="text-[11px] font-semibold text-[#737373] uppercase tracking-wide mb-1">Current Focus</p>
-                      <p className="text-[12px] text-[#404040]">{sessionCompact.current_focus}</p>
+                      <p className="text-[12px] text-[#A8A5A0]">{sessionCompact.current_focus}</p>
                     </div>
                   )}
                   {sessionCompact?.summary && (
-                    <div className="bg-[#FAF9F7] border border-[#EDE8E2] rounded-xl p-3">
+                    <div className="bg-[#111111] border border-[#2D2D2D] rounded-xl p-3">
                       <p className="text-[11px] font-semibold text-[#737373] uppercase tracking-wide mb-1">Session Compact</p>
-                      <p className="text-[12px] text-[#404040] leading-relaxed">{sessionCompact.summary}</p>
+                      <p className="text-[12px] text-[#A8A5A0] leading-relaxed">{sessionCompact.summary}</p>
                     </div>
                   )}
                   {sessionCompact?.key_topics && sessionCompact.key_topics.length > 0 && (
@@ -732,10 +732,10 @@ export default function DashboardPage() {
               )}
             </div>
 
-            <div className="bg-white border border-[#E5E2DE] rounded-xl p-4">
+            <div className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl p-4">
               <div className="flex items-center gap-2 mb-3">
                 <FlaskConical size={13} className="text-[#2C5F8A]" />
-                <h2 className="text-[12px] font-semibold text-[#1A1A1A] uppercase tracking-wide">
+                <h2 className="text-[12px] font-semibold text-[#C8C5C0] uppercase tracking-wide">
                   Research and Integrations Snapshot
                 </h2>
               </div>
@@ -752,9 +752,9 @@ export default function DashboardPage() {
                   {researchSessions.length > 0 ? (
                     <div className="space-y-2">
                       {researchSessions.slice(0, 3).map((r) => (
-                        <div key={r.id} className="bg-[#FAF9F7] border border-[#EDE8E2] rounded-xl p-3">
+                        <div key={r.id} className="bg-[#111111] border border-[#2D2D2D] rounded-xl p-3">
                           <div className="flex items-center justify-between gap-2">
-                            <p className="text-[12px] text-[#404040] leading-relaxed">{r.topic}</p>
+                            <p className="text-[12px] text-[#A8A5A0] leading-relaxed">{r.topic}</p>
                             <Pill>{r.status}</Pill>
                           </div>
                           <p className="text-[10px] text-[#737373] mt-1">{timeAgo(r.created_at)}</p>
@@ -774,10 +774,10 @@ export default function DashboardPage() {
                     </button>
                   </div>
 
-                  <div className="bg-[#FAF9F7] border border-[#EDE8E2] rounded-xl p-3">
+                  <div className="bg-[#111111] border border-[#2D2D2D] rounded-xl p-3">
                     <div className="flex items-center gap-2 mb-2">
                       <Plug size={12} className="text-[#737373]" />
-                      <p className="text-[12px] text-[#404040]">
+                      <p className="text-[12px] text-[#A8A5A0]">
                         {activeIntegrationCount} active integration{activeIntegrationCount === 1 ? "" : "s"}
                       </p>
                     </div>
@@ -797,16 +797,16 @@ export default function DashboardPage() {
             </div>
 
             {insights.length > 0 && (
-              <div className="bg-white border border-[#E5E2DE] rounded-xl p-4">
+              <div className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <Brain size={13} className="text-[#7C3AED]" />
-                  <h2 className="text-[12px] font-semibold text-[#1A1A1A] uppercase tracking-wide">System Insights</h2>
+                  <h2 className="text-[12px] font-semibold text-[#C8C5C0] uppercase tracking-wide">System Insights</h2>
                 </div>
 
                 <div className="space-y-2">
                   {insights.slice(0, 4).map((insight, i) => (
-                    <div key={i} className="bg-[#FAF9F7] border border-[#EDE8E2] rounded-xl p-3">
-                      <p className="text-[12px] text-[#404040] leading-relaxed">{insight.summary}</p>
+                    <div key={i} className="bg-[#111111] border border-[#2D2D2D] rounded-xl p-3">
+                      <p className="text-[12px] text-[#A8A5A0] leading-relaxed">{insight.summary}</p>
                       {insight.recommended_focus ? (
                         <p className="text-[10px] text-[#737373] mt-1">focus: {insight.recommended_focus}</p>
                       ) : null}

@@ -61,7 +61,7 @@ export default function ProjectTasksPage() {
   return (
     <div className="p-6 max-w-[860px]">
       <div className="flex items-center justify-between mb-5">
-        <h2 className="text-[16px] font-semibold text-[#1A1A1A]">
+        <h2 className="text-[16px] font-semibold text-[#C8C5C0]">
           Tasks
           <span className="text-[13px] font-normal text-[#737373] ml-2">{open.length} open · {done.length} done</span>
         </h2>
@@ -74,7 +74,7 @@ export default function ProjectTasksPage() {
           onChange={e => setNewTask(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && addTask()}
           placeholder="Add a task — press Enter to save"
-          className="flex-1 text-sm px-3 py-2 border border-[#E5E2DE] rounded-lg focus:outline-none focus:border-[#B5622A] bg-white"
+          className="flex-1 text-sm px-3 py-2 border border-[#2D2D2D] rounded-lg focus:outline-none focus:border-[#B5622A] bg-[#1A1A1A]"
         />
         <button
           onClick={addTask}
@@ -109,7 +109,7 @@ export default function ProjectTasksPage() {
       )}
 
       {!loading && tasks.length === 0 && (
-        <div className="border-2 border-dashed border-[#E5E2DE] rounded-xl py-12 text-center">
+        <div className="border-2 border-dashed border-[#2D2D2D] rounded-xl py-12 text-center">
           <p className="text-[14px] text-[#737373]">No tasks yet — add one above or ask the project assistant to create tasks.</p>
         </div>
       )}
@@ -127,7 +127,7 @@ function TaskRow({ task, onCycle, onDone }: {
 
   return (
     <div className={`flex items-center gap-3 p-2.5 rounded-lg border transition-colors group ${
-      isDone ? 'border-[#E5E2DE]' : 'border-[#E5E2DE] hover:border-[#B5622A]'
+      isDone ? 'border-[#2D2D2D]' : 'border-[#2D2D2D] hover:border-[#B5622A]'
     }`}>
       <button
         onClick={() => onCycle(task.id, task.status)}
@@ -141,7 +141,7 @@ function TaskRow({ task, onCycle, onDone }: {
         {isDone ? '✓' : isIP ? '→' : ''}
       </button>
 
-      <span className={`text-sm flex-1 ${isDone ? 'line-through text-[#737373]' : 'text-[#1A1A1A]'}`}>
+      <span className={`text-sm flex-1 ${isDone ? 'line-through text-[#737373]' : 'text-[#C8C5C0]'}`}>
         {task.title}
       </span>
 

@@ -154,10 +154,10 @@ function ActionBlock({ action, projectId, sessionId, onExecuted }: { action: Bud
 
   if (declined) {
     return (
-      <div className="bg-[#F7F5F2] border border-[#E5E2DE] rounded-xl p-4 mt-4 flex items-center gap-3">
+      <div className="bg-[#111111] border border-[#2D2D2D] rounded-xl p-4 mt-4 flex items-center gap-3">
         <AlertCircle size={18} className="text-[#737373] shrink-0" />
         <div>
-          <p className="text-[13px] font-semibold text-[#404040]">Action Declined</p>
+          <p className="text-[13px] font-semibold text-[#A8A5A0]">Action Declined</p>
           <p className="text-[12px] text-[#737373] mt-0.5">No changes were made.</p>
         </div>
       </div>
@@ -178,13 +178,13 @@ function ActionBlock({ action, projectId, sessionId, onExecuted }: { action: Bud
       <div className="flex items-start gap-3 mb-3">
         <AlertCircle size={18} className="text-[#B5622A] shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
-          <p className="text-[13px] font-semibold text-[#1A1A1A]">{action.description}</p>
+          <p className="text-[13px] font-semibold text-[#C8C5C0]">{action.description}</p>
           <p className="text-[11px] text-[#737373] mt-1">Proposed action</p>
           {action.warning && (
             <p className="text-[12px] text-[#9A4E20] mt-1.5 leading-relaxed">{action.warning}</p>
           )}
           <details className="mt-2.5 text-[11px]">
-            <summary className="cursor-pointer text-[#737373] hover:text-[#1A1A1A] transition-colors">
+            <summary className="cursor-pointer text-[#737373] hover:text-[#C8C5C0] transition-colors">
               View action details
             </summary>
             <pre className="mt-2 bg-[#1A1A1A] text-[#E5E2DE] text-[10px] p-2 rounded overflow-x-auto">
@@ -207,7 +207,7 @@ function ActionBlock({ action, projectId, sessionId, onExecuted }: { action: Bud
         <button
           onClick={() => setDeclined(true)}
           disabled={executing || executed || declined}
-          className="px-4 py-2 bg-white text-[#737373] text-[13px] font-semibold rounded-lg border border-[#E5E2DE] hover:text-[#1A1A1A] disabled:opacity-50 transition-colors"
+          className="px-4 py-2 bg-[#1A1A1A] text-[#737373] text-[13px] font-semibold rounded-lg border border-[#2D2D2D] hover:text-[#C8C5C0] disabled:opacity-50 transition-colors"
         >
           Decline
         </button>
@@ -234,10 +234,10 @@ function renderMarkdown(text: string): React.ReactNode[] {
       nodes.push(<CodeBlock key={k()} code={codeLines.join('\n')} lang={lang} />);
       i++; continue;
     }
-    if (line.startsWith('# '))  { nodes.push(<h1 key={k()} className="text-xl font-bold text-[#1A1A1A] mt-6 mb-3 first:mt-0">{inlineRender(line.slice(2))}</h1>); i++; continue; }
-    if (line.startsWith('## ')) { nodes.push(<h2 key={k()} className="text-lg font-bold text-[#1A1A1A] mt-5 mb-2 first:mt-0">{inlineRender(line.slice(3))}</h2>); i++; continue; }
-    if (line.startsWith('### ')){ nodes.push(<h3 key={k()} className="text-base font-semibold text-[#1A1A1A] mt-4 mb-1.5 first:mt-0">{inlineRender(line.slice(4))}</h3>); i++; continue; }
-    if (line.match(/^[-*]{3,}$/)) { nodes.push(<hr key={k()} className="border-[#E5E2DE] my-4" />); i++; continue; }
+    if (line.startsWith('# '))  { nodes.push(<h1 key={k()} className="text-xl font-bold text-[#C8C5C0] mt-6 mb-3 first:mt-0">{inlineRender(line.slice(2))}</h1>); i++; continue; }
+    if (line.startsWith('## ')) { nodes.push(<h2 key={k()} className="text-lg font-bold text-[#C8C5C0] mt-5 mb-2 first:mt-0">{inlineRender(line.slice(3))}</h2>); i++; continue; }
+    if (line.startsWith('### ')){ nodes.push(<h3 key={k()} className="text-base font-semibold text-[#C8C5C0] mt-4 mb-1.5 first:mt-0">{inlineRender(line.slice(4))}</h3>); i++; continue; }
+    if (line.match(/^[-*]{3,}$/)) { nodes.push(<hr key={k()} className="border-[#2D2D2D] my-4" />); i++; continue; }
     if (line.startsWith('> '))  { nodes.push(<blockquote key={k()} className="border-l-4 border-[#B5622A] pl-4 my-3 text-[#737373] italic">{inlineRender(line.slice(2))}</blockquote>); i++; continue; }
     if (line.match(/^[-*+] /)) {
       const items: string[] = [];
@@ -245,7 +245,7 @@ function renderMarkdown(text: string): React.ReactNode[] {
       nodes.push(
         <ul key={k()} className="list-none my-3 space-y-2 pl-1">
           {items.map((item, j) => (
-            <li key={j} className="flex items-start gap-2.5 text-[15px] text-[#1A1A1A]">
+            <li key={j} className="flex items-start gap-2.5 text-[15px] text-[#C8C5C0]">
               <span className="mt-2 w-1.5 h-1.5 rounded-full bg-[#B5622A] shrink-0" />
               <span className="leading-relaxed">{inlineRender(item)}</span>
             </li>
@@ -260,8 +260,8 @@ function renderMarkdown(text: string): React.ReactNode[] {
       nodes.push(
         <ol key={k()} className="list-none my-3 space-y-2 pl-1">
           {items.map((item, j) => (
-            <li key={j} className="flex items-start gap-2.5 text-[15px] text-[#1A1A1A]">
-              <span className="shrink-0 w-5 h-5 rounded-full bg-[#F0EDE9] text-[#B5622A] text-[11px] font-bold flex items-center justify-center">{j + 1}</span>
+            <li key={j} className="flex items-start gap-2.5 text-[15px] text-[#C8C5C0]">
+              <span className="shrink-0 w-5 h-5 rounded-full bg-[#1E1E1E] text-[#B5622A] text-[11px] font-bold flex items-center justify-center">{j + 1}</span>
               <span className="leading-relaxed">{inlineRender(item)}</span>
             </li>
           ))}
@@ -270,7 +270,7 @@ function renderMarkdown(text: string): React.ReactNode[] {
       continue;
     }
     if (line.trim() === '') { nodes.push(<div key={k()} className="h-3" />); i++; continue; }
-    nodes.push(<p key={k()} className="text-[15px] text-[#1A1A1A] leading-relaxed">{inlineRender(line)}</p>);
+    nodes.push(<p key={k()} className="text-[15px] text-[#C8C5C0] leading-relaxed">{inlineRender(line)}</p>);
     i++;
   }
   return nodes;
@@ -279,9 +279,9 @@ function renderMarkdown(text: string): React.ReactNode[] {
 function inlineRender(text: string): React.ReactNode {
   const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|\[.+?\]\(.+?\))/g);
   return parts.map((part, i) => {
-    if (part.startsWith('**') && part.endsWith('**')) return <strong key={i} className="font-semibold text-[#1A1A1A]">{part.slice(2,-2)}</strong>;
+    if (part.startsWith('**') && part.endsWith('**')) return <strong key={i} className="font-semibold text-[#C8C5C0]">{part.slice(2,-2)}</strong>;
     if (part.startsWith('*') && part.endsWith('*')) return <em key={i} className="italic">{part.slice(1,-1)}</em>;
-    if (part.startsWith('`') && part.endsWith('`')) return <code key={i} className="font-mono text-[13px] bg-[#F0EDE9] text-[#B5622A] px-1.5 py-0.5 rounded">{part.slice(1,-1)}</code>;
+    if (part.startsWith('`') && part.endsWith('`')) return <code key={i} className="font-mono text-[13px] bg-[#1E1E1E] text-[#B5622A] px-1.5 py-0.5 rounded">{part.slice(1,-1)}</code>;
     const lm = part.match(/\[(.+?)\]\((.+?)\)/);
     if (lm) return <a key={i} href={lm[2]} target="_blank" rel="noopener noreferrer" className="text-[#B5622A] underline hover:text-[#9A4E20]">{lm[1]}</a>;
     return part;
@@ -295,7 +295,7 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
       <div className="flex items-center justify-between px-4 py-2.5 bg-[#1A1A1A]">
         <span className="text-[11px] text-[#737373] font-mono uppercase tracking-wider">{lang || 'code'}</span>
         <button onClick={() => { navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-          className="flex items-center gap-1.5 text-[11px] text-[#B0ADA9] hover:text-white transition-colors">
+          className="flex items-center gap-1.5 text-[11px] text-[#525252] hover:text-white transition-colors">
           {copied ? <Check size={12} /> : <Copy size={12} />}
           {copied ? 'Copied' : 'Copy'}
         </button>
@@ -676,15 +676,15 @@ export default function ProjectAssistantPage() {
   ];
 
   return (
-    <div className="flex flex-col h-full bg-[#FAFAF8]">
+    <div className="flex flex-col h-full bg-[#0D0D0D]">
 
       {/* Header */}
-      <div className="flex flex-col gap-2 px-3 sm:px-5 py-3 bg-white border-b border-[#E5E2DE] shrink-0">
+      <div className="flex flex-col gap-2 px-3 sm:px-5 py-3 bg-[#1A1A1A] border-b border-[#2D2D2D] shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <div className="w-7 h-7 rounded-lg bg-[#0F0F0F] flex items-center justify-center text-[14px]">🤖</div>
-          <span className="text-[14px] font-semibold text-[#1A1A1A] truncate">Project Assistant</span>
-          <span className="hidden sm:inline-flex text-[11px] text-[#737373] bg-[#F7F5F2] px-2 py-0.5 rounded-full border border-[#E5E2DE]">Scoped to this project</span>
-          <span className="hidden sm:inline-flex text-[11px] text-[#737373] bg-[#F7F5F2] px-2 py-0.5 rounded-full border border-[#E5E2DE]">{provider} · {model || 'default'}</span>
+          <span className="text-[14px] font-semibold text-[#C8C5C0] truncate">Project Assistant</span>
+          <span className="hidden sm:inline-flex text-[11px] text-[#737373] bg-[#111111] px-2 py-0.5 rounded-full border border-[#2D2D2D]">Scoped to this project</span>
+          <span className="hidden sm:inline-flex text-[11px] text-[#737373] bg-[#111111] px-2 py-0.5 rounded-full border border-[#2D2D2D]">{provider} · {model || 'default'}</span>
         </div>
         <div className="flex items-center gap-2 overflow-x-auto">
           <select
@@ -700,7 +700,7 @@ export default function ProjectAssistantPage() {
               setModel(defaultModel);
               localStorage.setItem('buddies-ai-model', defaultModel);
             }}
-            className="shrink-0 text-[12px] px-2 py-1.5 rounded-lg border border-[#E5E2DE] bg-white text-[#1A1A1A]"
+            className="shrink-0 text-[12px] px-2 py-1.5 rounded-lg border border-[#2D2D2D] bg-[#1A1A1A] text-[#C8C5C0]"
           >
             <option value="anthropic">Claude</option>
             <option value="openai">OpenAI</option>
@@ -713,7 +713,7 @@ export default function ProjectAssistantPage() {
               setModel(e.target.value);
               localStorage.setItem('buddies-ai-model', e.target.value);
             }}
-            className="shrink-0 text-[12px] px-2 py-1.5 rounded-lg border border-[#E5E2DE] bg-white text-[#1A1A1A]"
+            className="shrink-0 text-[12px] px-2 py-1.5 rounded-lg border border-[#2D2D2D] bg-[#1A1A1A] text-[#C8C5C0]"
           >
             {providerModels[provider].map((m) => (
               <option key={m.value} value={m.value}>{m.label}</option>
@@ -730,7 +730,7 @@ export default function ProjectAssistantPage() {
       </div>
 
       {/* Chat submenu */}
-      <div className="px-3 sm:px-5 py-2 bg-white border-b border-[#EDE9E4] shrink-0">
+      <div className="px-3 sm:px-5 py-2 bg-[#1A1A1A] border-b border-[#EDE9E4] shrink-0">
         <div className="flex items-center gap-2 overflow-x-auto">
           <button
             onClick={startNewChat}
@@ -746,7 +746,7 @@ export default function ProjectAssistantPage() {
               className={`shrink-0 px-3 py-1.5 rounded-lg text-[12px] border transition-colors max-w-[220px] truncate ${
                 activeSession?.id === session.id
                   ? 'bg-[#0F0F0F] text-white border-[#0F0F0F]'
-                  : 'bg-[#F7F5F2] text-[#404040] border-[#E5E2DE] hover:bg-[#F0EDE9]'
+                  : 'bg-[#111111] text-[#A8A5A0] border-[#2D2D2D] hover:bg-[#1E1E1E]'
               }`}
               title={session.title || 'Chat'}
             >
@@ -766,14 +766,14 @@ export default function ProjectAssistantPage() {
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#B5622A] to-[#9A4E20] flex items-center justify-center mb-5 shadow-lg">
                 <span className="text-2xl">🤖</span>
               </div>
-              <h2 className="text-[18px] font-bold text-[#1A1A1A] mb-2">Project Assistant</h2>
+              <h2 className="text-[18px] font-bold text-[#C8C5C0] mb-2">Project Assistant</h2>
               <p className="text-[14px] text-[#737373] mb-8 max-w-[380px]">
                 Scoped to this project — asks about tasks, decisions, rules, research, and your connected GitHub & Supabase.
               </p>
               <div className="grid grid-cols-2 gap-3 w-full max-w-[560px]">
                 {suggestions.map(s => (
                   <button key={s} onClick={() => send(s)}
-                    className="text-left text-[13px] text-[#737373] bg-white border border-[#E5E2DE] rounded-xl px-4 py-4 hover:border-[#B5622A] hover:text-[#1A1A1A] hover:shadow-sm transition-all">
+                    className="text-left text-[13px] text-[#737373] bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl px-4 py-4 hover:border-[#B5622A] hover:text-[#C8C5C0] hover:shadow-sm transition-all">
                     {s}
                   </button>
                 ))}
@@ -820,13 +820,13 @@ export default function ProjectAssistantPage() {
                         className="group">
                         <div className={`rounded-2xl px-5 py-4 ${
                           group.role === 'assistant'
-                            ? 'bg-white border border-[#E5E2DE]'
-                            : 'bg-[#F0EDE9]'
+                            ? 'bg-[#1A1A1A] border border-[#2D2D2D]'
+                            : 'bg-[#1E1E1E]'
                         }`}>
                           {group.role === 'user'
                             ? (
                               <div>
-                                <p className="text-[15px] text-[#1A1A1A] leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                                <p className="text-[15px] text-[#C8C5C0] leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                                 {msg.images && msg.images.length > 0 && (
                                   <div className="flex flex-wrap gap-2 mt-3">
                                     {msg.images.map((url, ii) => (
@@ -834,7 +834,7 @@ export default function ProjectAssistantPage() {
                                         key={ii}
                                         src={url}
                                         alt="attachment"
-                                        className="max-w-[200px] max-h-[200px] rounded-lg object-cover border border-[#E5E2DE]"
+                                        className="max-w-[200px] max-h-[200px] rounded-lg object-cover border border-[#2D2D2D]"
                                       />
                                     ))}
                                   </div>
@@ -845,12 +845,12 @@ export default function ProjectAssistantPage() {
                           }
                           {/* Document card */}
                           {msg.document && (
-                            <div className="mt-4 pt-4 border-t border-[#E5E2DE] rounded-xl bg-[#FAFAF9] p-3 flex items-start gap-3">
+                            <div className="mt-4 pt-4 border-t border-[#2D2D2D] rounded-xl bg-[#FAFAF9] p-3 flex items-start gap-3">
                               <div className="w-8 h-8 rounded-lg bg-[#FAF0E8] flex items-center justify-center shrink-0">
                                 <FileText size={15} className="text-[#B5622A]" />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="text-[13px] font-semibold text-[#1A1A1A] truncate">{msg.document.title}</p>
+                                <p className="text-[13px] font-semibold text-[#C8C5C0] truncate">{msg.document.title}</p>
                                 <p className="text-[11px] text-[#737373] mt-0.5 line-clamp-2">{msg.document.content.slice(0, 120)}…</p>
                               </div>
                               <div className="flex gap-2 shrink-0">
@@ -864,7 +864,7 @@ export default function ProjectAssistantPage() {
                                   const a = document.createElement('a');
                                   a.href = url; a.download = `${msg.document!.title.replace(/\s+/g,'-').toLowerCase()}.md`;
                                   a.click(); URL.revokeObjectURL(url);
-                                }} className="text-[11px] px-2.5 py-1 bg-[#F7F5F2] text-[#737373] rounded-lg hover:bg-[#E5E2DE] transition-colors font-semibold flex items-center gap-1">
+                                }} className="text-[11px] px-2.5 py-1 bg-[#111111] text-[#737373] rounded-lg hover:bg-[#2D2D2D] transition-colors font-semibold flex items-center gap-1">
                                   <Download size={10} /> .md
                                 </button>
                               </div>
@@ -894,18 +894,18 @@ export default function ProjectAssistantPage() {
                         {/* Hover actions */}
                         <div className={`flex items-center gap-3 mt-2 transition-opacity ${hoveredId === msgId ? 'opacity-100' : 'opacity-0'}`}>
                           {msg.ts && (
-                            <span className="text-[11px] text-[#B0ADA9]">
+                            <span className="text-[11px] text-[#525252]">
                               {new Date(msg.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
                           )}
                           <button onClick={() => copyMessage(msg.content, msgId)}
-                            className="flex items-center gap-1 text-[11px] text-[#B0ADA9] hover:text-[#1A1A1A] transition-colors">
+                            className="flex items-center gap-1 text-[11px] text-[#525252] hover:text-[#C8C5C0] transition-colors">
                             {copiedId === msgId ? <Check size={12} /> : <Copy size={12} />}
                             {copiedId === msgId ? 'Copied' : 'Copy'}
                           </button>
                           {group.role === 'assistant' && isLast && (
                             <button onClick={regenerate} disabled={loading}
-                              className="flex items-center gap-1 text-[11px] text-[#B0ADA9] hover:text-[#1A1A1A] transition-colors disabled:opacity-40">
+                              className="flex items-center gap-1 text-[11px] text-[#525252] hover:text-[#C8C5C0] transition-colors disabled:opacity-40">
                               <RotateCcw size={12} /> Regenerate
                             </button>
                           )}
@@ -922,7 +922,7 @@ export default function ProjectAssistantPage() {
           {loading && (
             <div className="flex gap-4 items-start mb-8">
               <div className="w-8 h-8 rounded-full bg-[#0F0F0F] flex items-center justify-center text-[15px] shrink-0">🤖</div>
-              <div className="bg-white border border-[#E5E2DE] rounded-2xl px-5 py-4">
+              <div className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-2xl px-5 py-4">
                 <div className="flex gap-1.5 items-center h-6">
                   {[0,1,2].map(i => (
                     <div key={i} className="w-2 h-2 rounded-full bg-[#B0ADA9] animate-bounce"
@@ -938,12 +938,12 @@ export default function ProjectAssistantPage() {
       </div>
 
       {/* Input */}
-      <div className="px-4 py-4 bg-white border-t border-[#E5E2DE] shrink-0">
+      <div className="px-4 py-4 bg-[#1A1A1A] border-t border-[#2D2D2D] shrink-0">
         <div className="max-w-[800px] mx-auto">
           {attachedFiles.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-2">
               {attachedFiles.map((file, i) => (
-                <div key={i} className="flex items-center gap-1.5 px-2 py-1 bg-[#F0EDE9] rounded-lg text-[12px] text-[#737373]">
+                <div key={i} className="flex items-center gap-1.5 px-2 py-1 bg-[#1E1E1E] rounded-lg text-[12px] text-[#737373]">
                   {file.type.startsWith('image/') ? '🖼️' : (file.name.endsWith('.zip') ? '📦' : '📄')} {file.name.slice(0, 20)}{file.name.length > 20 ? '…' : ''}
                   <button
                     onClick={() => setAttachedFiles(prev => prev.filter((_, j) => j !== i))}
@@ -956,7 +956,7 @@ export default function ProjectAssistantPage() {
             </div>
           )}
 
-          <div className="bg-[#FAFAF9] border border-[#E5E2DE] rounded-2xl px-4 py-3 focus-within:border-[#B5622A] transition-colors">
+          <div className="bg-[#FAFAF9] border border-[#2D2D2D] rounded-2xl px-4 py-3 focus-within:border-[#B5622A] transition-colors">
             <div className="flex items-center gap-2 overflow-x-auto pb-2">
               <VoiceInputButton onTranscript={handleVoiceTranscript} />
               <FileUpload onFilesSelected={(files) => setAttachedFiles(prev => [...prev, ...files])} />
@@ -969,7 +969,7 @@ export default function ProjectAssistantPage() {
                 onKeyDown={handleKey}
                 rows={2}
                 placeholder="Ask about this project… (Enter to send, Shift+Enter for newline)"
-                className="flex-1 resize-none text-[15px] text-[#1A1A1A] bg-transparent focus:outline-none leading-relaxed placeholder:text-[#B0ADA9]"
+                className="flex-1 resize-none text-[15px] text-[#C8C5C0] bg-transparent focus:outline-none leading-relaxed placeholder:text-[#525252]"
                 style={{ overflowY: 'auto', minHeight: '56px', maxHeight: '180px' }}
               />
               <button

@@ -41,7 +41,7 @@ function NavLink({ to, icon: Icon, label, collapsed, onClick }: {
       href={to}
       onClick={onClick}
       className={`flex items-center gap-3 px-3 py-[7px] mx-2 rounded-lg text-[13px] transition-colors ${
-        active ? "bg-[#1E1E1E] text-white font-medium" : "text-[#8A8A8A] hover:text-white hover:bg-[#1E1E1E]"
+        active ? "bg-[#1E1E1E] text-[#C8C5C0] font-medium" : "text-[#525252] hover:text-[#C8C5C0] hover:bg-[#161616]"
       }`}
       title={collapsed ? label : undefined}
     >
@@ -122,7 +122,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => { setMobileOpen(false); }, [pathname]);
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[#F7F5F2]">
+    <div className="flex h-screen w-screen overflow-hidden bg-[#0D0D0D]">
       <div className="hidden md:flex h-full">
         <NavContent
           collapsed={collapsed}

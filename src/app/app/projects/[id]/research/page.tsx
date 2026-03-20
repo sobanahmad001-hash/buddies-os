@@ -19,7 +19,7 @@ function timeAgo(d: string) {
 const PRIORITY_LABELS: Record<number, string> = { 1: 'Urgent', 2: 'High', 3: 'Medium', 4: 'Low' };
 const PRIORITY_COLORS: Record<number, string> = {
   1: 'bg-[#FEE2E2] text-[#EF4444]', 2: 'bg-[#FAF0E8] text-[#B5622A]',
-  3: 'bg-[#F0EDE9] text-[#737373]', 4: 'bg-[#F7F5F2] text-[#B0ADA9]',
+  3: 'bg-[#1E1E1E] text-[#737373]', 4: 'bg-[#111111] text-[#525252]',
 };
 
 export default function ProjectResearchPage() {
@@ -96,7 +96,7 @@ export default function ProjectResearchPage() {
   return (
     <div className="p-6 max-w-[860px]">
       <div className="flex items-center justify-between mb-2">
-        <h2 className="text-[16px] font-semibold text-[#1A1A1A]">
+        <h2 className="text-[16px] font-semibold text-[#C8C5C0]">
           Research
           <span className="text-[13px] font-normal text-[#737373] ml-2">{notes.length} notes</span>
         </h2>
@@ -110,16 +110,16 @@ export default function ProjectResearchPage() {
       </p>
 
       {showForm && (
-        <form onSubmit={submit} className="bg-white border border-[#E5E2DE] rounded-xl p-5 mb-6 space-y-3">
+        <form onSubmit={submit} className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl p-5 mb-6 space-y-3">
           <input value={form.topic} onChange={e => setForm(f => ({ ...f, topic: e.target.value }))}
             placeholder="Research topic or question" required
-            className="w-full text-[14px] px-3 py-2 border border-[#E5E2DE] rounded-lg focus:outline-none focus:border-[#B5622A]" />
+            className="w-full text-[14px] px-3 py-2 border border-[#2D2D2D] rounded-lg focus:outline-none focus:border-[#B5622A]" />
           <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
             placeholder="Notes, findings, links, ideas…" required rows={5}
-            className="w-full text-[14px] px-3 py-2 border border-[#E5E2DE] rounded-lg focus:outline-none focus:border-[#B5622A] resize-none" />
+            className="w-full text-[14px] px-3 py-2 border border-[#2D2D2D] rounded-lg focus:outline-none focus:border-[#B5622A] resize-none" />
           <div className="flex gap-2 justify-end">
             <button type="button" onClick={() => setShowForm(false)}
-              className="px-3 py-1.5 text-[13px] text-[#737373] hover:text-[#1A1A1A]">Cancel</button>
+              className="px-3 py-1.5 text-[13px] text-[#737373] hover:text-[#C8C5C0]">Cancel</button>
             <button type="submit" disabled={saving}
               className="px-4 py-1.5 bg-[#B5622A] text-white text-[13px] font-semibold rounded-lg hover:bg-[#9A4E20] disabled:opacity-40 transition-colors">
               {saving ? 'Saving…' : 'Save Note'}
@@ -130,7 +130,7 @@ export default function ProjectResearchPage() {
 
       {loading && <p className="text-[13px] text-[#737373]">Loading…</p>}
       {!loading && notes.length === 0 && (
-        <div className="border-2 border-dashed border-[#E5E2DE] rounded-xl py-12 text-center">
+        <div className="border-2 border-dashed border-[#2D2D2D] rounded-xl py-12 text-center">
           <FlaskConical size={24} className="text-[#D1CCCC] mx-auto mb-3" />
           <p className="text-[14px] text-[#737373]">No research notes yet.</p>
         </div>
@@ -138,11 +138,11 @@ export default function ProjectResearchPage() {
 
       <div className="space-y-3">
         {notes.map(note => (
-          <div key={note.id} className="bg-white border border-[#E5E2DE] rounded-xl overflow-hidden">
+          <div key={note.id} className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl overflow-hidden">
             <div className="flex items-start justify-between p-4">
               <button onClick={() => setExpanded(expanded === note.id ? null : note.id)}
                 className="flex-1 text-left min-w-0">
-                <p className="text-[14px] font-semibold text-[#1A1A1A]">{note.topic}</p>
+                <p className="text-[14px] font-semibold text-[#C8C5C0]">{note.topic}</p>
                 <p className="text-[12px] text-[#737373] mt-0.5 truncate">
                   {note.notes.slice(0, 80)}{note.notes.length > 80 ? '…' : ''}
                 </p>
@@ -161,27 +161,27 @@ export default function ProjectResearchPage() {
             </div>
 
             {expanded === note.id && (
-              <div className="px-4 pb-4 pt-2 border-t border-[#F7F5F2] space-y-4">
-                <p className="text-[14px] text-[#404040] leading-relaxed whitespace-pre-wrap">{note.notes}</p>
+              <div className="px-4 pb-4 pt-2 border-t border-[#2D2D2D] space-y-4">
+                <p className="text-[14px] text-[#A8A5A0] leading-relaxed whitespace-pre-wrap">{note.notes}</p>
 
                 {/* Task suggestions panel */}
                 {suggested?.researchId === note.id && editableTasks.length > 0 && (
-                  <div className="bg-[#F7F5F2] rounded-xl p-4">
+                  <div className="bg-[#111111] rounded-xl p-4">
                     <div className="flex items-center justify-between mb-3">
-                      <p className="text-[12px] font-semibold text-[#1A1A1A]">
+                      <p className="text-[12px] font-semibold text-[#C8C5C0]">
                         AI suggested {editableTasks.length} tasks — review and approve
                       </p>
                       <button onClick={() => { setSuggested(null); setEditableTasks([]); }}
-                        className="text-[#737373] hover:text-[#1A1A1A]"><X size={14} /></button>
+                        className="text-[#737373] hover:text-[#C8C5C0]"><X size={14} /></button>
                     </div>
                     <div className="space-y-2 mb-4">
                       {editableTasks.map((task, i) => (
-                        <div key={i} className="bg-white border border-[#E5E2DE] rounded-lg p-3">
+                        <div key={i} className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-lg p-3">
                           <div className="flex items-start gap-2">
                             <div className="flex-1">
                               <input value={task.title}
                                 onChange={e => setEditableTasks(prev => prev.map((t, j) => j === i ? { ...t, title: e.target.value } : t))}
-                                className="w-full text-[13px] font-semibold text-[#1A1A1A] bg-transparent focus:outline-none border-b border-transparent focus:border-[#B5622A]" />
+                                className="w-full text-[13px] font-semibold text-[#C8C5C0] bg-transparent focus:outline-none border-b border-transparent focus:border-[#B5622A]" />
                               {task.description && (
                                 <p className="text-[11px] text-[#737373] mt-0.5">{task.description}</p>
                               )}
@@ -191,7 +191,7 @@ export default function ProjectResearchPage() {
                                 {PRIORITY_LABELS[task.priority] ?? 'Medium'}
                               </span>
                               <button onClick={() => setEditableTasks(prev => prev.filter((_, j) => j !== i))}
-                                className="text-[#B0ADA9] hover:text-[#EF4444] transition-colors">
+                                className="text-[#525252] hover:text-[#EF4444] transition-colors">
                                 <X size={13} />
                               </button>
                             </div>
@@ -205,7 +205,7 @@ export default function ProjectResearchPage() {
                         <Check size={13} /> {approving ? 'Creating…' : `Approve All (${editableTasks.length})`}
                       </button>
                       <button onClick={() => { setSuggested(null); setEditableTasks([]); }}
-                        className="px-4 py-2 bg-white border border-[#E5E2DE] text-[#737373] text-[12px] font-semibold rounded-lg hover:text-[#1A1A1A] transition-colors">
+                        className="px-4 py-2 bg-[#1A1A1A] border border-[#2D2D2D] text-[#737373] text-[12px] font-semibold rounded-lg hover:text-[#C8C5C0] transition-colors">
                         Discard
                       </button>
                     </div>

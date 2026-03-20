@@ -22,7 +22,7 @@ const TYPE_COLORS: Record<string, string> = {
   research_output: 'bg-[#EFF6FF] text-[#3B82F6]',
   task_summary: 'bg-[#F5F3FF] text-[#8B5CF6]',
   user_requested: 'bg-[#FAF0E8] text-[#B5622A]',
-  note: 'bg-[#F7F5F2] text-[#737373]',
+  note: 'bg-[#111111] text-[#737373]',
 };
 
 function timeAgo(d: string) {
@@ -157,7 +157,7 @@ export default function ProjectDocumentsPage() {
     <div className="p-6 max-w-[860px]">
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
-        <h2 className="text-[16px] font-semibold text-[#1A1A1A]">
+        <h2 className="text-[16px] font-semibold text-[#C8C5C0]">
           Documents
           <span className="text-[13px] font-normal text-[#737373] ml-2">{docs.length} docs · {files.length} files</span>
         </h2>
@@ -166,7 +166,7 @@ export default function ProjectDocumentsPage() {
             accept=".pdf,.txt,.md,.doc,.docx,.csv,.png,.jpg,.jpeg,.webp"
             onChange={handleFileUpload} />
           <button onClick={() => fileInputRef.current?.click()} disabled={uploading}
-            className="flex items-center gap-1.5 px-3 py-1.5 border border-[#E5E2DE] text-[#737373] text-[12px] font-semibold rounded-lg hover:border-[#1A1A1A] hover:text-[#1A1A1A] disabled:opacity-40 transition-colors">
+            className="flex items-center gap-1.5 px-3 py-1.5 border border-[#2D2D2D] text-[#737373] text-[12px] font-semibold rounded-lg hover:border-[#1A1A1A] hover:text-[#C8C5C0] disabled:opacity-40 transition-colors">
             <Upload size={13} /> {uploading ? 'Uploading…' : 'Upload File'}
           </button>
           <button onClick={() => { setShowNew(v => !v); setTab('generated'); }}
@@ -209,9 +209,9 @@ export default function ProjectDocumentsPage() {
       )}
 
       {!livingDoc && (
-        <div className="bg-[#F7F5F2] border border-dashed border-[#E5E2DE] rounded-xl p-4 mb-5 flex items-center justify-between">
+        <div className="bg-[#111111] border border-dashed border-[#2D2D2D] rounded-xl p-4 mb-5 flex items-center justify-between">
           <div>
-            <p className="text-[13px] font-semibold text-[#1A1A1A]">No Living Product Document yet</p>
+            <p className="text-[13px] font-semibold text-[#C8C5C0]">No Living Product Document yet</p>
             <p className="text-[12px] text-[#737373]">Auto-generated from your project data. Always current.</p>
           </div>
           <button onClick={refreshLivingDoc} disabled={updatingLiving}
@@ -234,11 +234,11 @@ export default function ProjectDocumentsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-[#F0EDE9] p-1 rounded-xl w-fit mb-5">
+      <div className="flex gap-1 bg-[#1E1E1E] p-1 rounded-xl w-fit mb-5">
         {(['generated', 'files'] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
             className={`text-[12px] font-semibold px-4 py-1.5 rounded-lg transition-colors capitalize
-              ${tab === t ? 'bg-white text-[#1A1A1A] shadow-sm' : 'text-[#737373] hover:text-[#1A1A1A]'}`}>
+              ${tab === t ? 'bg-[#1A1A1A] text-[#C8C5C0] shadow-sm' : 'text-[#737373] hover:text-[#C8C5C0]'}`}>
             {t === 'generated' ? `Documents (${otherDocs.length})` : `Files (${files.length})`}
           </button>
         ))}
@@ -246,15 +246,15 @@ export default function ProjectDocumentsPage() {
 
       {/* Manual new doc form */}
       {showNew && tab === 'generated' && (
-        <div className="bg-white border border-[#B5622A] rounded-xl p-5 mb-5 space-y-3">
+        <div className="bg-[#1A1A1A] border border-[#B5622A] rounded-xl p-5 mb-5 space-y-3">
           <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
             placeholder="Document title"
-            className="w-full text-[15px] font-semibold px-3 py-2 border-b border-[#E5E2DE] focus:outline-none focus:border-[#B5622A]" />
+            className="w-full text-[15px] font-semibold px-3 py-2 border-b border-[#2D2D2D] focus:outline-none focus:border-[#B5622A]" />
           <textarea value={form.content} onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
             placeholder="Document content (markdown)…" rows={10}
-            className="w-full text-[14px] px-3 py-2 border border-[#E5E2DE] rounded-lg focus:outline-none focus:border-[#B5622A] resize-none font-mono" />
+            className="w-full text-[14px] px-3 py-2 border border-[#2D2D2D] rounded-lg focus:outline-none focus:border-[#B5622A] resize-none font-mono" />
           <div className="flex gap-2 justify-end">
-            <button onClick={() => setShowNew(false)} className="text-[13px] text-[#737373] hover:text-[#1A1A1A] flex items-center gap-1">
+            <button onClick={() => setShowNew(false)} className="text-[13px] text-[#737373] hover:text-[#C8C5C0] flex items-center gap-1">
               <X size={13} /> Discard
             </button>
             <button onClick={saveManual} disabled={saving || !form.title.trim() || !form.content.trim()}
@@ -271,18 +271,18 @@ export default function ProjectDocumentsPage() {
       {tab === 'generated' && (
         <div className="space-y-3">
           {otherDocs.length === 0 && !loading && (
-            <div className="border-2 border-dashed border-[#E5E2DE] rounded-xl py-10 text-center">
+            <div className="border-2 border-dashed border-[#2D2D2D] rounded-xl py-10 text-center">
               <FileText size={22} className="text-[#D1CCCC] mx-auto mb-2" />
               <p className="text-[13px] text-[#737373]">No documents yet.</p>
               <p className="text-[12px] text-[#9E9E9E] mt-1">Ask AI to generate one above, or create manually.</p>
             </div>
           )}
           {otherDocs.map(doc => (
-            <div key={doc.id} className="bg-white border border-[#E5E2DE] rounded-xl p-4 flex items-start justify-between gap-3 hover:shadow-sm transition-shadow">
+            <div key={doc.id} className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl p-4 flex items-start justify-between gap-3 hover:shadow-sm transition-shadow">
               <button onClick={() => setViewing(doc)} className="flex-1 text-left min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <p className="text-[14px] font-semibold text-[#1A1A1A] truncate">{doc.title}</p>
-                  <span className={`shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full ${TYPE_COLORS[doc.doc_type] ?? 'bg-[#F7F5F2] text-[#737373]'}`}>
+                  <p className="text-[14px] font-semibold text-[#C8C5C0] truncate">{doc.title}</p>
+                  <span className={`shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full ${TYPE_COLORS[doc.doc_type] ?? 'bg-[#111111] text-[#737373]'}`}>
                     {TYPE_LABELS[doc.doc_type] ?? doc.doc_type}
                   </span>
                 </div>
@@ -290,7 +290,7 @@ export default function ProjectDocumentsPage() {
                 <p className="text-[11px] text-[#9E9E9E] mt-1">{timeAgo(doc.created_at)} · {doc.source}</p>
               </button>
               <button onClick={() => downloadDoc(doc)} title="Download .md"
-                className="shrink-0 p-2 text-[#737373] hover:text-[#1A1A1A] hover:bg-[#F7F5F2] rounded-lg transition-colors">
+                className="shrink-0 p-2 text-[#737373] hover:text-[#C8C5C0] hover:bg-[#111111] rounded-lg transition-colors">
                 <Download size={14} />
               </button>
             </div>
@@ -302,7 +302,7 @@ export default function ProjectDocumentsPage() {
       {tab === 'files' && (
         <div className="space-y-3">
           {files.length === 0 && !loading && (
-            <div className="border-2 border-dashed border-[#E5E2DE] rounded-xl py-10 text-center">
+            <div className="border-2 border-dashed border-[#2D2D2D] rounded-xl py-10 text-center">
               <Upload size={22} className="text-[#D1CCCC] mx-auto mb-2" />
               <p className="text-[13px] text-[#737373]">No files uploaded yet.</p>
               <p className="text-[12px] text-[#9E9E9E] mt-1">Upload PDFs, docs, images — Buddies reads them as project context.</p>
@@ -313,15 +313,15 @@ export default function ProjectDocumentsPage() {
             </div>
           )}
           {files.map(f => (
-            <div key={f.id} className="bg-white border border-[#E5E2DE] rounded-xl p-4 flex items-start gap-3">
-              <div className="w-9 h-9 rounded-lg bg-[#F0EDE9] flex items-center justify-center shrink-0">
+            <div key={f.id} className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl p-4 flex items-start gap-3">
+              <div className="w-9 h-9 rounded-lg bg-[#1E1E1E] flex items-center justify-center shrink-0">
                 <File size={16} className="text-[#737373]" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[14px] font-semibold text-[#1A1A1A] truncate">{f.filename}</p>
+                <p className="text-[14px] font-semibold text-[#C8C5C0] truncate">{f.filename}</p>
                 <p className="text-[11px] text-[#737373] mt-0.5">{f.file_type} · {formatBytes(f.file_size)} · {timeAgo(f.created_at)}</p>
                 {f.summary && (
-                  <p className="text-[12px] text-[#404040] mt-1.5 leading-relaxed line-clamp-2">{f.summary}</p>
+                  <p className="text-[12px] text-[#A8A5A0] mt-1.5 leading-relaxed line-clamp-2">{f.summary}</p>
                 )}
                 <p className="text-[10px] text-[#10B981] mt-1">✓ Readable by project assistant</p>
               </div>
@@ -333,25 +333,25 @@ export default function ProjectDocumentsPage() {
       {/* Full doc viewer modal */}
       {viewing && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-[700px] max-h-[85vh] flex flex-col shadow-2xl">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E2DE]">
+          <div className="bg-[#1A1A1A] rounded-2xl w-full max-w-[700px] max-h-[85vh] flex flex-col shadow-2xl">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#2D2D2D]">
               <div className="flex items-center gap-2 min-w-0">
-                <h3 className="text-[15px] font-semibold text-[#1A1A1A] truncate">{viewing.title}</h3>
+                <h3 className="text-[15px] font-semibold text-[#C8C5C0] truncate">{viewing.title}</h3>
                 {viewing.is_living && <span className="shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#ECFDF5] text-[#10B981]">Living</span>}
               </div>
               <div className="flex gap-2 shrink-0">
                 <button onClick={() => downloadDoc(viewing)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 border border-[#E5E2DE] text-[#737373] text-[12px] rounded-lg hover:text-[#1A1A1A] hover:border-[#1A1A1A] transition-colors">
+                  className="flex items-center gap-1.5 px-3 py-1.5 border border-[#2D2D2D] text-[#737373] text-[12px] rounded-lg hover:text-[#C8C5C0] hover:border-[#1A1A1A] transition-colors">
                   <Download size={13} /> .md
                 </button>
                 <button onClick={() => setViewing(null)}
-                  className="p-1.5 text-[#737373] hover:text-[#1A1A1A] rounded-lg hover:bg-[#F7F5F2]">
+                  className="p-1.5 text-[#737373] hover:text-[#C8C5C0] rounded-lg hover:bg-[#111111]">
                   <X size={16} />
                 </button>
               </div>
             </div>
             <div className="flex-1 overflow-auto px-6 py-4">
-              <pre className="text-[14px] text-[#404040] leading-relaxed whitespace-pre-wrap font-sans">{viewing.content}</pre>
+              <pre className="text-[14px] text-[#A8A5A0] leading-relaxed whitespace-pre-wrap font-sans">{viewing.content}</pre>
             </div>
           </div>
         </div>

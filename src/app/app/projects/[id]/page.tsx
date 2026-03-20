@@ -77,10 +77,10 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-white border border-[#E5E2DE] rounded-xl p-4">
+    <div className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl p-4">
       <div className="flex items-start justify-between mb-3 gap-3">
         <div>
-          <h2 className="text-[14px] font-semibold text-[#1A1A1A]">{title}</h2>
+          <h2 className="text-[14px] font-semibold text-[#C8C5C0]">{title}</h2>
           {subtitle && <p className="text-[12px] text-[#737373] mt-0.5">{subtitle}</p>}
         </div>
         {action}
@@ -104,16 +104,16 @@ function LinkTile({
   return (
     <button
       onClick={onClick}
-      className="w-full text-left bg-[#FAF9F7] border border-[#EDE8E2] rounded-xl p-3 hover:border-[#CC785C]/40 hover:bg-white transition-colors"
+      className="w-full text-left bg-[#111111] border border-[#2D2D2D] rounded-xl p-3 hover:border-[#CC785C]/40 hover:bg-[#1A1A1A] transition-colors"
     >
       <div className="flex items-start gap-3">
-        <div className="w-8 h-8 rounded-lg bg-white border border-[#E5E2DE] flex items-center justify-center shrink-0">
+        <div className="w-8 h-8 rounded-lg bg-[#1A1A1A] border border-[#2D2D2D] flex items-center justify-center shrink-0">
           <Icon size={15} className="text-[#CC785C]" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-[13px] font-semibold text-[#1A1A1A]">{title}</p>
-            <ArrowRight size={13} className="text-[#B0ADA9] shrink-0" />
+            <p className="text-[13px] font-semibold text-[#C8C5C0]">{title}</p>
+            <ArrowRight size={13} className="text-[#525252] shrink-0" />
           </div>
           <p className="text-[12px] text-[#737373] mt-1 leading-relaxed">{subtitle}</p>
         </div>
@@ -146,7 +146,7 @@ function ProjectTimeline({ nodes }: { nodes: any[] }) {
                                    `["${label}"]`;
       lines.push(`  N${i}${shape}`);
       if (i > 0) lines.push(`  N${i - 1} --> N${i}`);
-      const style = nodeColors[node.type] ?? "fill:#F7F5F2,stroke:#E5E2DE,color:#1A1A1A";
+      const style = nodeColors[node.type] ?? "fill:#1A1A1A,stroke:#2D2D2D,color:#C8C5C0";
       lines.push(`  style N${i} ${style}`);
     });
 
@@ -203,7 +203,7 @@ function ProjectTimeline({ nodes }: { nodes: any[] }) {
   }, [nodes]);
 
   if (!nodes?.length) return (
-    <div className="text-center py-8 text-[#B0ADA9] text-sm">
+    <div className="text-center py-8 text-[#525252] text-sm">
       No timeline events yet. Research, decisions, and task batches will appear here automatically.
     </div>
   );
@@ -339,7 +339,7 @@ export default function ProjectOverviewPage() {
               {project.tags.map((t) => (
                 <span
                   key={t}
-                  className="text-[11px] px-2 py-0.5 rounded-full bg-[#F7F5F2] text-[#737373] border border-[#E5E2DE]"
+                  className="text-[11px] px-2 py-0.5 rounded-full bg-[#111111] text-[#737373] border border-[#2D2D2D]"
                 >
                   {t}
                 </span>
@@ -358,7 +358,7 @@ export default function ProjectOverviewPage() {
 
           <button
             onClick={handleArchive}
-            className="px-4 py-2 border border-[#E5E2DE] text-[#737373] text-[13px] rounded-lg hover:border-[#EF4444] hover:text-[#EF4444] transition-colors"
+            className="px-4 py-2 border border-[#2D2D2D] text-[#737373] text-[13px] rounded-lg hover:border-[#EF4444] hover:text-[#EF4444] transition-colors"
           >
             Archive
           </button>
@@ -366,21 +366,21 @@ export default function ProjectOverviewPage() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-        <div className="bg-white border border-[#E5E2DE] rounded-xl p-4">
+        <div className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl p-4">
           <p className="text-[11px] text-[#737373] uppercase tracking-wide">Updates</p>
-          <p className="text-[20px] font-semibold text-[#1A1A1A] mt-1">{updates.length}</p>
+          <p className="text-[20px] font-semibold text-[#C8C5C0] mt-1">{updates.length}</p>
         </div>
-        <div className="bg-white border border-[#E5E2DE] rounded-xl p-4">
+        <div className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl p-4">
           <p className="text-[11px] text-[#737373] uppercase tracking-wide">Open Work</p>
-          <p className="text-[20px] font-semibold text-[#1A1A1A] mt-1">{openTasks.length}</p>
+          <p className="text-[20px] font-semibold text-[#C8C5C0] mt-1">{openTasks.length}</p>
         </div>
-        <div className="bg-white border border-[#E5E2DE] rounded-xl p-4">
+        <div className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl p-4">
           <p className="text-[11px] text-[#737373] uppercase tracking-wide">Decisions</p>
-          <p className="text-[20px] font-semibold text-[#1A1A1A] mt-1">{decisions.length}</p>
+          <p className="text-[20px] font-semibold text-[#C8C5C0] mt-1">{decisions.length}</p>
         </div>
-        <div className="bg-white border border-[#E5E2DE] rounded-xl p-4">
+        <div className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl p-4">
           <p className="text-[11px] text-[#737373] uppercase tracking-wide">Documents</p>
-          <p className="text-[20px] font-semibold text-[#1A1A1A] mt-1">{documents.length}</p>
+          <p className="text-[20px] font-semibold text-[#C8C5C0] mt-1">{documents.length}</p>
         </div>
       </div>
 
@@ -431,11 +431,11 @@ export default function ProjectOverviewPage() {
           </SectionCard>
 
           {/* Living Product Document card */}
-          <div className="bg-white border border-[#E5E2DE] rounded-xl p-4">
+          <div className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <span className="text-sm">📄</span>
-                <h3 className="text-[12px] font-semibold text-[#1A1A1A] uppercase tracking-wide">Living Product Document</h3>
+                <h3 className="text-[12px] font-semibold text-[#C8C5C0] uppercase tracking-wide">Living Product Document</h3>
                 {livingDoc && <span className="text-[10px] text-[#10B981] bg-[#ECFDF5] px-2 py-0.5 rounded-full">Always current</span>}
               </div>
               <button onClick={updateLivingDoc} disabled={updatingDoc}
@@ -445,7 +445,7 @@ export default function ProjectOverviewPage() {
             </div>
             {livingDoc ? (
               <div>
-                <p className="text-[12px] text-[#404040] leading-relaxed line-clamp-4 whitespace-pre-wrap">{livingDoc.content.slice(0, 400)}…</p>
+                <p className="text-[12px] text-[#A8A5A0] leading-relaxed line-clamp-4 whitespace-pre-wrap">{livingDoc.content.slice(0, 400)}…</p>
                 <div className="flex items-center gap-3 mt-2">
                   <span className="text-[10px] text-[#737373]">Updated {livingDoc.auto_updated_at ? new Date(livingDoc.auto_updated_at).toLocaleDateString() : "—"}</span>
                   <button onClick={() => router.push(`/app/projects/${id}/documents`)}
@@ -458,10 +458,10 @@ export default function ProjectOverviewPage() {
           </div>
 
           {/* Project Timeline card */}
-          <div className="bg-white border border-[#E5E2DE] rounded-xl p-4">
+          <div className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl p-4">
             <div className="flex items-center gap-2 mb-3">
               <span className="text-sm">🗺️</span>
-              <h3 className="text-[12px] font-semibold text-[#1A1A1A] uppercase tracking-wide">Project Timeline</h3>
+              <h3 className="text-[12px] font-semibold text-[#C8C5C0] uppercase tracking-wide">Project Timeline</h3>
             </div>
             <ProjectTimeline nodes={timeline} />
           </div>
@@ -483,13 +483,13 @@ export default function ProjectOverviewPage() {
             ) : (
               <div className="space-y-3">
                 {recentUpdates.map((u) => (
-                  <div key={u.id} className="bg-[#FAF9F7] border border-[#EDE8E2] rounded-xl p-4">
+                  <div key={u.id} className="bg-[#111111] border border-[#2D2D2D] rounded-xl p-4">
                     <div className="flex items-center justify-between mb-2">
                       <TypeBadge type={u.update_type} />
                       <span className="text-[12px] text-[#737373]">{timeAgo(u.created_at)}</span>
                     </div>
 
-                    <p className="text-[14px] text-[#404040] mb-2 leading-relaxed">{u.content}</p>
+                    <p className="text-[14px] text-[#A8A5A0] mb-2 leading-relaxed">{u.content}</p>
 
                     {u.outcomes && (
                       <div className="mb-2">
@@ -514,7 +514,7 @@ export default function ProjectOverviewPage() {
         <div className="space-y-4">
           <SectionCard title="Work Snapshot" subtitle="Current execution state">
             <div className="space-y-3">
-              <div className="bg-[#FAF9F7] rounded-xl p-3">
+              <div className="bg-[#111111] rounded-xl p-3">
                 <p className="text-[11px] text-[#737373] uppercase tracking-wide">Open Tasks</p>
                 {openTasks.length === 0 ? (
                   <p className="text-[13px] text-[#737373] mt-2">No open tasks.</p>
@@ -523,23 +523,23 @@ export default function ProjectOverviewPage() {
                     {openTasks.slice(0, 4).map((t) => (
                       <div key={t.id} className="flex items-center gap-2">
                         <div className="w-1.5 h-1.5 rounded-full bg-[#CC785C] shrink-0" />
-                        <p className="text-[12px] text-[#404040] truncate">{t.title}</p>
+                        <p className="text-[12px] text-[#A8A5A0] truncate">{t.title}</p>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
 
-              <div className="bg-[#FAF9F7] rounded-xl p-3">
+              <div className="bg-[#111111] rounded-xl p-3">
                 <p className="text-[11px] text-[#737373] uppercase tracking-wide">Completed Tasks</p>
-                <p className="text-[18px] font-semibold text-[#1A1A1A] mt-1">{doneTasks.length}</p>
+                <p className="text-[18px] font-semibold text-[#C8C5C0] mt-1">{doneTasks.length}</p>
               </div>
             </div>
           </SectionCard>
 
           <SectionCard title="Knowledge Snapshot" subtitle="Decision, rule, research, and document context">
             <div className="space-y-3">
-              <div className="bg-[#FAF9F7] rounded-xl p-3">
+              <div className="bg-[#111111] rounded-xl p-3">
                 <p className="text-[11px] text-[#737373] uppercase tracking-wide">Recent Decisions</p>
                 {decisions.length === 0 ? (
                   <p className="text-[13px] text-[#737373] mt-2">No decisions logged yet.</p>
@@ -547,7 +547,7 @@ export default function ProjectOverviewPage() {
                   <div className="space-y-2 mt-2">
                     {decisions.slice(0, 3).map((d) => (
                       <div key={d.id}>
-                        <p className="text-[12px] text-[#404040]">{d.title}</p>
+                        <p className="text-[12px] text-[#A8A5A0]">{d.title}</p>
                         <p className="text-[10px] text-[#737373] mt-0.5">{d.verdict ?? "pending"} · {timeAgo(d.created_at)}</p>
                       </div>
                     ))}
@@ -555,7 +555,7 @@ export default function ProjectOverviewPage() {
                 )}
               </div>
 
-              <div className="bg-[#FAF9F7] rounded-xl p-3">
+              <div className="bg-[#111111] rounded-xl p-3">
                 <p className="text-[11px] text-[#737373] uppercase tracking-wide">Active Rules</p>
                 {activeRules.length === 0 ? (
                   <p className="text-[13px] text-[#737373] mt-2">No active rules.</p>
@@ -563,8 +563,8 @@ export default function ProjectOverviewPage() {
                   <div className="space-y-2 mt-2">
                     {activeRules.slice(0, 3).map((r) => (
                       <div key={r.id} className="flex items-center justify-between gap-2">
-                        <p className="text-[12px] text-[#404040] line-clamp-2">{r.rule_text}</p>
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#F7F5F2] text-[#737373] shrink-0">
+                        <p className="text-[12px] text-[#A8A5A0] line-clamp-2">{r.rule_text}</p>
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#111111] text-[#737373] shrink-0">
                           S{r.severity}
                         </span>
                       </div>
@@ -573,7 +573,7 @@ export default function ProjectOverviewPage() {
                 )}
               </div>
 
-              <div className="bg-[#FAF9F7] rounded-xl p-3">
+              <div className="bg-[#111111] rounded-xl p-3">
                 <p className="text-[11px] text-[#737373] uppercase tracking-wide">Research Topics</p>
                 {research.length === 0 ? (
                   <p className="text-[13px] text-[#737373] mt-2">No research notes yet.</p>
@@ -581,7 +581,7 @@ export default function ProjectOverviewPage() {
                   <div className="space-y-2 mt-2">
                     {research.slice(0, 3).map((r) => (
                       <div key={r.id}>
-                        <p className="text-[12px] text-[#404040]">{r.topic}</p>
+                        <p className="text-[12px] text-[#A8A5A0]">{r.topic}</p>
                         <p className="text-[10px] text-[#737373] mt-0.5">{timeAgo(r.created_at)}</p>
                       </div>
                     ))}
@@ -589,7 +589,7 @@ export default function ProjectOverviewPage() {
                 )}
               </div>
 
-              <div className="bg-[#FAF9F7] rounded-xl p-3">
+              <div className="bg-[#111111] rounded-xl p-3">
                 <p className="text-[11px] text-[#737373] uppercase tracking-wide">Recent Documents</p>
                 {documents.length === 0 ? (
                   <p className="text-[13px] text-[#737373] mt-2">No documents saved yet.</p>
@@ -597,7 +597,7 @@ export default function ProjectOverviewPage() {
                   <div className="space-y-2 mt-2">
                     {documents.slice(0, 3).map((d) => (
                       <div key={d.id}>
-                        <p className="text-[12px] text-[#404040]">{d.title}</p>
+                        <p className="text-[12px] text-[#A8A5A0]">{d.title}</p>
                         <p className="text-[10px] text-[#737373] mt-0.5">{timeAgo(d.created_at)}</p>
                       </div>
                     ))}
