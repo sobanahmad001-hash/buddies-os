@@ -1,4 +1,4 @@
-﻿export type MessageType = 'chat' | 'analysis' | 'decision';
+export type MessageType = 'chat' | 'analysis' | 'decision';
 
 export interface SessionMemory {
   active_project: string | null;

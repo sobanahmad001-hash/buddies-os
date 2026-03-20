@@ -51,9 +51,13 @@ export default function CodingAgentPage() {
   const [repoContext, setRepoContext] = useState<any>(null);
   const [loadingRepo, setLoadingRepo] = useState(false);
   const [prResult, setPrResult] = useState<string | null>(null);
+  const [fileChanges, setFileChanges] = useState<Array<{path: string; content: string; description: string}>>([]);
+  const [vercelErrors, setVercelErrors] = useState<any[]>([]);
+  const [creatingPR, setCreatingPR] = useState(false);
+  const [pendingPR, setPendingPR] = useState<{title: string; branch: string; body: string} | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { init(); }, []);
+  useEffect(() => { init(); loadVercelErrors(); }, []);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
   async function init() {
@@ -112,6 +116,14 @@ export default function CodingAgentPage() {
     setLoadingRepo(false);
   }
 
+  async function loadVercelErrors() {
+    const res = await fetch("/api/integrations/vercel/logs");
+    if (res.ok) {
+      const data = await res.json();
+      setVercelErrors(data.logs ?? []);
+    }
+  }
+
   async function send() {
     if (!input.trim() || loading) return;
     const userMsg = input;
@@ -119,27 +131,38 @@ export default function CodingAgentPage() {
     setInput("");
     setLoading(true);
 
-    // Build context for the agent
     const contextParts = [];
     if (selectedProject) contextParts.push(`Working on project: ${selectedProject.name}`);
-    if (selectedTask) contextParts.push(`Task to implement:\nTitle: ${selectedTask.title}\nDescription: ${selectedTask.description ?? "n/a"}\nPriority: ${selectedTask.priority}`);
+    if (selectedTask) contextParts.push(`Task:\nTitle: ${selectedTask.title}\nDescription: ${selectedTask.description ?? "n/a"}`);
     if (repoContext) {
       contextParts.push(`Repository: ${repoContext.repoName}`);
-      contextParts.push(`Files (sample):\n${repoContext.files.slice(0, 30).join("\n")}`);
+      contextParts.push(`Files:\n${repoContext.files.slice(0, 40).join("\n")}`);
       contextParts.push(`Recent commits:\n${repoContext.commits.join("\n")}`);
     }
+    // Auto-inject Vercel errors when debugging
+    const isDebugging = /error|bug|broken|fix|debug|failing|crash|issue/i.test(userMsg);
+    if (isDebugging && vercelErrors.length > 0) {
+      contextParts.push(`RECENT VERCEL ERRORS (auto-injected):\n${vercelErrors.slice(0, 5).map(e => `[${e.function_path ?? "unknown"}] ${e.message?.slice(0, 300)}`).join("\n")}`);
+    }
 
-    const systemPrompt = `You are a coding agent for Buddies OS. You help implement features, write code, debug issues, and create GitHub PRs.
+    const systemPrompt = `You are a coding agent for Buddies OS. You implement features, fix bugs, and create GitHub PRs with actual file changes.
 
 ${contextParts.join("\n\n")}
 
 RULES:
-- Write production-quality code. No placeholders.
-- Always specify the exact file path before showing code.
-- When implementation is complete, ask if the user wants to create a PR.
-- If asked to create a PR, respond with exactly: [CREATE_PR] title="<title>" branch="<branch-name>" body="<description>"
-- Be surgical — change only what needs changing.
-- Reference the task title in PR descriptions.`;
+- Write production-quality code. No placeholders or TODOs.
+- Always specify exact file path before showing code.
+- When you have a complete fix ready, output it as a FILE_CHANGE block:
+
+[FILE_CHANGE]
+{"path": "src/app/api/example/route.ts", "content": "// full file content here", "description": "Fix priority coercion bug"}
+[/FILE_CHANGE]
+
+- You can output multiple FILE_CHANGE blocks for multi-file fixes.
+- After outputting FILE_CHANGE blocks, say "Ready to create PR — click Apply Changes below."
+- For PR creation signal use: [CREATE_PR] title="..." branch="fix/..." body="..."
+- Be surgical. Only change what needs changing.
+- When debugging, read the Vercel errors above carefully before proposing a fix.`;
 
     try {
       const res = await fetch("/api/ai", {
@@ -151,92 +174,72 @@ RULES:
           provider: "anthropic",
           model: "claude-sonnet-4-5",
           contextEnabled: false,
-          sessionId: null,
         }),
       });
       const data = await res.json();
       const reply = data.response ?? data.reply ?? "Error";
 
-      // Check for PR creation signal
-      if (reply.includes("[CREATE_PR]")) {
-        const titleMatch = reply.match(/title="([^"]+)"/);
-        const branchMatch = reply.match(/branch="([^"]+)"/);
-        const bodyMatch = reply.match(/body="([^"]+)"/);
-        if (titleMatch && branchMatch && repoContext) {
-          await createPR(
-            repoContext.repoName,
-            titleMatch[1],
-            branchMatch[1],
-            bodyMatch?.[1] ?? "",
-            userMsg
-          );
-        }
-        setMessages(prev => [...prev, { role: "assistant", content: reply.replace(/\[CREATE_PR\][^\n]*/, "").trim() }]);
-      } else {
-        setMessages(prev => [...prev, { role: "assistant", content: reply }]);
+      // Parse FILE_CHANGE blocks
+      const fileChangeRegex = /\[FILE_CHANGE\]\s*([\s\S]*?)\s*\[\/FILE_CHANGE\]/g;
+      const newFileChanges: Array<{path: string; content: string; description: string}> = [];
+      let match;
+      while ((match = fileChangeRegex.exec(reply)) !== null) {
+        try {
+          const parsed = JSON.parse(match[1]);
+          if (parsed.path && parsed.content) newFileChanges.push(parsed);
+        } catch {}
       }
+      if (newFileChanges.length > 0) setFileChanges(newFileChanges);
+
+      // Parse CREATE_PR signal
+      const prMatch = reply.match(/\[CREATE_PR\]\s*title="([^"]+)"\s*branch="([^"]+)"(?:\s*body="([^"]*)")?/);
+      if (prMatch && repoContext) {
+        setPendingPR({ title: prMatch[1], branch: prMatch[2], body: prMatch[3] ?? "" });
+      }
+
+      const cleanReply = reply
+        .replace(/\[FILE_CHANGE\][\s\S]*?\[\/FILE_CHANGE\]/g, "")
+        .replace(/\[CREATE_PR\][^\n]*/g, "")
+        .trim();
+
+      setMessages(prev => [...prev, { role: "assistant", content: cleanReply || reply }]);
     } catch {
       setMessages(prev => [...prev, { role: "assistant", content: "Error getting response." }]);
     }
     setLoading(false);
   }
 
-  async function createPR(repo: string, title: string, branch: string, body: string, context: string) {
-    const integration = integrations[0];
-    if (!integration?.config?.access_token) return;
+  async function applyChanges() {
+    if (!fileChanges.length || !repoContext || !pendingPR) return;
+    setCreatingPR(true);
 
-    const headers = {
-      Authorization: `token ${integration.config.access_token}`,
-      Accept: "application/vnd.github.v3+json",
-      "Content-Type": "application/json",
-    };
+    const res = await fetch("/api/coding-agent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "create_pr_with_files",
+        repo: repoContext.repoName,
+        branch: pendingPR.branch,
+        files: fileChanges,
+        prTitle: pendingPR.title,
+        prBody: pendingPR.body,
+        taskId: selectedTask?.id ?? null,
+      }),
+    });
 
-    try {
-      // Get default branch
-      const repoRes = await fetch(`https://api.github.com/repos/${repo}`, { headers });
-      const repoData = await repoRes.json();
-      const defaultBranch = repoData.default_branch ?? "main";
-
-      // Get SHA of default branch
-      const refRes = await fetch(`https://api.github.com/repos/${repo}/git/ref/heads/${defaultBranch}`, { headers });
-      const refData = await refRes.json();
-      const sha = refData.object?.sha;
-      if (!sha) return;
-
-      // Create branch
-      await fetch(`https://api.github.com/repos/${repo}/git/refs`, {
-        method: "POST", headers,
-        body: JSON.stringify({ ref: `refs/heads/${branch}`, sha }),
-      });
-
-      // Create PR
-      const prRes = await fetch(`https://api.github.com/repos/${repo}/pulls`, {
-        method: "POST", headers,
-        body: JSON.stringify({
-          title,
-          body: `${body}\n\n---\nCreated by Buddies OS Coding Agent${selectedTask ? `\nTask: ${selectedTask.title}` : ""}`,
-          head: branch,
-          base: defaultBranch,
-        }),
-      });
-      const prData = await prRes.json();
-
-      if (prData.html_url) {
-        setPrResult(prData.html_url);
-        setMessages(prev => [...prev, {
-          role: "assistant",
-          content: `✅ PR created: [${title}](${prData.html_url})\n\nBranch \`${branch}\` → \`${defaultBranch}\`. Note: you'll need to push the actual code changes to the branch separately, or I can guide you through that.`
-        }]);
-        // Save PR link back to task if one is selected
-        if (selectedTask) {
-          await supabase.from("project_tasks").update({
-            description: `${selectedTask.description ?? ""}\n\nPR: ${prData.html_url}`,
-          }).eq("id", selectedTask.id);
-        }
-      }
-    } catch (err) {
-      setMessages(prev => [...prev, { role: "assistant", content: "Failed to create PR. Check GitHub token permissions." }]);
+    const data = await res.json();
+    if (data.pr_url) {
+      setPrResult(data.pr_url);
+      setMessages(prev => [...prev, {
+        role: "assistant",
+        content: `✅ PR created with ${data.files_written?.length ?? 0} file(s) changed.\n\n[View PR](${data.pr_url})\n\nFiles: ${data.files_written?.join(", ")}\n\nMerge when ready — Vercel will deploy automatically.`
+      }]);
+      setFileChanges([]);
+      setPendingPR(null);
+    } else {
+      setMessages(prev => [...prev, { role: "assistant", content: `❌ PR failed: ${data.error}` }]);
     }
+    setCreatingPR(false);
   }
 
   const githubIntegration = integrations[0];
@@ -406,6 +409,61 @@ RULES:
           )}
           <div ref={bottomRef} />
         </div>
+
+        {/* File changes ready to apply */}
+        {fileChanges.length > 0 && (
+          <div className="mx-6 mb-3 bg-[#1A1A1A] rounded-xl border border-[#10B981] overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#2D2D2D]">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-[#10B981]" />
+                <span className="text-[12px] font-semibold text-[#10B981]">{fileChanges.length} file{fileChanges.length > 1 ? "s" : ""} ready to apply</span>
+              </div>
+              <button onClick={() => setFileChanges([])} className="text-[#737373] hover:text-white transition-colors"><X size={13} /></button>
+            </div>
+            <div className="px-4 py-2 space-y-1">
+              {fileChanges.map((f, i) => (
+                <div key={i} className="flex items-center gap-2 text-[11px]">
+                  <span className="text-[#10B981]">+</span>
+                  <span className="text-white/70 font-mono">{f.path}</span>
+                  {f.description && <span className="text-[#737373]">— {f.description}</span>}
+                </div>
+              ))}
+            </div>
+            <div className="px-4 py-3 border-t border-[#2D2D2D] flex gap-2">
+              <button
+                onClick={applyChanges}
+                disabled={creatingPR || !repoContext || !pendingPR}
+                className="flex-1 py-2 bg-[#10B981] text-white text-[12px] font-semibold rounded-lg hover:bg-[#059669] disabled:opacity-40 transition-colors">
+                {creatingPR ? "Creating PR..." : "Apply Changes & Create PR"}
+              </button>
+              {!pendingPR && (
+                <button
+                  onClick={() => {
+                    const branch = `fix/buddies-agent-${Date.now()}`;
+                    setPendingPR({ title: "Fix from Buddies Coding Agent", branch, body: fileChanges.map(f => f.description).join("\n") });
+                  }}
+                  className="px-4 py-2 bg-[#2D2D2D] text-white/60 text-[12px] rounded-lg hover:bg-[#3D3D3D] transition-colors">
+                  Set PR details
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Vercel errors strip */}
+        {vercelErrors.length > 0 && messages.length === 0 && (
+          <div className="mx-6 mb-4 bg-[#FEE2E2] border border-[#FECACA] rounded-xl p-3">
+            <p className="text-[11px] font-semibold text-[#DC2626] mb-2">⚠️ {vercelErrors.length} recent error{vercelErrors.length > 1 ? "s" : ""} detected</p>
+            {vercelErrors.slice(0, 3).map((e, i) => (
+              <div key={i} className="text-[10px] text-[#991B1B] font-mono truncate">{e.function_path}: {e.message?.slice(0, 80)}</div>
+            ))}
+            <button
+              className="mt-2 text-[11px] text-[#DC2626] hover:underline font-semibold"
+              onClick={() => { setInput("Debug these Vercel errors and propose fixes"); }}>
+              Ask agent to debug →
+            </button>
+          </div>
+        )}
 
         {/* Input */}
         <div className="px-6 py-4 bg-white border-t border-[#E5E2DE] shrink-0">
