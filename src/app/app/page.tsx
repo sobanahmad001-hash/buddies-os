@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -453,7 +453,7 @@ export default function DashboardPage() {
                 onClick={() => router.push("/app/projects")}
                 className="mt-3 text-[11px] text-[#CC785C] hover:underline"
               >
-                All projects ?
+                All projects →
               </button>
             </div>
 
@@ -482,7 +482,7 @@ export default function DashboardPage() {
                               <p className="text-[12px] text-[#404040] leading-relaxed">{task.title}</p>
                               <p className="text-[10px] text-[#737373] mt-0.5">
                                 priority {task.priority ?? 2}
-                                {task.due_date ? ` � due ${task.due_date}` : ""}
+                                {task.due_date ? ` · due ${task.due_date}` : ""}
                               </p>
                             </div>
                           </div>
@@ -620,7 +620,7 @@ export default function DashboardPage() {
                           good === null ? (value >= 6 ? "text-[#EF4444]" : value >= 4 ? "text-[#EAB308]" : "text-[#10B981]") :
                           value >= good ? "text-[#10B981]" : "text-[#EAB308]"
                         }`}>
-                          {value != null ? `${value}${unit}` : "�"}
+                          {value != null ? `${value}${unit}` : "—"}
                         </p>
                       </div>
                     ))}
@@ -628,8 +628,8 @@ export default function DashboardPage() {
                   {/* Correlations */}
                   <div className="space-y-2 mb-3">
                     {[
-                      { label: "Sleep ? Cognitive", value: activityPatterns.behavior.correlations.sleep_vs_cognitive },
-                      { label: "Stress ? Cognitive", value: activityPatterns.behavior.correlations.stress_vs_cognitive },
+                      { label: "Sleep → Cognitive", value: activityPatterns.behavior.correlations.sleep_vs_cognitive },
+                      { label: "Stress → Cognitive", value: activityPatterns.behavior.correlations.stress_vs_cognitive },
                     ].map(({ label, value }) => (
                       value != null && (
                         <div key={label} className="flex items-center justify-between">
@@ -660,7 +660,7 @@ export default function DashboardPage() {
                           <p className="text-[9px] text-[#737373]">7h+ sleep</p>
                         </div>
                         <div className="text-center">
-                          <p className="text-[14px] font-bold text-[#EAB308]">{activityPatterns.behavior.decision_outcomes.success_rate_low_sleep ?? "�"}%</p>
+                          <p className="text-[14px] font-bold text-[#EAB308]">{activityPatterns.behavior.decision_outcomes.success_rate_low_sleep ?? "—"}%</p>
                           <p className="text-[9px] text-[#737373]">&lt;7h sleep</p>
                         </div>
                       </div>
@@ -671,7 +671,7 @@ export default function DashboardPage() {
                     <div className="space-y-1.5">
                       {activityPatterns.behavior.pattern_insights.map((insight, i) => (
                         <div key={i} className="flex items-start gap-2 bg-[#FAF5EF] border border-[#B5622A20] rounded-lg p-2">
-                          <span className="text-[10px] shrink-0 mt-0.5">??</span>
+                          <span className="text-[10px] shrink-0 mt-0.5">💡</span>
                           <p className="text-[11px] text-[#404040] leading-snug">{insight}</p>
                         </div>
                       ))}
@@ -745,7 +745,7 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-[11px] font-semibold text-[#737373] uppercase tracking-wide">Research</p>
                     <button onClick={() => router.push("/app/research")} className="text-[11px] text-[#CC785C] hover:underline">
-                      Open ?
+                      Open →
                     </button>
                   </div>
 
@@ -770,7 +770,7 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-[11px] font-semibold text-[#737373] uppercase tracking-wide">Integrations</p>
                     <button onClick={() => router.push("/app/integrations")} className="text-[11px] text-[#CC785C] hover:underline">
-                      Open ?
+                      Open →
                     </button>
                   </div>
 
