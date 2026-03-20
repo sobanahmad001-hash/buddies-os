@@ -417,8 +417,8 @@ RULES:
         .trim();
 
       const assistantMsg: Message = { role: "assistant", content: cleanReply || reply, ts: new Date().toISOString() };
-      const updatedMessages = [...messages, newMsg, assistantMsg];
       setMessages(prev => [...prev, assistantMsg]);
+      const updatedMessages = [...messages, newMsg, assistantMsg];
 
       // Save session
       try {
