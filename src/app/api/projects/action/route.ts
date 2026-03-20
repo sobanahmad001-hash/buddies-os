@@ -252,7 +252,7 @@ export async function POST(req: NextRequest) {
     switch (action.type) {
       case "project.create_task":
         {
-          const { title, description, priority, due_date, assigned_to } =
+          const { title, description, priority, status, due_date, assigned_to } =
             action.params;
           if (!title) {
             return NextResponse.json(
@@ -268,10 +268,13 @@ export async function POST(req: NextRequest) {
               user_id: user.id,
               title,
               description: description || null,
-              priority: priority || 3,
+              priority: typeof priority === 'number' ? Math.min(Math.max(priority, 1), 4) :
+                typeof priority === 'string'
+                  ? ({ critical: 1, urgent: 1, high: 2, medium: 3, low: 4 }[priority.toLowerCase()] ?? 3)
+                  : 3,
               due_date: due_date || null,
               assigned_to: assigned_to || null,
-              status: "todo",
+              status: ["todo","in_progress","done","cancelled"].includes(status) ? status : "todo",
             })
             .select("id, title, status")
             .single();
