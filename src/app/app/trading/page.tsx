@@ -824,4 +824,3 @@ export default function TradingPage() {
     </div>
   );
 }
-type SignalData = { configured: boolean; currentPrice: number; rsi: number; macd: any; vsa: any; signal: any; levels: any; positionSize: any; ladder: any; candles: any[] };
