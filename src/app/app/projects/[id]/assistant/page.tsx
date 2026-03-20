@@ -508,6 +508,22 @@ export default function ProjectAssistantPage() {
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading]);
 
+  // Screenshot paste handler — mirrors main AI page
+  useEffect(() => {
+    async function onPaste(e: ClipboardEvent) {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const item of Array.from(items)) {
+        if (item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (file) setAttachedFiles(prev => [...prev, file]);
+        }
+      }
+    }
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+  }, []);
+
   function handleVoiceTranscript(transcript: string) {
     setInput(transcript);
     setTimeout(() => textareaRef.current?.focus(), 0);
