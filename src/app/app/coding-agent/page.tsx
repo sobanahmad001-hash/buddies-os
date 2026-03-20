@@ -277,7 +277,7 @@ export default function CodingAgentPage() {
         fetch(`https://api.github.com/repos/${repo}/commits?per_page=5`, { headers, signal: AbortSignal.timeout(5000) }),
       ]);
 
-      if (!treeRes.ok) { setRepoError("Could not load repo — check name and permissions."); setRepoLoading(false); return; }
+      if (!treeRes.ok) { setRepoError("Could not load repo ï¿½ check name and permissions."); setRepoLoading(false); return; }
 
       const [treeData, commitsData] = await Promise.all([
         treeRes.json(), commitsRes.ok ? commitsRes.json() : null,
@@ -372,14 +372,14 @@ RULES:
   [FILE_CHANGE]
   {"path": "src/exact/path/file.ts", "content": "// complete file content", "description": "What this fixes"}
   [/FILE_CHANGE]
-- Multiple FILE_CHANGE blocks are supported — use one per file.
-- After FILE_CHANGE blocks say: "Ready to apply — click Apply Changes below."
+- Multiple FILE_CHANGE blocks are supported ï¿½ use one per file.
+- After FILE_CHANGE blocks say: "Ready to apply ï¿½ click Apply Changes below."
 - For PR creation: [CREATE_PR] title="..." branch="fix/..." body="..."
-- Be surgical — only change what needs changing.
+- Be surgical ï¿½ only change what needs changing.
 - When you see an error, trace it to the root cause before proposing a fix.`;
 
     try {
-      const res = await fetch("/api/ai", {
+      const res = await fetch("/api/coding-agent/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -387,14 +387,13 @@ RULES:
           history: messages.slice(-14).map(m => ({ role: m.role, content: m.content })),
           provider: selectedModel === "gpt-4o" ? "openai" : "anthropic",
           model: selectedModel,
-          contextEnabled: false,
+          systemPrompt,
           images: imageUrls.length > 0 ? imageUrls : undefined,
-          _systemOverride: systemPrompt,
         }),
       });
 
       const data = await res.json();
-      const reply = data.response ?? data.reply ?? "No response.";
+      const reply = data.response ?? "No response.";
 
       // Parse FILE_CHANGE blocks
       const fileChangeRegex = /\[FILE_CHANGE\]\s*([\s\S]*?)\s*\[\/FILE_CHANGE\]/g;
@@ -461,7 +460,7 @@ RULES:
     const data = await res.json();
     if (data.pr_url) {
       setPrResult(data.pr_url);
-      setMessages(prev => [...prev, { role: "assistant", content: `? PR created — ${data.files_written?.length ?? 0} file(s) changed.\n\nView PR: ${data.pr_url}\n\nMerge to deploy via Vercel.` }]);
+      setMessages(prev => [...prev, { role: "assistant", content: `? PR created ï¿½ ${data.files_written?.length ?? 0} file(s) changed.\n\nView PR: ${data.pr_url}\n\nMerge to deploy via Vercel.` }]);
       setFileChanges([]);
       setPendingPR(null);
     } else {
@@ -558,13 +557,13 @@ RULES:
         <div className="px-3 py-2 border-b border-[#1E1E1E]">
           <select value={selectedProject?.id ?? ""} onChange={e => { const p = projects.find(p => p.id === e.target.value); if (p) selectProject(p); }}
             className="w-full text-[11px] px-2 py-1.5 bg-[#0D0D0D] border border-[#2D2D2D] rounded text-[#737373] focus:outline-none mb-1">
-            <option value="">— Select project</option>
+            <option value="">ï¿½ Select project</option>
             {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
           {tasks.length > 0 && (
             <select value={selectedTask?.id ?? ""} onChange={e => { const t = tasks.find(t => t.id === e.target.value); setSelectedTask(t ?? null); }}
               className="w-full text-[11px] px-2 py-1.5 bg-[#0D0D0D] border border-[#2D2D2D] rounded text-[#737373] focus:outline-none">
-              <option value="">— Select task</option>
+              <option value="">ï¿½ Select task</option>
               {tasks.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
             </select>
           )}
@@ -627,7 +626,7 @@ RULES:
                 <div className="mt-6 text-left w-full max-w-[360px]">
                   <p className="text-[10px] text-[#3A3A3A] uppercase tracking-widest mb-2">Recent commits</p>
                   {recentCommits.map((c, i) => (
-                    <p key={i} className="text-[11px] text-[#525252] font-mono py-0.5 truncate">· {c}</p>
+                    <p key={i} className="text-[11px] text-[#525252] font-mono py-0.5 truncate">ï¿½ {c}</p>
                   ))}
                 </div>
               )}
@@ -657,7 +656,7 @@ RULES:
           <div className="flex items-center gap-2">
             <span className="text-[13px]">?</span>
             <span className="text-[12px] font-bold text-[#B0ADA9]">Agent</span>
-            <span className="text-[10px] text-[#3A3A3A]">·</span>
+            <span className="text-[10px] text-[#3A3A3A]">ï¿½</span>
             <span className="text-[10px] text-[#525252]">{selectedModel}</span>
           </div>
           {selectedTask && (
