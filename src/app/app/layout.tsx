@@ -1,5 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
+import { ToastProvider } from "@/components/Toast";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
@@ -122,6 +124,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => { setMobileOpen(false); }, [pathname]);
 
   return (
+    <ToastProvider>
+    <ErrorBoundary>
     <div className="flex h-screen w-screen overflow-hidden bg-[#0D0D0D]">
       <div className="hidden md:flex h-full">
         <NavContent
@@ -169,6 +173,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       <BottomNav />
     </div>
+    </ErrorBoundary>
+    </ToastProvider>
   );
 }
 

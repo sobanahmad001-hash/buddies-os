@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { callAIProvider, getDefaultModelForProvider, normalizeProvider, type AIProvider } from '@/lib/ai/providers';
 import { buildCompressedContext } from '@/lib/ai/session-compress';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 const MODEL_COSTS = {
   'claude-haiku-4-5-20251001': { input: 1, output: 5 },
@@ -343,6 +344,18 @@ export async function POST(request: NextRequest) {
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Rate limiting: 30 AI requests per minute per user
+    const rateLimit = checkRateLimit(`ai:${user.id}`, { maxRequests: 30, windowMs: 60000 });
+    if (!rateLimit.allowed) {
+      return NextResponse.json({
+        error: `Rate limit exceeded. Try again in ${Math.ceil(rateLimit.resetInMs / 1000)} seconds.`,
+        retryAfterMs: rateLimit.resetInMs,
+      }, {
+        status: 429,
+        headers: { 'Retry-After': String(Math.ceil(rateLimit.resetInMs / 1000)) },
+      });
     }
 
     const body = await request.json();

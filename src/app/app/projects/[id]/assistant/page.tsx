@@ -6,6 +6,7 @@ import {
   Send, Copy, RotateCcw, Trash2, Check, Plus,
   FileText, Download, AlertCircle
 } from 'lucide-react';
+import { useToast } from '@/components/Toast';
 import VoiceInputButton from '@/components/VoiceInputButton';
 import FileUpload from '@/components/FileUpload';
 
@@ -393,6 +394,7 @@ function groupMessages(messages: Message[]): MessageGroup[] {
 export default function ProjectAssistantPage() {
   const { id: projectId } = useParams<{ id: string }>();
   const router = useRouter();
+  const { error: toastError } = useToast();
 
   const getDefaultModelForProvider = (p: 'anthropic' | 'openai' | 'xai') =>
     p === 'anthropic' ? 'claude-sonnet-4-5' : p === 'openai' ? 'gpt-4.1' : 'grok-3';
@@ -617,11 +619,15 @@ export default function ProjectAssistantPage() {
       }]);
     } catch (err: any) {
       const errorMsg = err?.message || 'Network error. Please check your connection.';
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: `❌ ${errorMsg}`,
-        ts: new Date().toISOString(),
-      }]);
+      if (errorMsg.includes('Rate limit')) {
+        toastError(errorMsg);
+      } else {
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: `❌ ${errorMsg}`,
+          ts: new Date().toISOString(),
+        }]);
+      }
     } finally {
       setLoading(false);
     }

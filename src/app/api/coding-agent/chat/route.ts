@@ -1,12 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { callAIProvider } from "@/lib/ai/providers";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    // Rate limiting: 20 coding agent requests per minute per user
+    const rateLimit = checkRateLimit(`coding-agent:${user.id}`, { maxRequests: 20, windowMs: 60000 });
+    if (!rateLimit.allowed) {
+      return NextResponse.json({
+        error: `Rate limit exceeded. Try again in ${Math.ceil(rateLimit.resetInMs / 1000)} seconds.`,
+        retryAfterMs: rateLimit.resetInMs,
+      }, { status: 429 });
+    }
 
     const {
       message,

@@ -6,6 +6,7 @@ import { callAIProvider } from "@/lib/ai/providers";
 import { createActionFingerprint } from "@/lib/ai/action-fingerprint";
 import { buildCompressedContext } from "@/lib/ai/session-compress";
 import { writeMemorySignals } from "@/lib/ai/memory-extract";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 const ACTION_OPEN = "[BUDDIES_ACTION]";
 const ACTION_CLOSE = "[/BUDDIES_ACTION]";
@@ -323,6 +324,15 @@ export async function POST(req: NextRequest) {
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+
+    // Rate limiting: 40 project chat requests per minute per user
+    const rateLimit = checkRateLimit(`project-chat:${user.id}`, { maxRequests: 40, windowMs: 60000 });
+    if (!rateLimit.allowed) {
+      return NextResponse.json({
+        error: `Rate limit exceeded. Try again in ${Math.ceil(rateLimit.resetInMs / 1000)} seconds.`,
+        retryAfterMs: rateLimit.resetInMs,
+      }, { status: 429 });
+    }
 
     const {
       projectId,
