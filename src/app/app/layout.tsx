@@ -16,6 +16,7 @@ import {
   Plug,
   TrendingUp,
   Code2,
+  Settings2,
 } from "lucide-react";
 import BottomNav from "@/components/BottomNav";
 
@@ -28,6 +29,7 @@ const NAV_ITEMS = [
   { to: "/app/trading",       icon: TrendingUp,      label: "Trading" },
   { to: "/app/coding-agent",  icon: Code2,            label: "Coding Agent" },
   { to: "/app/search",       icon: Search,          label: "Search" },
+  { to: "/app/settings",     icon: Settings2,       label: "Settings" },
 ];
 
 function NavLink({ to, icon: Icon, label, collapsed, onClick }: {
@@ -63,6 +65,32 @@ function NavContent({
 }) {
   const router = useRouter();
   const close = () => setMobileOpen(false);
+  const [workspaceLogo, setWorkspaceLogo] = useState<string | null>(null);
+  const [workspaceName, setWorkspaceName] = useState<string>("BUDDIES OS");
+
+  useEffect(() => {
+    async function loadSettings() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from("workspace_settings")
+        .select("logo_url,workspace_name,accent_color")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (data?.logo_url) setWorkspaceLogo(data.logo_url);
+      if (data?.workspace_name) setWorkspaceName(data.workspace_name);
+      if (data?.accent_color) document.documentElement.style.setProperty("--accent", data.accent_color);
+    }
+    loadSettings();
+
+    function onUpdate(e: Event) {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.logo_url !== undefined) setWorkspaceLogo(detail.logo_url);
+      if (detail?.workspace_name) setWorkspaceName(detail.workspace_name);
+    }
+    window.addEventListener("buddies:settings-updated", onUpdate);
+    return () => window.removeEventListener("buddies:settings-updated", onUpdate);
+  }, []);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -73,10 +101,12 @@ function NavContent({
     <div className={`flex flex-col h-full bg-[#0F0F0F] text-white transition-all duration-300 ${collapsed ? "w-[60px]" : "w-[220px]"}`}>
       <div className="flex items-center justify-between px-3 py-4 border-b border-[#1E1E1E]">
         {!collapsed && (
-          <span className="text-[14px] font-bold tracking-tight">
-            <span className="text-white">BUDDIES</span>
-            <span className="text-[#B5622A]"> OS</span>
-          </span>
+          workspaceLogo
+            ? <img src={workspaceLogo} alt="Logo" className="h-7 w-auto max-w-[120px] object-contain" />
+            : <span className="text-[14px] font-bold tracking-tight">
+                <span className="text-white">BUDDIES</span>
+                <span className="text-[#B5622A]"> OS</span>
+              </span>
         )}
         <button
           onClick={() => setCollapsed(!collapsed)}
@@ -167,6 +197,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <span className="text-white">BUDDIES</span>
             <span className="text-[#B5622A]"> OS</span>
           </span>
+          {/* mobile header uses static branding — nav sidebar handles dynamic logo */}
         </div>
         {children}
       </main>
