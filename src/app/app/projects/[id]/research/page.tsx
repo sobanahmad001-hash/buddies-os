@@ -18,7 +18,7 @@ function timeAgo(d: string) {
 
 const PRIORITY_LABELS: Record<number, string> = { 1: 'Urgent', 2: 'High', 3: 'Medium', 4: 'Low' };
 const PRIORITY_COLORS: Record<number, string> = {
-  1: 'bg-[#FEE2E2] text-[#EF4444]', 2: 'bg-[#FEF3ED] text-[#E8521A]',
+  1: 'bg-[#FEE2E2] text-[#EF4444]', 2: 'bg-[#FAF0E8] text-[#B5622A]',
   3: 'bg-[#F0EDE9] text-[#737373]', 4: 'bg-[#F7F5F2] text-[#B0ADA9]',
 };
 
@@ -113,15 +113,15 @@ export default function ProjectResearchPage() {
         <form onSubmit={submit} className="bg-white border border-[#E5E2DE] rounded-xl p-5 mb-6 space-y-3">
           <input value={form.topic} onChange={e => setForm(f => ({ ...f, topic: e.target.value }))}
             placeholder="Research topic or question" required
-            className="w-full text-[14px] px-3 py-2 border border-[#E5E2DE] rounded-lg focus:outline-none focus:border-[#E8521A]" />
+            className="w-full text-[14px] px-3 py-2 border border-[#E5E2DE] rounded-lg focus:outline-none focus:border-[#B5622A]" />
           <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
             placeholder="Notes, findings, links, ideas…" required rows={5}
-            className="w-full text-[14px] px-3 py-2 border border-[#E5E2DE] rounded-lg focus:outline-none focus:border-[#E8521A] resize-none" />
+            className="w-full text-[14px] px-3 py-2 border border-[#E5E2DE] rounded-lg focus:outline-none focus:border-[#B5622A] resize-none" />
           <div className="flex gap-2 justify-end">
             <button type="button" onClick={() => setShowForm(false)}
               className="px-3 py-1.5 text-[13px] text-[#737373] hover:text-[#1A1A1A]">Cancel</button>
             <button type="submit" disabled={saving}
-              className="px-4 py-1.5 bg-[#E8521A] text-white text-[13px] font-semibold rounded-lg hover:bg-[#c94415] disabled:opacity-40 transition-colors">
+              className="px-4 py-1.5 bg-[#B5622A] text-white text-[13px] font-semibold rounded-lg hover:bg-[#9A4E20] disabled:opacity-40 transition-colors">
               {saving ? 'Saving…' : 'Save Note'}
             </button>
           </div>
@@ -150,7 +150,7 @@ export default function ProjectResearchPage() {
               <div className="flex items-center gap-2 ml-3 shrink-0">
                 <span className="text-[11px] text-[#737373]">{timeAgo(note.created_at)}</span>
                 <button onClick={() => suggestTasks(note)} disabled={suggesting === note.id}
-                  className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 bg-[#E8521A] text-white rounded-lg hover:bg-[#c94415] disabled:opacity-40 transition-colors">
+                  className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 bg-[#B5622A] text-white rounded-lg hover:bg-[#9A4E20] disabled:opacity-40 transition-colors">
                   <Sparkles size={11} />
                   {suggesting === note.id ? 'Thinking…' : 'Suggest Tasks'}
                 </button>
@@ -181,7 +181,7 @@ export default function ProjectResearchPage() {
                             <div className="flex-1">
                               <input value={task.title}
                                 onChange={e => setEditableTasks(prev => prev.map((t, j) => j === i ? { ...t, title: e.target.value } : t))}
-                                className="w-full text-[13px] font-semibold text-[#1A1A1A] bg-transparent focus:outline-none border-b border-transparent focus:border-[#E8521A]" />
+                                className="w-full text-[13px] font-semibold text-[#1A1A1A] bg-transparent focus:outline-none border-b border-transparent focus:border-[#B5622A]" />
                               {task.description && (
                                 <p className="text-[11px] text-[#737373] mt-0.5">{task.description}</p>
                               )}

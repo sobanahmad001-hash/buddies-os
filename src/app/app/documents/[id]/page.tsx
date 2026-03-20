@@ -100,7 +100,7 @@ export default function DocumentEditorPage() {
     <div className="flex-1 flex flex-col items-center justify-center gap-3 bg-[#F7F5F2]">
       <FileText className="w-10 h-10 text-[#E5E2DE]" />
       <p className="text-sm text-[#737373]">{error}</p>
-      <Link href="/app/documents" className="text-sm text-[#E8521A] hover:underline">← Back to Documents</Link>
+      <Link href="/app/documents" className="text-sm text-[#B5622A] hover:underline">← Back to Documents</Link>
     </div>
   );
 
@@ -111,7 +111,7 @@ export default function DocumentEditorPage() {
         <Link href="/app/documents" className="p-1.5 rounded-lg text-[#B0ADA9] hover:text-[#1A1A1A] hover:bg-[#F0EDE9] transition-colors">
           <ChevronLeft className="w-4 h-4" />
         </Link>
-        <BookOpen className="w-4 h-4 text-[#E8521A] shrink-0" />
+        <BookOpen className="w-4 h-4 text-[#B5622A] shrink-0" />
         <input
           value={title}
           onChange={e => {
@@ -144,7 +144,7 @@ export default function DocumentEditorPage() {
         <button
           onClick={() => setShowAiPanel(v => !v)}
           className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
-            showAiPanel ? "bg-[#E8521A] text-white" : "bg-[#F0EDE9] text-[#737373] hover:text-[#1A1A1A]"
+            showAiPanel ? "bg-[#B5622A] text-white" : "bg-[#F0EDE9] text-[#737373] hover:text-[#1A1A1A]"
           }`}
         >
           <Wand2 className="w-3.5 h-3.5" />AI Write
@@ -154,7 +154,7 @@ export default function DocumentEditorPage() {
         <button
           onClick={() => saveDoc()}
           disabled={saving}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#E8521A] hover:bg-[#c94415] disabled:opacity-40 text-white text-xs font-semibold rounded-lg transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#B5622A] hover:bg-[#9A4E20] disabled:opacity-40 text-white text-xs font-semibold rounded-lg transition-colors"
         >
           {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : saved ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
           {saving ? "Saving…" : saved ? "Saved" : "Save"}
@@ -164,19 +164,19 @@ export default function DocumentEditorPage() {
       {/* AI assist panel */}
       {showAiPanel && (
         <div className="shrink-0 px-6 py-3 bg-[#FFF4EF] border-b border-[#FDDACB] flex gap-2 items-start">
-          <Wand2 className="w-4 h-4 text-[#E8521A] mt-2 shrink-0" />
+          <Wand2 className="w-4 h-4 text-[#B5622A] mt-2 shrink-0" />
           <textarea
             value={aiPrompt}
             onChange={e => setAiPrompt(e.target.value)}
             onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); generateWithAI(); } }}
             placeholder='Describe what to write, e.g. "Introduction paragraph about our design process"'
             rows={2}
-            className="flex-1 text-sm px-3 py-2 bg-white border border-[#FDDACB] rounded-lg focus:outline-none focus:border-[#E8521A] resize-none"
+            className="flex-1 text-sm px-3 py-2 bg-white border border-[#FDDACB] rounded-lg focus:outline-none focus:border-[#B5622A] resize-none"
           />
           <button
             onClick={generateWithAI}
             disabled={!aiPrompt.trim() || aiLoading}
-            className="flex items-center gap-1.5 px-3 py-2 bg-[#E8521A] hover:bg-[#c94415] disabled:opacity-40 text-white text-xs font-semibold rounded-lg transition-colors shrink-0"
+            className="flex items-center gap-1.5 px-3 py-2 bg-[#B5622A] hover:bg-[#9A4E20] disabled:opacity-40 text-white text-xs font-semibold rounded-lg transition-colors shrink-0"
           >
             {aiLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Generate"}
           </button>
@@ -196,7 +196,7 @@ export default function DocumentEditorPage() {
               triggerAutoSave(title, e.target.value, status);
             }}
             placeholder="Start writing your document here…&#10;&#10;Use the AI Write button above to generate content with Buddies AI."
-            className="w-full min-h-[calc(100vh-220px)] text-[14px] leading-7 text-[#1A1A1A] bg-white border border-[#E5E2DE] rounded-2xl p-6 focus:outline-none focus:border-[#E8521A] resize-none font-sans placeholder-[#B0ADA9]"
+            className="w-full min-h-[calc(100vh-220px)] text-[14px] leading-7 text-[#1A1A1A] bg-white border border-[#E5E2DE] rounded-2xl p-6 focus:outline-none focus:border-[#B5622A] resize-none font-sans placeholder-[#B0ADA9]"
           />
         </div>
       </div>

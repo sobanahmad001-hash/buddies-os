@@ -182,7 +182,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
             autoFocus
           />
           {isSearching ? (
-            <Loader2 className="w-5 h-5 text-[#E8521A] animate-spin flex-shrink-0" />
+            <Loader2 className="w-5 h-5 text-[#B5622A] animate-spin flex-shrink-0" />
           ) : (
             <button
               onClick={onClose}
@@ -205,7 +205,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
               onClick={() => setFilterType(type)}
               className={`px-3 py-1 text-[11px] rounded-full transition-colors whitespace-nowrap font-medium ${
                 filterType === type
-                  ? 'bg-[#E8521A] text-white'
+                  ? 'bg-[#B5622A] text-white'
                   : 'bg-white text-[#5C5855] hover:bg-[#F0EDE9] border border-[#E5E2DE]'
               }`}
             >
@@ -226,7 +226,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
               onClick={() => setDateRange(range)}
               className={`px-3 py-1 text-[11px] rounded-full transition-colors whitespace-nowrap font-medium ${
                 dateRange === range
-                  ? 'bg-[#E8521A] text-white'
+                  ? 'bg-[#B5622A] text-white'
                   : 'bg-white text-[#5C5855] hover:bg-[#F0EDE9] border border-[#E5E2DE]'
               }`}
             >

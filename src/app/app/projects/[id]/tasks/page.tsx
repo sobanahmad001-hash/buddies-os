@@ -74,12 +74,12 @@ export default function ProjectTasksPage() {
           onChange={e => setNewTask(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && addTask()}
           placeholder="Add a task — press Enter to save"
-          className="flex-1 text-sm px-3 py-2 border border-[#E5E2DE] rounded-lg focus:outline-none focus:border-[#E8521A] bg-white"
+          className="flex-1 text-sm px-3 py-2 border border-[#E5E2DE] rounded-lg focus:outline-none focus:border-[#B5622A] bg-white"
         />
         <button
           onClick={addTask}
           disabled={adding || !newTask.trim()}
-          className="flex items-center gap-1.5 px-4 py-2 bg-[#E8521A] text-white text-[13px] font-semibold rounded-lg hover:bg-[#c94415] disabled:opacity-40 transition-colors"
+          className="flex items-center gap-1.5 px-4 py-2 bg-[#B5622A] text-white text-[13px] font-semibold rounded-lg hover:bg-[#9A4E20] disabled:opacity-40 transition-colors"
         >
           <Plus size={14} /> {adding ? '…' : 'Add'}
         </button>
@@ -127,7 +127,7 @@ function TaskRow({ task, onCycle, onDone }: {
 
   return (
     <div className={`flex items-center gap-3 p-2.5 rounded-lg border transition-colors group ${
-      isDone ? 'border-[#E5E2DE]' : 'border-[#E5E2DE] hover:border-[#E8521A]'
+      isDone ? 'border-[#E5E2DE]' : 'border-[#E5E2DE] hover:border-[#B5622A]'
     }`}>
       <button
         onClick={() => onCycle(task.id, task.status)}

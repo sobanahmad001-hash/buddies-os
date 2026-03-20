@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { LayoutDashboard, Bot, FolderKanban, Search, BookOpen } from 'lucide-react';
 import Link from 'next/link';
@@ -29,7 +29,7 @@ export default function BottomNav() {
               key={link.href}
               href={link.href}
               className={`flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl min-w-[60px] transition-colors ${
-                active ? 'text-[#E8521A]' : 'text-[#525252] hover:text-[#8A8A8A]'
+                active ? 'text-[#B5622A]' : 'text-[#525252] hover:text-[#8A8A8A]'
               }`}
             >
               <Icon className="w-5 h-5" />

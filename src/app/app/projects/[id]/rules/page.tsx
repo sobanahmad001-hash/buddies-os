@@ -97,7 +97,7 @@ export default function ProjectRulesPage() {
             placeholder="Define a rule the assistant should follow for this project…"
             required
             rows={3}
-            className="w-full text-[14px] px-3 py-2 border border-[#E5E2DE] rounded-lg focus:outline-none focus:border-[#E8521A] resize-none"
+            className="w-full text-[14px] px-3 py-2 border border-[#E5E2DE] rounded-lg focus:outline-none focus:border-[#B5622A] resize-none"
           />
           <div className="flex items-center gap-3">
             <span className="text-[13px] text-[#737373]">Severity:</span>
@@ -120,7 +120,7 @@ export default function ProjectRulesPage() {
               Cancel
             </button>
             <button type="submit" disabled={saving}
-              className="px-4 py-1.5 bg-[#E8521A] text-white text-[13px] font-semibold rounded-lg hover:bg-[#c94415] disabled:opacity-40 transition-colors">
+              className="px-4 py-1.5 bg-[#B5622A] text-white text-[13px] font-semibold rounded-lg hover:bg-[#9A4E20] disabled:opacity-40 transition-colors">
               {saving ? 'Saving…' : 'Save Rule'}
             </button>
           </div>
@@ -170,10 +170,10 @@ function RuleRow({ rule, onToggle }: { rule: Rule; onToggle: (id: string, active
       <p className="text-[14px] text-[#1A1A1A] flex-1 leading-relaxed">{rule.rule_text}</p>
       <button
         onClick={() => onToggle(rule.id, rule.active)}
-        className="shrink-0 text-[#737373] hover:text-[#E8521A] transition-colors"
+        className="shrink-0 text-[#737373] hover:text-[#B5622A] transition-colors"
         title={rule.active ? 'Deactivate' : 'Activate'}
       >
-        {rule.active ? <ToggleRight size={20} className="text-[#E8521A]" /> : <ToggleLeft size={20} />}
+        {rule.active ? <ToggleRight size={20} className="text-[#B5622A]" /> : <ToggleLeft size={20} />}
       </button>
     </div>
   );

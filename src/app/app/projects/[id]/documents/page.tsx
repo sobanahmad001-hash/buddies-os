@@ -21,7 +21,7 @@ const TYPE_COLORS: Record<string, string> = {
   living_product_doc: 'bg-[#ECFDF5] text-[#10B981]',
   research_output: 'bg-[#EFF6FF] text-[#3B82F6]',
   task_summary: 'bg-[#F5F3FF] text-[#8B5CF6]',
-  user_requested: 'bg-[#FEF3ED] text-[#E8521A]',
+  user_requested: 'bg-[#FAF0E8] text-[#B5622A]',
   note: 'bg-[#F7F5F2] text-[#737373]',
 };
 
@@ -181,8 +181,8 @@ export default function ProjectDocumentsPage() {
         <div className="bg-[#0F0F0F] text-white rounded-xl p-4 mb-5">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <Pin size={12} className="text-[#E8521A]" />
-              <span className="text-[11px] font-semibold text-[#E8521A] uppercase tracking-wide">Living Product Document</span>
+              <Pin size={12} className="text-[#B5622A]" />
+              <span className="text-[11px] font-semibold text-[#B5622A] uppercase tracking-wide">Living Product Document</span>
               <span className="text-[10px] text-white/40">Auto-updates with project</span>
             </div>
             <div className="flex gap-2">
@@ -192,7 +192,7 @@ export default function ProjectDocumentsPage() {
                 {updatingLiving ? 'Updating…' : 'Refresh'}
               </button>
               <button onClick={() => setViewing(livingDoc)}
-                className="text-[11px] text-[#E8521A] hover:underline">View full →</button>
+                className="text-[11px] text-[#B5622A] hover:underline">View full →</button>
               <button onClick={() => downloadDoc(livingDoc)}
                 className="text-[11px] text-white/50 hover:text-white transition-colors">
                 <Download size={13} />
@@ -215,20 +215,20 @@ export default function ProjectDocumentsPage() {
             <p className="text-[12px] text-[#737373]">Auto-generated from your project data. Always current.</p>
           </div>
           <button onClick={refreshLivingDoc} disabled={updatingLiving}
-            className="px-4 py-2 bg-[#E8521A] text-white text-[12px] font-semibold rounded-lg hover:bg-[#c94415] disabled:opacity-40 transition-colors">
+            className="px-4 py-2 bg-[#B5622A] text-white text-[12px] font-semibold rounded-lg hover:bg-[#9A4E20] disabled:opacity-40 transition-colors">
             {updatingLiving ? 'Generating…' : 'Generate'}
           </button>
         </div>
       )}
 
       {/* AI generation bar */}
-      <div className="bg-[#FEF3ED] border border-[#FDBA9A] rounded-xl p-3 mb-5 flex gap-2">
+      <div className="bg-[#FAF0E8] border border-[#DEB48A] rounded-xl p-3 mb-5 flex gap-2">
         <input value={genPrompt} onChange={e => setGenPrompt(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && generate()}
           placeholder='Ask AI to generate a document… e.g. "Write a competitor analysis"'
           className="flex-1 text-[13px] bg-transparent focus:outline-none placeholder-[#C4936A]" />
         <button onClick={generate} disabled={generating || !genPrompt.trim()}
-          className="px-3 py-1.5 bg-[#E8521A] text-white text-[12px] font-semibold rounded-lg hover:bg-[#c94415] disabled:opacity-40 transition-colors whitespace-nowrap">
+          className="px-3 py-1.5 bg-[#B5622A] text-white text-[12px] font-semibold rounded-lg hover:bg-[#9A4E20] disabled:opacity-40 transition-colors whitespace-nowrap">
           {generating ? 'Generating…' : 'Generate'}
         </button>
       </div>
@@ -246,19 +246,19 @@ export default function ProjectDocumentsPage() {
 
       {/* Manual new doc form */}
       {showNew && tab === 'generated' && (
-        <div className="bg-white border border-[#E8521A] rounded-xl p-5 mb-5 space-y-3">
+        <div className="bg-white border border-[#B5622A] rounded-xl p-5 mb-5 space-y-3">
           <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
             placeholder="Document title"
-            className="w-full text-[15px] font-semibold px-3 py-2 border-b border-[#E5E2DE] focus:outline-none focus:border-[#E8521A]" />
+            className="w-full text-[15px] font-semibold px-3 py-2 border-b border-[#E5E2DE] focus:outline-none focus:border-[#B5622A]" />
           <textarea value={form.content} onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
             placeholder="Document content (markdown)…" rows={10}
-            className="w-full text-[14px] px-3 py-2 border border-[#E5E2DE] rounded-lg focus:outline-none focus:border-[#E8521A] resize-none font-mono" />
+            className="w-full text-[14px] px-3 py-2 border border-[#E5E2DE] rounded-lg focus:outline-none focus:border-[#B5622A] resize-none font-mono" />
           <div className="flex gap-2 justify-end">
             <button onClick={() => setShowNew(false)} className="text-[13px] text-[#737373] hover:text-[#1A1A1A] flex items-center gap-1">
               <X size={13} /> Discard
             </button>
             <button onClick={saveManual} disabled={saving || !form.title.trim() || !form.content.trim()}
-              className="flex items-center gap-1.5 px-4 py-1.5 bg-[#E8521A] text-white text-[12px] font-semibold rounded-lg hover:bg-[#c94415] disabled:opacity-40 transition-colors">
+              className="flex items-center gap-1.5 px-4 py-1.5 bg-[#B5622A] text-white text-[12px] font-semibold rounded-lg hover:bg-[#9A4E20] disabled:opacity-40 transition-colors">
               Save to Project
             </button>
           </div>

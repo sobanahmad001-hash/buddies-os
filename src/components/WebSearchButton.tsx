@@ -53,12 +53,12 @@ export default function WebSearchButton({ onSearch }: Props) {
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               placeholder="What do you want to search?"
-              className="w-full px-4 py-3 bg-[#F7F5F2] border border-[#E5E2DE] rounded-xl focus:outline-none focus:border-[#E8521A] text-[#1A1A1A] text-[14px] mb-4 transition-colors"
+              className="w-full px-4 py-3 bg-[#F7F5F2] border border-[#E5E2DE] rounded-xl focus:outline-none focus:border-[#B5622A] text-[#1A1A1A] text-[14px] mb-4 transition-colors"
             />
 
             <div className="flex gap-3">
               <button onClick={handleSearch}
-                className="flex-1 px-4 py-2.5 bg-[#E8521A] hover:bg-[#c94415] text-white rounded-lg transition-colors font-medium text-[14px]">
+                className="flex-1 px-4 py-2.5 bg-[#B5622A] hover:bg-[#9A4E20] text-white rounded-lg transition-colors font-medium text-[14px]">
                 Search
               </button>
               <button onClick={() => setIsOpen(false)}

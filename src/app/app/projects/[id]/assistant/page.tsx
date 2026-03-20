@@ -177,14 +177,14 @@ function ActionBlock({ action, projectId, sessionId, onExecuted }: { action: Bud
   }
 
   return (
-    <div className="bg-[#FEF3ED] border border-[#FDBA9A] rounded-xl p-4 mt-4">
+    <div className="bg-[#FAF0E8] border border-[#DEB48A] rounded-xl p-4 mt-4">
       <div className="flex items-start gap-3 mb-3">
-        <AlertCircle size={18} className="text-[#E8521A] shrink-0 mt-0.5" />
+        <AlertCircle size={18} className="text-[#B5622A] shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
           <p className="text-[13px] font-semibold text-[#1A1A1A]">{action.description}</p>
           <p className="text-[11px] text-[#737373] mt-1">Proposed action</p>
           {action.warning && (
-            <p className="text-[12px] text-[#EA580C] mt-1.5 leading-relaxed">{action.warning}</p>
+            <p className="text-[12px] text-[#9A4E20] mt-1.5 leading-relaxed">{action.warning}</p>
           )}
           <details className="mt-2.5 text-[11px]">
             <summary className="cursor-pointer text-[#737373] hover:text-[#1A1A1A] transition-colors">
@@ -203,7 +203,7 @@ function ActionBlock({ action, projectId, sessionId, onExecuted }: { action: Bud
         <button
           onClick={approve}
           disabled={executing || executed || declined}
-          className="flex-1 bg-[#E8521A] text-white text-[13px] font-semibold px-4 py-2 rounded-lg hover:bg-[#c94415] disabled:opacity-50 transition-colors"
+          className="flex-1 bg-[#B5622A] text-white text-[13px] font-semibold px-4 py-2 rounded-lg hover:bg-[#9A4E20] disabled:opacity-50 transition-colors"
         >
           {executing ? 'Executing…' : 'Approve & Execute'}
         </button>
@@ -241,7 +241,7 @@ function renderMarkdown(text: string): React.ReactNode[] {
     if (line.startsWith('## ')) { nodes.push(<h2 key={k()} className="text-lg font-bold text-[#1A1A1A] mt-5 mb-2 first:mt-0">{inlineRender(line.slice(3))}</h2>); i++; continue; }
     if (line.startsWith('### ')){ nodes.push(<h3 key={k()} className="text-base font-semibold text-[#1A1A1A] mt-4 mb-1.5 first:mt-0">{inlineRender(line.slice(4))}</h3>); i++; continue; }
     if (line.match(/^[-*]{3,}$/)) { nodes.push(<hr key={k()} className="border-[#E5E2DE] my-4" />); i++; continue; }
-    if (line.startsWith('> '))  { nodes.push(<blockquote key={k()} className="border-l-4 border-[#E8521A] pl-4 my-3 text-[#737373] italic">{inlineRender(line.slice(2))}</blockquote>); i++; continue; }
+    if (line.startsWith('> '))  { nodes.push(<blockquote key={k()} className="border-l-4 border-[#B5622A] pl-4 my-3 text-[#737373] italic">{inlineRender(line.slice(2))}</blockquote>); i++; continue; }
     if (line.match(/^[-*+] /)) {
       const items: string[] = [];
       while (i < lines.length && lines[i].match(/^[-*+] /)) { items.push(lines[i].slice(2)); i++; }
@@ -249,7 +249,7 @@ function renderMarkdown(text: string): React.ReactNode[] {
         <ul key={k()} className="list-none my-3 space-y-2 pl-1">
           {items.map((item, j) => (
             <li key={j} className="flex items-start gap-2.5 text-[15px] text-[#1A1A1A]">
-              <span className="mt-2 w-1.5 h-1.5 rounded-full bg-[#E8521A] shrink-0" />
+              <span className="mt-2 w-1.5 h-1.5 rounded-full bg-[#B5622A] shrink-0" />
               <span className="leading-relaxed">{inlineRender(item)}</span>
             </li>
           ))}
@@ -264,7 +264,7 @@ function renderMarkdown(text: string): React.ReactNode[] {
         <ol key={k()} className="list-none my-3 space-y-2 pl-1">
           {items.map((item, j) => (
             <li key={j} className="flex items-start gap-2.5 text-[15px] text-[#1A1A1A]">
-              <span className="shrink-0 w-5 h-5 rounded-full bg-[#F0EDE9] text-[#E8521A] text-[11px] font-bold flex items-center justify-center">{j + 1}</span>
+              <span className="shrink-0 w-5 h-5 rounded-full bg-[#F0EDE9] text-[#B5622A] text-[11px] font-bold flex items-center justify-center">{j + 1}</span>
               <span className="leading-relaxed">{inlineRender(item)}</span>
             </li>
           ))}
@@ -284,9 +284,9 @@ function inlineRender(text: string): React.ReactNode {
   return parts.map((part, i) => {
     if (part.startsWith('**') && part.endsWith('**')) return <strong key={i} className="font-semibold text-[#1A1A1A]">{part.slice(2,-2)}</strong>;
     if (part.startsWith('*') && part.endsWith('*')) return <em key={i} className="italic">{part.slice(1,-1)}</em>;
-    if (part.startsWith('`') && part.endsWith('`')) return <code key={i} className="font-mono text-[13px] bg-[#F0EDE9] text-[#E8521A] px-1.5 py-0.5 rounded">{part.slice(1,-1)}</code>;
+    if (part.startsWith('`') && part.endsWith('`')) return <code key={i} className="font-mono text-[13px] bg-[#F0EDE9] text-[#B5622A] px-1.5 py-0.5 rounded">{part.slice(1,-1)}</code>;
     const lm = part.match(/\[(.+?)\]\((.+?)\)/);
-    if (lm) return <a key={i} href={lm[2]} target="_blank" rel="noopener noreferrer" className="text-[#E8521A] underline hover:text-[#c94415]">{lm[1]}</a>;
+    if (lm) return <a key={i} href={lm[2]} target="_blank" rel="noopener noreferrer" className="text-[#B5622A] underline hover:text-[#9A4E20]">{lm[1]}</a>;
     return part;
   });
 }
@@ -721,7 +721,7 @@ export default function ProjectAssistantPage() {
         <div className="flex items-center gap-2 overflow-x-auto">
           <button
             onClick={startNewChat}
-            className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#E8521A] text-white text-[12px] font-semibold hover:bg-[#c94415] transition-colors"
+            className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#B5622A] text-white text-[12px] font-semibold hover:bg-[#9A4E20] transition-colors"
           >
             <Plus size={13} /> New chat
           </button>
@@ -750,7 +750,7 @@ export default function ProjectAssistantPage() {
           {/* Empty state */}
           {!histLoading && messages.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#E8521A] to-[#c94415] flex items-center justify-center mb-5 shadow-lg">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#B5622A] to-[#9A4E20] flex items-center justify-center mb-5 shadow-lg">
                 <span className="text-2xl">🤖</span>
               </div>
               <h2 className="text-[18px] font-bold text-[#1A1A1A] mb-2">Project Assistant</h2>
@@ -760,7 +760,7 @@ export default function ProjectAssistantPage() {
               <div className="grid grid-cols-2 gap-3 w-full max-w-[560px]">
                 {suggestions.map(s => (
                   <button key={s} onClick={() => send(s)}
-                    className="text-left text-[13px] text-[#737373] bg-white border border-[#E5E2DE] rounded-xl px-4 py-4 hover:border-[#E8521A] hover:text-[#1A1A1A] hover:shadow-sm transition-all">
+                    className="text-left text-[13px] text-[#737373] bg-white border border-[#E5E2DE] rounded-xl px-4 py-4 hover:border-[#B5622A] hover:text-[#1A1A1A] hover:shadow-sm transition-all">
                     {s}
                   </button>
                 ))}
@@ -778,7 +778,7 @@ export default function ProjectAssistantPage() {
               <div className="flex gap-4 items-start">
                 {group.role === 'assistant'
                   ? <div className="w-8 h-8 rounded-full bg-[#0F0F0F] flex items-center justify-center text-[15px] shrink-0">🤖</div>
-                  : <div className="w-8 h-8 rounded-full bg-[#E8521A] flex items-center justify-center text-white text-[12px] font-bold shrink-0">Y</div>
+                  : <div className="w-8 h-8 rounded-full bg-[#B5622A] flex items-center justify-center text-white text-[12px] font-bold shrink-0">Y</div>
                 }
                 <div className="flex-1 space-y-4">
                   {group.messages.map((msg, mIdx) => {
@@ -819,8 +819,8 @@ export default function ProjectAssistantPage() {
                           {/* Document card */}
                           {msg.document && (
                             <div className="mt-4 pt-4 border-t border-[#E5E2DE] rounded-xl bg-[#FAFAF9] p-3 flex items-start gap-3">
-                              <div className="w-8 h-8 rounded-lg bg-[#FEF3ED] flex items-center justify-center shrink-0">
-                                <FileText size={15} className="text-[#E8521A]" />
+                              <div className="w-8 h-8 rounded-lg bg-[#FAF0E8] flex items-center justify-center shrink-0">
+                                <FileText size={15} className="text-[#B5622A]" />
                               </div>
                               <div className="flex-1 min-w-0">
                                 <p className="text-[13px] font-semibold text-[#1A1A1A] truncate">{msg.document.title}</p>
@@ -828,7 +828,7 @@ export default function ProjectAssistantPage() {
                               </div>
                               <div className="flex gap-2 shrink-0">
                                 <button onClick={() => router.push(`/app/projects/${projectId}/documents`)}
-                                  className="text-[11px] px-2.5 py-1 bg-[#FEF3ED] text-[#E8521A] rounded-lg hover:bg-[#FDBA9A] transition-colors font-semibold">
+                                  className="text-[11px] px-2.5 py-1 bg-[#FAF0E8] text-[#B5622A] rounded-lg hover:bg-[#DEB48A] transition-colors font-semibold">
                                   View →
                                 </button>
                                 <button onClick={() => {
@@ -917,7 +917,7 @@ export default function ProjectAssistantPage() {
                   {file.type.startsWith('image/') ? '🖼️' : (file.name.endsWith('.zip') ? '📦' : '📄')} {file.name.slice(0, 20)}{file.name.length > 20 ? '…' : ''}
                   <button
                     onClick={() => setAttachedFiles(prev => prev.filter((_, j) => j !== i))}
-                    className="ml-0.5 hover:text-[#E8521A] transition-colors"
+                    className="ml-0.5 hover:text-[#B5622A] transition-colors"
                   >
                     ✕
                   </button>
@@ -926,7 +926,7 @@ export default function ProjectAssistantPage() {
             </div>
           )}
 
-          <div className="bg-[#FAFAF9] border border-[#E5E2DE] rounded-2xl px-4 py-3 focus-within:border-[#E8521A] transition-colors">
+          <div className="bg-[#FAFAF9] border border-[#E5E2DE] rounded-2xl px-4 py-3 focus-within:border-[#B5622A] transition-colors">
             <div className="flex items-center gap-2 overflow-x-auto pb-2">
               <VoiceInputButton onTranscript={handleVoiceTranscript} />
               <FileUpload onFilesSelected={(files) => setAttachedFiles(prev => [...prev, ...files])} />
@@ -945,7 +945,7 @@ export default function ProjectAssistantPage() {
               <button
                 onClick={() => send()}
                 disabled={loading || !projectId || (!input.trim() && attachedFiles.length === 0)}
-                className="flex items-center justify-center w-10 h-10 bg-[#E8521A] text-white rounded-xl hover:bg-[#c94415] disabled:opacity-40 transition-colors shrink-0"
+                className="flex items-center justify-center w-10 h-10 bg-[#B5622A] text-white rounded-xl hover:bg-[#9A4E20] disabled:opacity-40 transition-colors shrink-0"
               >
                 <Send size={15} />
               </button>

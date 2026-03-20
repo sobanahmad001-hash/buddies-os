@@ -39,7 +39,7 @@ export default function ContextToggle({ onChange }: ContextToggleProps) {
       }
     >
       {contextEnabled ? (
-        <BrainCircuit className="w-3.5 h-3.5 text-[#E8521A]" />
+        <BrainCircuit className="w-3.5 h-3.5 text-[#B5622A]" />
       ) : (
         <Brain className="w-3.5 h-3.5" />
       )}

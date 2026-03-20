@@ -81,7 +81,7 @@ export default function QuickActionsDropdown({ onSelectAction }: QuickActionsDro
         onClick={() => setIsOpen(v => !v)}
         className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-semibold transition-all ${
           isOpen
-            ? 'bg-[#E8521A] text-white'
+            ? 'bg-[#B5622A] text-white'
             : 'bg-[#F0EDE9] hover:bg-[#E5E2DE] text-[#1A1A1A]'
         }`}
         title="Quick capture actions"
@@ -97,7 +97,7 @@ export default function QuickActionsDropdown({ onSelectAction }: QuickActionsDro
           <div className="absolute bottom-full left-0 mb-2 w-72 bg-[#0F0F0F] border border-[#2D2D2D] rounded-xl shadow-2xl z-20 overflow-hidden">
             <div className="px-4 py-2.5 border-b border-[#1E1E1E]">
               <div className="flex items-center gap-2">
-                <Zap className="w-3.5 h-3.5 text-[#E8521A]" />
+                <Zap className="w-3.5 h-3.5 text-[#B5622A]" />
                 <span className="text-[11px] font-bold text-white uppercase tracking-widest">Quick Capture</span>
               </div>
               <p className="text-[10px] text-[#525252] mt-0.5">Prefill a structured action for Buddies</p>

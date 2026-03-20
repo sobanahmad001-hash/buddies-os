@@ -31,17 +31,17 @@ function renderMarkdown(text: string): React.ReactNode[] {
     if (line.startsWith("## ")) { nodes.push(<h2 key={k()} className="text-lg font-bold text-[#1A1A1A] mt-5 mb-2 first:mt-0">{inlineRender(line.slice(3))}</h2>); i++; continue; }
     if (line.startsWith("### ")){ nodes.push(<h3 key={k()} className="text-base font-semibold text-[#1A1A1A] mt-4 mb-1.5 first:mt-0">{inlineRender(line.slice(4))}</h3>); i++; continue; }
     if (line.match(/^[-*]{3,}$/)) { nodes.push(<hr key={k()} className="border-[#E5E2DE] my-4" />); i++; continue; }
-    if (line.startsWith("> ")) { nodes.push(<blockquote key={k()} className="border-l-4 border-[#E8521A] pl-4 my-3 text-[#737373] italic">{inlineRender(line.slice(2))}</blockquote>); i++; continue; }
+    if (line.startsWith("> ")) { nodes.push(<blockquote key={k()} className="border-l-4 border-[#B5622A] pl-4 my-3 text-[#737373] italic">{inlineRender(line.slice(2))}</blockquote>); i++; continue; }
     if (line.match(/^[-*+] /)) {
       const items: string[] = [];
       while (i < lines.length && lines[i].match(/^[-*+] /)) { items.push(lines[i].slice(2)); i++; }
-      nodes.push(<ul key={k()} className="list-none my-3 space-y-2 pl-1">{items.map((item, j) => (<li key={j} className="flex items-start gap-2.5 text-[15px] text-[#1A1A1A]"><span className="mt-2 w-1.5 h-1.5 rounded-full bg-[#E8521A] shrink-0" /><span className="leading-relaxed">{inlineRender(item)}</span></li>))}</ul>);
+      nodes.push(<ul key={k()} className="list-none my-3 space-y-2 pl-1">{items.map((item, j) => (<li key={j} className="flex items-start gap-2.5 text-[15px] text-[#1A1A1A]"><span className="mt-2 w-1.5 h-1.5 rounded-full bg-[#B5622A] shrink-0" /><span className="leading-relaxed">{inlineRender(item)}</span></li>))}</ul>);
       continue;
     }
     if (line.match(/^\d+\. /)) {
       const items: string[] = [];
       while (i < lines.length && lines[i].match(/^\d+\. /)) { items.push(lines[i].replace(/^\d+\. /, "")); i++; }
-      nodes.push(<ol key={k()} className="list-none my-3 space-y-2 pl-1">{items.map((item, j) => (<li key={j} className="flex items-start gap-2.5 text-[15px] text-[#1A1A1A]"><span className="shrink-0 w-5 h-5 rounded-full bg-[#F0EDE9] text-[#E8521A] text-[11px] font-bold flex items-center justify-center">{j + 1}</span><span className="leading-relaxed">{inlineRender(item)}</span></li>))}</ol>);
+      nodes.push(<ol key={k()} className="list-none my-3 space-y-2 pl-1">{items.map((item, j) => (<li key={j} className="flex items-start gap-2.5 text-[15px] text-[#1A1A1A]"><span className="shrink-0 w-5 h-5 rounded-full bg-[#F0EDE9] text-[#B5622A] text-[11px] font-bold flex items-center justify-center">{j + 1}</span><span className="leading-relaxed">{inlineRender(item)}</span></li>))}</ol>);
       continue;
     }
     if (line.trim() === "") { nodes.push(<div key={k()} className="h-3" />); i++; continue; }
@@ -56,9 +56,9 @@ function inlineRender(text: string): React.ReactNode {
   return parts.map((part, i) => {
     if (part.startsWith("**") && part.endsWith("**")) return <strong key={i} className="font-semibold text-[#1A1A1A]">{part.slice(2,-2)}</strong>;
     if (part.startsWith("*") && part.endsWith("*")) return <em key={i} className="italic">{part.slice(1,-1)}</em>;
-    if (part.startsWith("`") && part.endsWith("`")) return <code key={i} className="font-mono text-[13px] bg-[#F0EDE9] text-[#E8521A] px-1.5 py-0.5 rounded">{part.slice(1,-1)}</code>;
+    if (part.startsWith("`") && part.endsWith("`")) return <code key={i} className="font-mono text-[13px] bg-[#F0EDE9] text-[#B5622A] px-1.5 py-0.5 rounded">{part.slice(1,-1)}</code>;
     const lm = part.match(/\[(.+?)\]\((.+?)\)/);
-    if (lm) return <a key={i} href={lm[2]} target="_blank" rel="noopener noreferrer" className="text-[#E8521A] underline hover:text-[#c94415]">{lm[1]}</a>;
+    if (lm) return <a key={i} href={lm[2]} target="_blank" rel="noopener noreferrer" className="text-[#B5622A] underline hover:text-[#9A4E20]">{lm[1]}</a>;
     return part;
   });
 }
@@ -379,7 +379,7 @@ export default function AIPage() {
 
         <div className="p-3 border-b border-[#1E1E1E]">
           <button onClick={startNewChat}
-            className="w-full flex items-center gap-2.5 px-4 py-2.5 rounded-lg bg-[#E8521A] text-white text-[13px] font-semibold hover:bg-[#c94415] transition-colors">
+            className="w-full flex items-center gap-2.5 px-4 py-2.5 rounded-lg bg-[#B5622A] text-white text-[13px] font-semibold hover:bg-[#9A4E20] transition-colors">
             <Plus size={15} /> New Chat
           </button>
         </div>
@@ -468,7 +468,7 @@ export default function AIPage() {
                   ).map(m => (
                     <button key={m.value} onClick={() => { setSelectedModel(m.value); localStorage.setItem("buddies-ai-model", m.value); setModelOpen(false); }}
                       className={`w-full text-left px-4 py-2.5 text-[13px] transition-colors
-                        ${selectedModel === m.value ? "bg-[#F0EDE9] text-[#E8521A] font-medium" : "text-[#1A1A1A] hover:bg-[#F7F5F2]"}`}>
+                        ${selectedModel === m.value ? "bg-[#F0EDE9] text-[#B5622A] font-medium" : "text-[#1A1A1A] hover:bg-[#F7F5F2]"}`}>
                       {m.label}
                     </button>
                   ))}
@@ -493,7 +493,7 @@ export default function AIPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-[600px]">
                   {SUGGESTIONS.map(s => (
                     <button key={s} onClick={() => send(s)}
-                      className="text-left text-[13px] text-[#737373] bg-white border border-[#E5E2DE] rounded-xl px-4 py-4 hover:border-[#E8521A] hover:text-[#1A1A1A] hover:shadow-sm transition-all">
+                      className="text-left text-[13px] text-[#737373] bg-white border border-[#E5E2DE] rounded-xl px-4 py-4 hover:border-[#B5622A] hover:text-[#1A1A1A] hover:shadow-sm transition-all">
                       {s}
                     </button>
                   ))}
@@ -506,7 +506,7 @@ export default function AIPage() {
               <div key={gIdx} className="mb-8">
                 <div className="flex gap-4 items-start">
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0
-                    ${group.role === "assistant" ? "bg-[#0F0F0F] text-[15px]" : "bg-[#E8521A] text-white text-[12px] font-bold"}`}>
+                    ${group.role === "assistant" ? "bg-[#0F0F0F] text-[15px]" : "bg-[#B5622A] text-white text-[12px] font-bold"}`}>
                     {group.role === "assistant" ? "🤖" : "S"}
                   </div>
                   <div className="flex-1 space-y-4">
@@ -521,7 +521,7 @@ export default function AIPage() {
                               <textarea value={editText} onChange={e => setEditText(e.target.value)}
                                 className="w-full bg-transparent text-[15px] text-[#1A1A1A] resize-none focus:outline-none leading-relaxed min-h-[80px]" />
                               <div className="flex gap-2 mt-3">
-                                <button onClick={() => saveEdit(globalIdx)} className="px-3 py-1.5 rounded-lg bg-[#E8521A] text-white text-[12px] font-medium hover:bg-[#c94415]">Save</button>
+                                <button onClick={() => saveEdit(globalIdx)} className="px-3 py-1.5 rounded-lg bg-[#B5622A] text-white text-[12px] font-medium hover:bg-[#9A4E20]">Save</button>
                                 <button onClick={cancelEdit} className="px-3 py-1.5 rounded-lg bg-[#F0EDE9] text-[#1A1A1A] text-[12px] font-medium hover:bg-[#E5E2DE]">Cancel</button>
                               </div>
                             </div>
@@ -617,13 +617,13 @@ export default function AIPage() {
                   <div key={i} className="flex items-center gap-1.5 px-2 py-1 bg-[#F0EDE9] rounded-lg text-[12px] text-[#737373]">
                     {file.type.startsWith("image/") ? "🖼️" : file.name.endsWith(".zip") ? "📦" : "📄"}
                     {file.name.slice(0, 20)}{file.name.length > 20 ? "…" : ""}
-                    <button onClick={() => setAttachedFiles(prev => prev.filter((_, j) => j !== i))} className="ml-0.5 hover:text-[#E8521A] transition-colors">✕</button>
+                    <button onClick={() => setAttachedFiles(prev => prev.filter((_, j) => j !== i))} className="ml-0.5 hover:text-[#B5622A] transition-colors">✕</button>
                   </div>
                 ))}
               </div>
             )}
 
-            <div className="bg-[#F7F5F2] rounded-2xl px-4 py-3 border border-[#E5E2DE] focus-within:border-[#E8521A] transition-colors">
+            <div className="bg-[#F7F5F2] rounded-2xl px-4 py-3 border border-[#E5E2DE] focus-within:border-[#B5622A] transition-colors">
               <div className="flex items-center gap-2 pb-2">
                 <VoiceInputButton onTranscript={t => { setInput(t); setTimeout(() => textareaRef.current?.focus(), 0); }} />
                 <FileUpload onFilesSelected={f => setAttachedFiles(prev => [...prev, ...f])} />
@@ -642,12 +642,12 @@ export default function AIPage() {
                 )}
                 {loading ? (
                   <button onClick={stopResponse} title="Stop"
-                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-[#1A1A1A] text-white hover:bg-[#E8521A] transition-all">
+                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-[#1A1A1A] text-white hover:bg-[#B5622A] transition-all">
                     <Square size={14} fill="currentColor" />
                   </button>
                 ) : (
                   <button onClick={() => send()} disabled={!input.trim() && attachedFiles.length === 0}
-                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all disabled:bg-[#E5E2DE] disabled:text-[#B0ADA9] bg-[#E8521A] text-white hover:bg-[#c94415]">
+                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all disabled:bg-[#E5E2DE] disabled:text-[#B0ADA9] bg-[#B5622A] text-white hover:bg-[#9A4E20]">
                     <Send size={15} />
                   </button>
                 )}

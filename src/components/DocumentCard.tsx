@@ -66,8 +66,8 @@ export default function DocumentCard({ title, content }: DocumentCardProps) {
     <div className="mt-3 border border-[#E5E2DE] rounded-2xl overflow-hidden bg-white shadow-sm">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 bg-[#F7F5F2] border-b border-[#E5E2DE]">
-        <div className="w-7 h-7 rounded-lg bg-[#E8521A]/10 flex items-center justify-center shrink-0">
-          <FileText className="w-3.5 h-3.5 text-[#E8521A]" />
+        <div className="w-7 h-7 rounded-lg bg-[#B5622A]/10 flex items-center justify-center shrink-0">
+          <FileText className="w-3.5 h-3.5 text-[#B5622A]" />
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-[13px] font-semibold text-[#1A1A1A] truncate">{title}</p>
@@ -83,7 +83,7 @@ export default function DocumentCard({ title, content }: DocumentCardProps) {
         {hasMore && (
           <button
             onClick={() => setExpanded(v => !v)}
-            className="mt-1 flex items-center gap-1 text-[11px] text-[#B0ADA9] hover:text-[#E8521A] transition-colors"
+            className="mt-1 flex items-center gap-1 text-[11px] text-[#B0ADA9] hover:text-[#B5622A] transition-colors"
           >
             <ChevronDown className={`w-3 h-3 transition-transform ${expanded ? "rotate-180" : ""}`} />
             {expanded ? "Show less" : "Show full document"}
@@ -105,7 +105,7 @@ export default function DocumentCard({ title, content }: DocumentCardProps) {
               <button
                 onClick={openProjectPicker}
                 disabled={saving}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#E8521A] hover:bg-[#c94415] disabled:opacity-50 text-white text-[12px] font-semibold rounded-lg transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#B5622A] hover:bg-[#9A4E20] disabled:opacity-50 text-white text-[12px] font-semibold rounded-lg transition-colors"
               >
                 {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FolderKanban className="w-3.5 h-3.5" />}
                 {saving ? "Saving…" : "Add to Project"}

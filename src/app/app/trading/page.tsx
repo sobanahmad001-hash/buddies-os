@@ -7,7 +7,7 @@ type TradeEntry = { id: string; ladder_step: number; direction: string; instrume
 type Withdrawal = { id: string; ladder_step: number; amount_usd: number; withdrawn_at: string };
 type Message = { role: "user" | "assistant"; content: string };
 
-const ACCENT = "#E8521A";
+const ACCENT = "#B5622A";
 
 export default function TradingPage() {
   const [ladder, setLadder] = useState<LadderStep[]>([]);
@@ -98,12 +98,12 @@ export default function TradingPage() {
             <div className="flex items-center gap-2 mb-1">
               <span className="text-lg">📈</span>
               <h1 className="text-[20px] font-bold">Trading Agent</h1>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#E8521A20] text-[#E8521A] font-semibold border border-[#E8521A40]">Gold Ladder</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#B5622A20] text-[#B5622A] font-semibold border border-[#B5622A40]">Gold Ladder</span>
             </div>
             <p className="text-white/40 text-xs">XAU/USD · Doubling ladder · 50% weekly withdrawal</p>
           </div>
           <div className="text-right">
-            {goldPrice && <div className="text-[22px] font-bold text-[#E8521A]">${goldPrice.toFixed(2)}</div>}
+            {goldPrice && <div className="text-[22px] font-bold text-[#B5622A]">${goldPrice.toFixed(2)}</div>}
             <div className="text-white/40 text-[10px]">XAU/USD live</div>
           </div>
         </div>
@@ -144,10 +144,10 @@ export default function TradingPage() {
           <div className="space-y-4">
             {/* Active step card */}
             {activeStep && (
-              <div className="bg-white rounded-2xl border-2 border-[#E8521A] p-5">
+              <div className="bg-white rounded-2xl border-2 border-[#B5622A] p-5">
                 <div className="flex items-center justify-between mb-3">
                   <div>
-                    <div className="text-[11px] text-[#E8521A] font-bold uppercase tracking-wide mb-1">Active Step</div>
+                    <div className="text-[11px] text-[#B5622A] font-bold uppercase tracking-wide mb-1">Active Step</div>
                     <div className="text-[22px] font-bold text-[#1A1A1A]">Step {activeStep.step_number}</div>
                     <div className="text-[#737373] text-sm">Target: <span className="font-bold text-[#1A1A1A]">${activeStep.target_amount.toLocaleString()}</span></div>
                   </div>
@@ -161,7 +161,7 @@ export default function TradingPage() {
                 </div>
                 <div className="flex gap-2 mt-3">
                   <button onClick={() => setShowLogTrade(true)}
-                    className="flex-1 py-2 bg-[#E8521A] text-white text-xs font-semibold rounded-xl hover:bg-[#c94415] flex items-center justify-center gap-1.5">
+                    className="flex-1 py-2 bg-[#B5622A] text-white text-xs font-semibold rounded-xl hover:bg-[#9A4E20] flex items-center justify-center gap-1.5">
                     <Plus size={12} /> Log Trade
                   </button>
                   <button onClick={() => setShowWithdrawal(true)}
@@ -178,18 +178,18 @@ export default function TradingPage() {
               <div className="space-y-1.5 max-h-[300px] overflow-y-auto">
                 {ladder.map(step => (
                   <div key={step.id} className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-colors
-                    ${step.status === "active" ? "bg-[#FFF8F5] border border-[#E8521A40]" :
+                    ${step.status === "active" ? "bg-[#FAF5EF] border border-[#B5622A40]" :
                       step.status === "completed" ? "bg-[#ECFDF5]" : "bg-[#F7F5F2]"}`}>
                     <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0
                       ${step.status === "completed" ? "bg-[#10B981] text-white" :
-                        step.status === "active" ? "bg-[#E8521A] text-white" : "bg-[#E5E2DE] text-[#737373]"}`}>
+                        step.status === "active" ? "bg-[#B5622A] text-white" : "bg-[#E5E2DE] text-[#737373]"}`}>
                       {step.status === "completed" ? <Check size={10} /> : step.step_number}
                     </div>
                     <span className="text-[12px] font-semibold text-[#1A1A1A]">
                       ${step.target_amount >= 1000 ? `${(step.target_amount/1000).toFixed(0)}K` : step.target_amount}
                     </span>
                     <span className={`text-[10px] ml-auto font-semibold capitalize
-                      ${step.status === "active" ? "text-[#E8521A]" :
+                      ${step.status === "active" ? "text-[#B5622A]" :
                         step.status === "completed" ? "text-[#10B981]" : "text-[#B0ADA9]"}`}>
                       {step.status}
                     </span>
@@ -209,14 +209,14 @@ export default function TradingPage() {
             <div className="flex justify-between items-center mb-4">
               <div className="text-sm font-semibold">{entries.filter(e => e.status === "open").length} open · {entries.filter(e => e.status === "closed").length} closed</div>
               <button onClick={() => setShowLogTrade(true)}
-                className="flex items-center gap-1.5 px-4 py-2 bg-[#E8521A] text-white text-xs font-semibold rounded-xl hover:bg-[#c94415]">
+                className="flex items-center gap-1.5 px-4 py-2 bg-[#B5622A] text-white text-xs font-semibold rounded-xl hover:bg-[#9A4E20]">
                 <Plus size={12} /> Log Trade
               </button>
             </div>
             <div className="space-y-2">
               {entries.map(e => (
                 <div key={e.id} className="bg-white rounded-xl border border-[#E5E2DE] p-4 flex items-center gap-3">
-                  <div className={`w-2 h-2 rounded-full shrink-0 ${e.status === "open" ? "bg-[#E8521A]" : e.result_usd && e.result_usd > 0 ? "bg-[#10B981]" : "bg-[#EF4444]"}`} />
+                  <div className={`w-2 h-2 rounded-full shrink-0 ${e.status === "open" ? "bg-[#B5622A]" : e.result_usd && e.result_usd > 0 ? "bg-[#10B981]" : "bg-[#EF4444]"}`} />
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-bold uppercase text-[#1A1A1A]">{e.direction}</span>
@@ -255,7 +255,7 @@ export default function TradingPage() {
                   <div className="flex flex-wrap gap-2 justify-center mt-4">
                     {["What's my current position?","Should I advance to the next step?","Analyze my win rate","When should I withdraw?"].map(s => (
                       <button key={s} onClick={() => { setInput(s); }}
-                        className="text-xs px-3 py-1.5 bg-white border border-[#E5E2DE] rounded-lg hover:border-[#E8521A] transition-colors">
+                        className="text-xs px-3 py-1.5 bg-white border border-[#E5E2DE] rounded-lg hover:border-[#B5622A] transition-colors">
                         {s}
                       </button>
                     ))}
@@ -264,11 +264,11 @@ export default function TradingPage() {
               )}
               {messages.map((m, i) => (
                 <div key={i} className={`flex gap-3 ${m.role === "user" ? "flex-row-reverse" : ""}`}>
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs shrink-0 ${m.role === "user" ? "bg-[#E8521A] text-white" : "bg-[#0F0F0F] text-white"}`}>
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs shrink-0 ${m.role === "user" ? "bg-[#B5622A] text-white" : "bg-[#0F0F0F] text-white"}`}>
                     {m.role === "user" ? "Y" : "📈"}
                   </div>
                   <div className={`max-w-[75%] px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap
-                    ${m.role === "user" ? "bg-[#E8521A] text-white" : "bg-white border border-[#E5E2DE] text-[#1A1A1A]"}`}>
+                    ${m.role === "user" ? "bg-[#B5622A] text-white" : "bg-white border border-[#E5E2DE] text-[#1A1A1A]"}`}>
                     {m.content}
                   </div>
                 </div>
@@ -287,9 +287,9 @@ export default function TradingPage() {
               <input value={input} onChange={e => setInput(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && sendChat()}
                 placeholder="Ask about your trading strategy..."
-                className="flex-1 text-sm px-4 py-3 border border-[#E5E2DE] rounded-xl focus:outline-none focus:border-[#E8521A] bg-white" />
+                className="flex-1 text-sm px-4 py-3 border border-[#E5E2DE] rounded-xl focus:outline-none focus:border-[#B5622A] bg-white" />
               <button onClick={sendChat} disabled={chatLoading || !input.trim()}
-                className="px-4 py-3 bg-[#E8521A] text-white rounded-xl hover:bg-[#c94415] disabled:opacity-40 transition-colors">
+                className="px-4 py-3 bg-[#B5622A] text-white rounded-xl hover:bg-[#9A4E20] disabled:opacity-40 transition-colors">
                 <Send size={15} />
               </button>
             </div>
@@ -315,7 +315,7 @@ export default function TradingPage() {
                   <label className="text-[11px] font-semibold text-[#737373] uppercase tracking-wide">{f.label}</label>
                   <input type={f.type} value={(tradeForm as any)[f.key]}
                     onChange={e => setTradeForm(p => ({ ...p, [f.key]: e.target.value }))}
-                    className="w-full mt-1 text-sm px-3 py-2 border border-[#E5E2DE] rounded-xl focus:outline-none focus:border-[#E8521A]" />
+                    className="w-full mt-1 text-sm px-3 py-2 border border-[#E5E2DE] rounded-xl focus:outline-none focus:border-[#B5622A]" />
                 </div>
               ))}
               <div className="grid grid-cols-2 gap-3">
@@ -341,7 +341,7 @@ export default function TradingPage() {
                 className="w-full text-sm px-3 py-2 border border-[#E5E2DE] rounded-xl focus:outline-none resize-none" />
             </div>
             <div className="flex gap-2 mt-4">
-              <button onClick={logTrade} className="flex-1 py-2.5 bg-[#E8521A] text-white font-semibold rounded-xl text-sm hover:bg-[#c94415]">Log Trade</button>
+              <button onClick={logTrade} className="flex-1 py-2.5 bg-[#B5622A] text-white font-semibold rounded-xl text-sm hover:bg-[#9A4E20]">Log Trade</button>
               <button onClick={() => setShowLogTrade(false)} className="flex-1 py-2.5 bg-[#F0EDE9] text-[#737373] font-semibold rounded-xl text-sm">Cancel</button>
             </div>
           </div>
@@ -366,7 +366,7 @@ export default function TradingPage() {
                   <label className="text-[11px] font-semibold text-[#737373] uppercase tracking-wide">{f.label}</label>
                   <input type={f.type} value={(withdrawalForm as any)[f.key]}
                     onChange={e => setWithdrawalForm(p => ({ ...p, [f.key]: e.target.value }))}
-                    className="w-full mt-1 text-sm px-3 py-2 border border-[#E5E2DE] rounded-xl focus:outline-none focus:border-[#E8521A]" />
+                    className="w-full mt-1 text-sm px-3 py-2 border border-[#E5E2DE] rounded-xl focus:outline-none focus:border-[#B5622A]" />
                 </div>
               ))}
             </div>

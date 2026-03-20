@@ -78,7 +78,7 @@ export default function ProjectDecisionsPage() {
             onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
             placeholder="Decision title"
             required
-            className="w-full text-[14px] px-3 py-2 border border-[#E5E2DE] rounded-lg focus:outline-none focus:border-[#E8521A]"
+            className="w-full text-[14px] px-3 py-2 border border-[#E5E2DE] rounded-lg focus:outline-none focus:border-[#B5622A]"
           />
           <textarea
             value={form.context}
@@ -86,13 +86,13 @@ export default function ProjectDecisionsPage() {
             placeholder="What is the context? What options were considered?"
             required
             rows={3}
-            className="w-full text-[14px] px-3 py-2 border border-[#E5E2DE] rounded-lg focus:outline-none focus:border-[#E8521A] resize-none"
+            className="w-full text-[14px] px-3 py-2 border border-[#E5E2DE] rounded-lg focus:outline-none focus:border-[#B5622A] resize-none"
           />
           <input
             value={form.verdict}
             onChange={e => setForm(f => ({ ...f, verdict: e.target.value }))}
             placeholder="Verdict / decision made (optional)"
-            className="w-full text-[14px] px-3 py-2 border border-[#E5E2DE] rounded-lg focus:outline-none focus:border-[#E8521A]"
+            className="w-full text-[14px] px-3 py-2 border border-[#E5E2DE] rounded-lg focus:outline-none focus:border-[#B5622A]"
           />
           <div className="flex gap-2 justify-end">
             <button type="button" onClick={() => setShowForm(false)}
@@ -100,7 +100,7 @@ export default function ProjectDecisionsPage() {
               Cancel
             </button>
             <button type="submit" disabled={saving}
-              className="px-4 py-1.5 bg-[#E8521A] text-white text-[13px] font-semibold rounded-lg hover:bg-[#c94415] disabled:opacity-40 transition-colors">
+              className="px-4 py-1.5 bg-[#B5622A] text-white text-[13px] font-semibold rounded-lg hover:bg-[#9A4E20] disabled:opacity-40 transition-colors">
               {saving ? 'Saving…' : 'Save'}
             </button>
           </div>
@@ -146,7 +146,7 @@ export default function ProjectDecisionsPage() {
                 {d.verdict && (
                   <div>
                     <span className="text-[11px] font-semibold text-[#737373] uppercase tracking-wide">Verdict</span>
-                    <p className="text-[13px] text-[#404040] mt-1 pl-3 border-l-2 border-[#E8521A]">{d.verdict}</p>
+                    <p className="text-[13px] text-[#404040] mt-1 pl-3 border-l-2 border-[#B5622A]">{d.verdict}</p>
                   </div>
                 )}
                 {d.outcome && (

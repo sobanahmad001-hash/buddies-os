@@ -49,7 +49,7 @@ export default function InstallPrompt() {
         </button>
 
         <div className="flex items-start gap-3">
-          <div className="w-12 h-12 bg-[#E8521A] rounded-xl flex items-center justify-center flex-shrink-0">
+          <div className="w-12 h-12 bg-[#B5622A] rounded-xl flex items-center justify-center flex-shrink-0">
             <Download className="w-6 h-6 text-white" />
           </div>
 
@@ -63,7 +63,7 @@ export default function InstallPrompt() {
 
             <button
               onClick={handleInstall}
-              className="w-full px-4 py-2 bg-[#E8521A] hover:bg-[#D14817] text-white rounded-lg transition-colors font-medium text-sm"
+              className="w-full px-4 py-2 bg-[#B5622A] hover:bg-[#D14817] text-white rounded-lg transition-colors font-medium text-sm"
             >
               Install Now
             </button>

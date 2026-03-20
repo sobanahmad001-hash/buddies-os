@@ -9,7 +9,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover",
-  themeColor: "#E8521A",
+  themeColor: "#B5622A",
 };
 
 export const metadata: Metadata = {
@@ -35,7 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <head>
         <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#E8521A" />
+        <meta name="theme-color" content="#B5622A" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </head>
       <body>

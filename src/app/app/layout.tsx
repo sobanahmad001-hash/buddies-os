@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -73,7 +73,7 @@ function NavContent({
         {!collapsed && (
           <span className="text-[14px] font-bold tracking-tight">
             <span className="text-white">BUDDIES</span>
-            <span className="text-[#E8521A]"> OS</span>
+            <span className="text-[#B5622A]"> OS</span>
           </span>
         )}
         <button
@@ -161,7 +161,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </button>
           <span className="text-[14px] font-bold tracking-tight">
             <span className="text-white">BUDDIES</span>
-            <span className="text-[#E8521A]"> OS</span>
+            <span className="text-[#B5622A]"> OS</span>
           </span>
         </div>
         {children}

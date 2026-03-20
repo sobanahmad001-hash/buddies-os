@@ -92,7 +92,7 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
                 href={href}
                 className={`flex items-center gap-1.5 px-3 py-2 text-[12px] font-medium whitespace-nowrap border-b-2 transition-colors ${
                   active
-                    ? 'border-[#E8521A] text-[#E8521A]'
+                    ? 'border-[#B5622A] text-[#B5622A]'
                     : 'border-transparent text-[#737373] hover:text-[#1A1A1A] hover:border-[#D1CCCC]'
                 }`}
               >

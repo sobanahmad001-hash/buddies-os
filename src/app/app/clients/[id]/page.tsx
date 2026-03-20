@@ -6,7 +6,7 @@ import { ArrowLeft, Check, ExternalLink, ChevronDown, ChevronUp } from "lucide-r
 
 const STAGE_DEPT_COLORS: Record<string, string> = {
   content: "#F59E0B", seo: "#10B981", design: "#8B5CF6",
-  development: "#3B82F6", marketing: "#E8521A"
+  development: "#3B82F6", marketing: "#B5622A"
 };
 const STATUS_STYLES: Record<string, string> = {
   not_started: "bg-[#F0EDE9] text-[#737373]",
@@ -119,7 +119,7 @@ export default function ClientProfile() {
 
   if (loading) return (
     <div className="flex-1 flex items-center justify-center">
-      <div className="w-6 h-6 rounded-full border-2 border-[#E8521A] border-t-transparent animate-spin" />
+      <div className="w-6 h-6 rounded-full border-2 border-[#B5622A] border-t-transparent animate-spin" />
     </div>
   );
   if (!client) return (
@@ -137,7 +137,7 @@ export default function ClientProfile() {
           </button>
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-[#E8521A] flex items-center justify-center text-white font-bold text-lg">
+              <div className="w-12 h-12 rounded-2xl bg-[#B5622A] flex items-center justify-center text-white font-bold text-lg">
                 {client.name[0].toUpperCase()}
               </div>
               <div>
@@ -147,7 +147,7 @@ export default function ClientProfile() {
                   {client.location && <span className="text-white/40 text-xs">{client.location}</span>}
                   {client.website && (
                     <a href={client.website} target="_blank" rel="noopener noreferrer"
-                      className="text-[#E8521A] text-xs flex items-center gap-1 hover:underline">
+                      className="text-[#B5622A] text-xs flex items-center gap-1 hover:underline">
                       {client.website} <ExternalLink size={10} />
                     </a>
                   )}
@@ -155,13 +155,13 @@ export default function ClientProfile() {
               </div>
             </div>
             <div className="text-right shrink-0 ml-4">
-              <div className="text-3xl font-bold text-[#E8521A]">{pct}%</div>
+              <div className="text-3xl font-bold text-[#B5622A]">{pct}%</div>
               <div className="text-white/40 text-[10px]">{done} of {stages.length} stages done</div>
             </div>
           </div>
           {/* Progress bar */}
           <div className="mt-4 h-1.5 bg-white/10 rounded-full overflow-hidden">
-            <div className="h-full bg-[#E8521A] rounded-full transition-all" style={{ width: `${pct}%` }} />
+            <div className="h-full bg-[#B5622A] rounded-full transition-all" style={{ width: `${pct}%` }} />
           </div>
         </div>
       </div>
@@ -234,26 +234,26 @@ export default function ClientProfile() {
                       <input defaultValue={stage.owner_email ?? ""}
                         onBlur={e => { if (e.target.value !== (stage.owner_email ?? "")) updateStage(stage, { owner_email: e.target.value }); }}
                         placeholder="Assign owner email..."
-                        className="w-full text-xs px-3 py-2 border border-[#E5E2DE] rounded-xl focus:outline-none focus:border-[#E8521A]" />
+                        className="w-full text-xs px-3 py-2 border border-[#E5E2DE] rounded-xl focus:outline-none focus:border-[#B5622A]" />
                       {/* Notes */}
                       <textarea defaultValue={stage.notes ?? ""}
                         onBlur={e => { if (e.target.value !== (stage.notes ?? "")) updateStage(stage, { notes: e.target.value }); }}
                         placeholder="Add notes..."
                         rows={2}
-                        className="w-full text-xs px-3 py-2 border border-[#E5E2DE] rounded-xl focus:outline-none focus:border-[#E8521A] resize-none" />
+                        className="w-full text-xs px-3 py-2 border border-[#E5E2DE] rounded-xl focus:outline-none focus:border-[#B5622A] resize-none" />
                       {/* Attachment */}
                       <div className="flex gap-2">
                         <input defaultValue={stage.attachment_url ?? ""}
                           onBlur={e => { if (e.target.value !== (stage.attachment_url ?? "")) updateStage(stage, { attachment_url: e.target.value }); }}
                           placeholder="Attachment URL (Google Doc, Figma, Sheet...)"
-                          className="flex-1 text-xs px-3 py-2 border border-[#E5E2DE] rounded-xl focus:outline-none focus:border-[#E8521A]" />
+                          className="flex-1 text-xs px-3 py-2 border border-[#E5E2DE] rounded-xl focus:outline-none focus:border-[#B5622A]" />
                         <input defaultValue={stage.attachment_label ?? ""}
                           onBlur={e => { if (e.target.value !== (stage.attachment_label ?? "")) updateStage(stage, { attachment_label: e.target.value }); }}
                           placeholder="Label"
-                          className="w-32 text-xs px-3 py-2 border border-[#E5E2DE] rounded-xl focus:outline-none focus:border-[#E8521A]" />
+                          className="w-32 text-xs px-3 py-2 border border-[#E5E2DE] rounded-xl focus:outline-none focus:border-[#B5622A]" />
                         {stage.attachment_url && (
                           <a href={stage.attachment_url} target="_blank" rel="noopener noreferrer"
-                            className="px-3 py-2 bg-[#F0EDE9] rounded-xl text-[#E8521A] hover:bg-[#E5E2DE] transition-colors">
+                            className="px-3 py-2 bg-[#F0EDE9] rounded-xl text-[#B5622A] hover:bg-[#E5E2DE] transition-colors">
                             <ExternalLink size={13} />
                           </a>
                         )}
@@ -332,8 +332,8 @@ export default function ClientProfile() {
         {/* ── Access tab ────────────────────────────────────────────────── */}
         {tab === "Access" && (
           <div>
-            <div className="bg-[#FFF8F5] border border-[#E8521A20] rounded-2xl p-4 mb-5 text-xs text-[#737373]">
-              <span className="font-semibold text-[#E8521A]">Access Control: </span>
+            <div className="bg-[#FAF5EF] border border-[#B5622A20] rounded-2xl p-4 mb-5 text-xs text-[#737373]">
+              <span className="font-semibold text-[#B5622A]">Access Control: </span>
               Only members you grant access to can see this client profile. Executives and Interns are hidden by default.
             </div>
             <div className="space-y-2">
@@ -341,7 +341,7 @@ export default function ClientProfile() {
                 const hasAccess = access.some((a: any) => a.user_id === m.user_id);
                 return (
                   <div key={m.id} className="bg-white rounded-2xl border border-[#E5E2DE] p-4 flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-[#E8521A] flex items-center justify-center text-white text-xs font-bold">
+                    <div className="w-8 h-8 rounded-full bg-[#B5622A] flex items-center justify-center text-white text-xs font-bold">
                       {(m.invited_email ?? "?")[0].toUpperCase()}
                     </div>
                     <div className="flex-1">
@@ -353,7 +353,7 @@ export default function ClientProfile() {
                       className={`text-xs font-semibold px-4 py-1.5 rounded-xl transition-colors
                         ${hasAccess
                           ? "bg-[#10B98120] text-[#10B981] hover:bg-red-50 hover:text-red-500"
-                          : "bg-[#F0EDE9] text-[#737373] hover:bg-[#E8521A] hover:text-white"}`}>
+                          : "bg-[#F0EDE9] text-[#737373] hover:bg-[#B5622A] hover:text-white"}`}>
                       {hasAccess ? "✓ Has Access" : "Grant Access"}
                     </button>
                   </div>

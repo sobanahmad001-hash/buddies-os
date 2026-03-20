@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
@@ -130,7 +130,7 @@ function ProjectTimeline({ nodes }: { nodes: any[] }) {
 
     const nodeColors: Record<string, string> = {
       research: "fill:#EFF6FF,stroke:#3B82F6,color:#1e40af",
-      decision: "fill:#FEF3C7,stroke:#F59E0B,color:#92400e",
+      decision: "fill:#FAF0E8,stroke:#F59E0B,color:#92400e",
       task_batch: "fill:#ECFDF5,stroke:#10B981,color:#065f46",
       document: "fill:#F5F3FF,stroke:#8B5CF6,color:#4c1d95",
       pivot: "fill:#FEE2E2,stroke:#EF4444,color:#991b1b",
@@ -185,7 +185,7 @@ function ProjectTimeline({ nodes }: { nodes: any[] }) {
               ${nodes.map((n, i) => `
                 <div class="flex items-center gap-2 shrink-0">
                   <div class="px-3 py-1.5 rounded-lg text-[11px] font-semibold border" style="
-                    background: ${n.type === "research" ? "#EFF6FF" : n.type === "decision" ? "#FEF3C7" : n.type === "task_batch" ? "#ECFDF5" : "#F5F3FF"};
+                    background: ${n.type === "research" ? "#EFF6FF" : n.type === "decision" ? "#FAF0E8" : n.type === "task_batch" ? "#ECFDF5" : "#F5F3FF"};
                     border-color: ${n.type === "research" ? "#3B82F6" : n.type === "decision" ? "#F59E0B" : n.type === "task_batch" ? "#10B981" : "#8B5CF6"};
                     color: #1A1A1A;
                   ">
@@ -439,7 +439,7 @@ export default function ProjectOverviewPage() {
                 {livingDoc && <span className="text-[10px] text-[#10B981] bg-[#ECFDF5] px-2 py-0.5 rounded-full">Always current</span>}
               </div>
               <button onClick={updateLivingDoc} disabled={updatingDoc}
-                className="text-[11px] px-3 py-1.5 bg-[#E8521A] text-white rounded-lg font-semibold hover:bg-[#c94415] disabled:opacity-40 transition-colors">
+                className="text-[11px] px-3 py-1.5 bg-[#B5622A] text-white rounded-lg font-semibold hover:bg-[#9A4E20] disabled:opacity-40 transition-colors">
                 {updatingDoc ? "Updating…" : livingDoc ? "Refresh" : "Generate"}
               </button>
             </div>
@@ -449,7 +449,7 @@ export default function ProjectOverviewPage() {
                 <div className="flex items-center gap-3 mt-2">
                   <span className="text-[10px] text-[#737373]">Updated {livingDoc.auto_updated_at ? new Date(livingDoc.auto_updated_at).toLocaleDateString() : "—"}</span>
                   <button onClick={() => router.push(`/app/projects/${id}/documents`)}
-                    className="text-[11px] text-[#E8521A] hover:underline">View full →</button>
+                    className="text-[11px] text-[#B5622A] hover:underline">View full →</button>
                 </div>
               </div>
             ) : (

@@ -286,11 +286,11 @@ RULES:
                 onChange={e => setSelectedRepo(e.target.value)}
                 onBlur={e => e.target.value && loadRepoContext(e.target.value)}
                 placeholder={repoName || "owner/repo"}
-                className="w-full text-xs px-2 py-2 bg-[#1E1E1E] text-white rounded-lg border border-[#2D2D2D] focus:outline-none focus:border-[#E8521A] placeholder:text-white/20"
+                className="w-full text-xs px-2 py-2 bg-[#1E1E1E] text-white rounded-lg border border-[#2D2D2D] focus:outline-none focus:border-[#B5622A] placeholder:text-white/20"
               />
               {repoName && !selectedRepo && (
                 <button onClick={() => { setSelectedRepo(repoName); loadRepoContext(repoName); }}
-                  className="mt-1.5 text-[10px] text-white/40 hover:text-[#E8521A] transition-colors">
+                  className="mt-1.5 text-[10px] text-white/40 hover:text-[#B5622A] transition-colors">
                   Use {repoName} →
                 </button>
               )}
@@ -310,7 +310,7 @@ RULES:
               {tasks.filter(t => t.status !== "done").map(t => (
                 <button key={t.id} onClick={() => setSelectedTask(selectedTask?.id === t.id ? null : t)}
                   className={`w-full text-left px-2.5 py-2 rounded-lg text-[11px] transition-colors
-                    ${selectedTask?.id === t.id ? "bg-[#E8521A] text-white" : "text-white/60 hover:bg-[#1E1E1E] hover:text-white"}`}>
+                    ${selectedTask?.id === t.id ? "bg-[#B5622A] text-white" : "text-white/60 hover:bg-[#1E1E1E] hover:text-white"}`}>
                   <div className="truncate">{t.title}</div>
                   <div className={`text-[9px] mt-0.5 ${selectedTask?.id === t.id ? "text-white/60" : "text-white/30"}`}>
                     {t.status} · P{t.priority}
@@ -322,8 +322,8 @@ RULES:
         )}
 
         {selectedTask && (
-          <div className="px-4 py-3 border-t border-[#1E1E1E] bg-[#E8521A10]">
-            <p className="text-[10px] text-[#E8521A] uppercase tracking-wide mb-1">Active Task</p>
+          <div className="px-4 py-3 border-t border-[#1E1E1E] bg-[#B5622A10]">
+            <p className="text-[10px] text-[#B5622A] uppercase tracking-wide mb-1">Active Task</p>
             <p className="text-[11px] text-white line-clamp-2">{selectedTask.title}</p>
             <button onClick={() => setSelectedTask(null)} className="text-[10px] text-white/30 hover:text-white mt-1">Clear</button>
           </div>
@@ -372,7 +372,7 @@ RULES:
                   "Write tests for the project tasks API",
                 ].map(s => (
                   <button key={s} onClick={() => setInput(s)}
-                    className="text-left text-[12px] text-[#737373] bg-white border border-[#E5E2DE] rounded-xl px-4 py-3 hover:border-[#E8521A] hover:text-[#1A1A1A] transition-all">
+                    className="text-left text-[12px] text-[#737373] bg-white border border-[#E5E2DE] rounded-xl px-4 py-3 hover:border-[#B5622A] hover:text-[#1A1A1A] transition-all">
                     {s}
                   </button>
                 ))}
@@ -383,11 +383,11 @@ RULES:
           {messages.map((m, i) => (
             <div key={i} className={`flex gap-4 ${m.role === "user" ? "flex-row-reverse" : ""}`}>
               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm shrink-0
-                ${m.role === "user" ? "bg-[#E8521A] text-white" : "bg-[#0F0F0F] text-white"}`}>
+                ${m.role === "user" ? "bg-[#B5622A] text-white" : "bg-[#0F0F0F] text-white"}`}>
                 {m.role === "user" ? "Y" : "⚡"}
               </div>
               <div className={`max-w-[80%] rounded-2xl px-5 py-4
-                ${m.role === "user" ? "bg-[#E8521A] text-white" : "bg-white border border-[#E5E2DE]"}`}>
+                ${m.role === "user" ? "bg-[#B5622A] text-white" : "bg-white border border-[#E5E2DE]"}`}>
                 {m.role === "user"
                   ? <p className="text-[14px] leading-relaxed">{m.content}</p>
                   : <div className="text-[14px] text-[#1A1A1A]">{renderMessage(m.content)}</div>
@@ -410,8 +410,8 @@ RULES:
         {/* Input */}
         <div className="px-6 py-4 bg-white border-t border-[#E5E2DE] shrink-0">
           {selectedTask && (
-            <div className="flex items-center gap-2 mb-2 px-3 py-1.5 bg-[#FFF8F5] rounded-lg border border-[#E8521A20] text-[11px]">
-              <span className="text-[#E8521A] font-semibold">Task:</span>
+            <div className="flex items-center gap-2 mb-2 px-3 py-1.5 bg-[#FAF5EF] rounded-lg border border-[#B5622A20] text-[11px]">
+              <span className="text-[#B5622A] font-semibold">Task:</span>
               <span className="text-[#404040] truncate">{selectedTask.title}</span>
               <button onClick={() => setSelectedTask(null)} className="ml-auto text-[#B0ADA9] hover:text-[#737373]"><X size={11} /></button>
             </div>
@@ -423,11 +423,11 @@ RULES:
               onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
               rows={2}
               placeholder="Describe what to build, debug, or review... (Enter to send)"
-              className="flex-1 resize-none text-[14px] text-[#1A1A1A] border border-[#E5E2DE] rounded-xl px-4 py-3 focus:outline-none focus:border-[#E8521A] leading-relaxed placeholder:text-[#B0ADA9]"
+              className="flex-1 resize-none text-[14px] text-[#1A1A1A] border border-[#E5E2DE] rounded-xl px-4 py-3 focus:outline-none focus:border-[#B5622A] leading-relaxed placeholder:text-[#B0ADA9]"
               style={{ maxHeight: "120px" }}
             />
             <button onClick={send} disabled={loading || !input.trim()}
-              className="px-4 bg-[#E8521A] text-white rounded-xl hover:bg-[#c94415] disabled:opacity-40 transition-colors self-end py-3">
+              className="px-4 bg-[#B5622A] text-white rounded-xl hover:bg-[#9A4E20] disabled:opacity-40 transition-colors self-end py-3">
               <Send size={16} />
             </button>
           </div>

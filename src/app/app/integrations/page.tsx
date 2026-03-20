@@ -111,7 +111,7 @@ export default function IntegrationsPage() {
             </div>
             <div className="flex gap-2">
               <button onClick={handleAdd} disabled={saving}
-                className="px-4 py-2 bg-[#E8521A] text-white text-xs font-semibold rounded-lg hover:bg-[#c94415] disabled:opacity-50">
+                className="px-4 py-2 bg-[#B5622A] text-white text-xs font-semibold rounded-lg hover:bg-[#9A4E20] disabled:opacity-50">
                 {saving ? "Saving..." : "Save Integration"}
               </button>
               <button onClick={() => setShowAdd(false)} className="px-4 py-2 text-xs text-[#737373] hover:text-[#1A1A1A]">Cancel</button>
@@ -141,7 +141,7 @@ export default function IntegrationsPage() {
                     <div className="text-[11px] text-[#737373]">
                       {meta.label} · {new Date(i.created_at).toLocaleDateString()}
                       {i.config?.repo_url && (
-                        <a href={i.config.repo_url} target="_blank" rel="noopener noreferrer" className="ml-1 inline-flex items-center gap-0.5 text-[#E8521A] hover:underline">
+                        <a href={i.config.repo_url} target="_blank" rel="noopener noreferrer" className="ml-1 inline-flex items-center gap-0.5 text-[#B5622A] hover:underline">
                           <ExternalLink size={10} /> repo
                         </a>
                       )}

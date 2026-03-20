@@ -73,7 +73,7 @@ export default function ContextPreviewModal({ isOpen, onClose }: ContextPreviewM
         <div className="overflow-y-auto p-6 space-y-5" style={{ maxHeight: 'calc(85vh - 140px)' }}>
           {loading ? (
             <div className="flex items-center justify-center py-16">
-              <Loader2 size={28} className="animate-spin text-[#E8521A]" />
+              <Loader2 size={28} className="animate-spin text-[#B5622A]" />
             </div>
           ) : context ? (
             <>
@@ -98,7 +98,7 @@ export default function ContextPreviewModal({ isOpen, onClose }: ContextPreviewM
                     {context.recent_updates.map((u, i) => (
                       <div key={i} className="px-3 py-2.5 bg-[#F7F5F2] rounded-lg">
                         <div className="flex items-start gap-2">
-                          <span className="text-[11px] font-bold text-[#E8521A] mt-0.5 shrink-0">[{u.project}]</span>
+                          <span className="text-[11px] font-bold text-[#B5622A] mt-0.5 shrink-0">[{u.project}]</span>
                           <span className="text-[13px] text-[#1A1A1A] leading-relaxed">{u.type}: {u.content}</span>
                         </div>
                       </div>

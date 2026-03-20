@@ -92,7 +92,7 @@ export default function ResearchPage() {
         {sessions.length === 0 && <p className="text-xs text-[#B0ADA9]">No sessions yet</p>}
         {sessions.map((s: any) => (
           <button key={s.id} onClick={() => { setSelectedSession(s); setStep("result"); setResult(s); }}
-            className={`w-full text-left px-3 py-2.5 rounded-lg mb-1.5 transition-colors ${selectedSession?.id === s.id ? "bg-[#E8521A]/10 border border-[#E8521A]/20" : "hover:bg-[#F0EDE9]"}`}>
+            className={`w-full text-left px-3 py-2.5 rounded-lg mb-1.5 transition-colors ${selectedSession?.id === s.id ? "bg-[#B5622A]/10 border border-[#B5622A]/20" : "hover:bg-[#F0EDE9]"}`}>
             <div className="text-xs font-medium text-[#1A1A1A] truncate">{s.topic}</div>
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className={`w-1.5 h-1.5 rounded-full ${s.status === "complete" ? "bg-green-500" : s.status === "running" ? "bg-yellow-500 animate-pulse" : "bg-red-400"}`} />
@@ -114,9 +114,9 @@ export default function ResearchPage() {
                 onKeyDown={e => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), handleTopicSubmit())}
                 placeholder="e.g. Marketing strategies for luxury limo companies in Virginia..."
                 rows={3}
-                className="w-full text-sm px-3 py-2.5 border border-[#E5E2DE] rounded-lg focus:outline-none focus:border-[#E8521A] resize-none mb-4" />
+                className="w-full text-sm px-3 py-2.5 border border-[#E5E2DE] rounded-lg focus:outline-none focus:border-[#B5622A] resize-none mb-4" />
               <button onClick={handleTopicSubmit} disabled={!topic.trim()}
-                className="px-5 py-2.5 bg-[#E8521A] text-white text-sm font-semibold rounded-lg hover:bg-[#c94415] disabled:opacity-40">
+                className="px-5 py-2.5 bg-[#B5622A] text-white text-sm font-semibold rounded-lg hover:bg-[#9A4E20] disabled:opacity-40">
                 Continue →
               </button>
             </div>
@@ -136,7 +136,7 @@ export default function ResearchPage() {
               <div className="flex flex-wrap gap-2">
                 {VARIABLE_SUGGESTIONS[detectedType].map(v => (
                   <button key={v} onClick={() => toggleVar(v)}
-                    className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${selectedVars.includes(v) ? "bg-[#E8521A] text-white border-[#E8521A]" : "border-[#E5E2DE] text-[#404040] hover:border-[#E8521A]"}`}>
+                    className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${selectedVars.includes(v) ? "bg-[#B5622A] text-white border-[#B5622A]" : "border-[#E5E2DE] text-[#404040] hover:border-[#B5622A]"}`}>
                     {v}
                   </button>
                 ))}
@@ -146,14 +146,14 @@ export default function ResearchPage() {
             <div className="bg-white rounded-xl border border-[#E5E2DE] p-5 mb-4">
               <div className="text-xs font-bold text-[#737373] uppercase tracking-wider mb-3">Link to project (optional)</div>
               <select value={linkedProject} onChange={e => setLinkedProject(e.target.value)}
-                className="w-full text-sm px-3 py-2 border border-[#E5E2DE] rounded-lg focus:outline-none focus:border-[#E8521A] bg-white">
+                className="w-full text-sm px-3 py-2 border border-[#E5E2DE] rounded-lg focus:outline-none focus:border-[#B5622A] bg-white">
                 <option value="">No project</option>
                 {projects.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </div>
 
             <button onClick={runResearch} disabled={selectedVars.length === 0}
-              className="w-full py-3 bg-[#E8521A] text-white font-semibold rounded-lg hover:bg-[#c94415] disabled:opacity-40">
+              className="w-full py-3 bg-[#B5622A] text-white font-semibold rounded-lg hover:bg-[#9A4E20] disabled:opacity-40">
               Run Research ({selectedVars.length} variables)
             </button>
           </div>
@@ -161,7 +161,7 @@ export default function ResearchPage() {
 
         {step === "running" && (
           <div className="max-w-[600px] flex flex-col items-center py-20">
-            <div className="w-12 h-12 rounded-full border-4 border-[#E8521A] border-t-transparent animate-spin mb-6" />
+            <div className="w-12 h-12 rounded-full border-4 border-[#B5622A] border-t-transparent animate-spin mb-6" />
             <h2 className="text-lg font-semibold text-[#1A1A1A] mb-2">Researching...</h2>
             <p className="text-sm text-[#737373] text-center">Buddies is searching the web, reading sources, and extracting insights for: <span className="font-medium text-[#1A1A1A]">{topic}</span></p>
           </div>
@@ -174,7 +174,7 @@ export default function ResearchPage() {
                 <h2 className="text-[18px] font-semibold text-[#1A1A1A]">{result.topic}</h2>
                 <p className="text-xs text-[#737373] mt-0.5">Research complete · {(result.sources ?? []).length} sources analyzed</p>
               </div>
-              <button onClick={reset} className="text-sm text-[#E8521A] hover:underline font-medium">New Research</button>
+              <button onClick={reset} className="text-sm text-[#B5622A] hover:underline font-medium">New Research</button>
             </div>
 
             {/* Key Findings */}
@@ -184,7 +184,7 @@ export default function ResearchPage() {
                 <ol className="space-y-2">
                   {(result.key_findings ?? []).map((f: string, i: number) => (
                     <li key={i} className="flex gap-3 text-sm text-[#1A1A1A]">
-                      <span className="text-[#E8521A] font-bold shrink-0">{i+1}.</span>
+                      <span className="text-[#B5622A] font-bold shrink-0">{i+1}.</span>
                       <span>{f}</span>
                     </li>
                   ))}
@@ -194,12 +194,12 @@ export default function ResearchPage() {
 
             {/* Insights */}
             {(result.discovered_insights ?? []).length > 0 && (
-              <div className="bg-[#FFF8F5] rounded-xl border border-[#E8521A]/20 p-5 mb-4">
-                <div className="text-xs font-bold text-[#E8521A] uppercase tracking-wider mb-3">💡 Discovered Insights</div>
+              <div className="bg-[#FAF5EF] rounded-xl border border-[#B5622A]/20 p-5 mb-4">
+                <div className="text-xs font-bold text-[#B5622A] uppercase tracking-wider mb-3">💡 Discovered Insights</div>
                 <div className="space-y-2">
                   {(result.discovered_insights ?? []).map((ins: string, i: number) => (
                     <div key={i} className="text-sm text-[#1A1A1A] flex gap-2">
-                      <span className="text-[#E8521A]">→</span><span>{ins}</span>
+                      <span className="text-[#B5622A]">→</span><span>{ins}</span>
                     </div>
                   ))}
                 </div>
@@ -236,7 +236,7 @@ export default function ResearchPage() {
                 <div className="space-y-1.5">
                   {(result.sources ?? []).map((s: any, i: number) => (
                     <a key={i} href={s.url} target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-xs text-[#E8521A] hover:underline">
+                      className="flex items-center gap-2 text-xs text-[#B5622A] hover:underline">
                       <span className="text-[#737373]">{i+1}.</span>
                       <span className="truncate">{s.title || s.url}</span>
                     </a>
