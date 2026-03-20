@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
-import { Send, GitBranch, Plus, Check, ChevronDown, ExternalLink, Copy, X } from "lucide-react";
+import { Send, GitBranch, Plus, Check, ChevronDown, ExternalLink, Copy, X, MessageSquare, Trash2, PanelLeftClose } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 
 type Project = { id: string; name: string; status: string };
@@ -38,6 +38,11 @@ function renderMessage(text: string) {
   });
 }
 
+const CODING_MODELS = [
+  { provider: "anthropic", model: "claude-sonnet-4-5", label: "Claude Sonnet", badge: "Best for code" },
+  { provider: "openai",    model: "gpt-4o",            label: "GPT-4o",        badge: "Alternative" },
+] as const;
+
 export default function CodingAgentPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [integrations, setIntegrations] = useState<Integration[]>([]);
@@ -56,9 +61,14 @@ export default function CodingAgentPage() {
   const [creatingPR, setCreatingPR] = useState(false);
   const [pendingPR, setPendingPR] = useState<{title: string; branch: string; body: string} | null>(null);
   const [attachedImages, setAttachedImages] = useState<File[]>([]);
+  const [sessions, setSessions] = useState<Array<{id: string; title: string; created_at: string; agent_type?: string}>>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [sessionSidebarOpen, setSessionSidebarOpen] = useState(true);
+  const [selectedModel, setSelectedModel] = useState("claude-sonnet-4-5");
+  const [selectedProvider, setSelectedProvider] = useState<"anthropic" | "openai">("anthropic");
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { init(); loadVercelErrors(); }, []);
+  useEffect(() => { init(); loadVercelErrors(); loadSessions(); }, []);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
@@ -81,6 +91,38 @@ export default function CodingAgentPage() {
     ]);
     setProjects(proj ?? []);
     setIntegrations(integ ?? []);
+  }
+
+  async function loadSessions() {
+    const res = await fetch("/api/ai/sessions?agent_type=coding_agent");
+    if (!res.ok) return;
+    const { sessions: data } = await res.json();
+    setSessions(data ?? []);
+  }
+
+  async function openSession(session: {id: string; title: string; created_at: string}) {
+    setActiveSessionId(session.id);
+    const res = await fetch(`/api/ai/sessions?id=${session.id}`);
+    if (res.ok) {
+      const { session: data } = await res.json();
+      const msgs = Array.isArray(data?.messages) ? data.messages : [];
+      setMessages(msgs);
+    }
+  }
+
+  async function deleteSession(id: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    await fetch(`/api/ai/sessions?id=${id}`, { method: "DELETE" });
+    if (activeSessionId === id) { setActiveSessionId(null); setMessages([]); }
+    await loadSessions();
+  }
+
+  function startNewChat() {
+    setActiveSessionId(null);
+    setMessages([]);
+    setInput("");
+    setFileChanges([]);
+    setPendingPR(null);
   }
 
   async function selectProject(project: Project) {
@@ -194,8 +236,8 @@ RULES:
         body: JSON.stringify({
           message: userMsg,
           history: messages.slice(-12),
-          provider: "anthropic",
-          model: "claude-sonnet-4-5",
+          provider: selectedProvider,
+          model: selectedModel,
           contextEnabled: false,
           images: imageUrls.length > 0 ? imageUrls : undefined,
         }),
@@ -226,7 +268,28 @@ RULES:
         .replace(/\[CREATE_PR\][^\n]*/g, "")
         .trim();
 
+      const updatedMessages = [...messages, { role: "user" as const, content: userMsg }, { role: "assistant" as const, content: cleanReply || reply }];
       setMessages(prev => [...prev, { role: "assistant", content: cleanReply || reply }]);
+
+      // Persist session
+      if (activeSessionId) {
+        await fetch("/api/ai/sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId: activeSessionId, messages: updatedMessages, agent_type: "coding_agent" }),
+        }).catch(() => {});
+      } else {
+        const saveRes = await fetch("/api/ai/sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: userMsg.slice(0, 50), messages: updatedMessages, agent_type: "coding_agent" }),
+        }).catch(() => null);
+        if (saveRes?.ok) {
+          const { sessionId } = await saveRes.json();
+          if (sessionId) setActiveSessionId(sessionId);
+        }
+      }
+      await loadSessions();
     } catch {
       setMessages(prev => [...prev, { role: "assistant", content: "Error getting response." }]);
     }
@@ -273,17 +336,66 @@ RULES:
 
   return (
     <div className="flex h-full bg-[#F7F5F2]">
-      {/* Left sidebar */}
+
+      {/* Session history sidebar */}
+      {sessionSidebarOpen && (
+        <div className="w-[200px] bg-[#1A1A1A] text-white flex flex-col shrink-0 border-r border-[#2D2D2D]">
+          <div className="px-3 py-3 border-b border-[#2D2D2D] flex items-center justify-between">
+            <span className="text-[11px] font-bold text-white/60 uppercase tracking-wider">History</span>
+          </div>
+          <button onClick={startNewChat}
+            className="mx-2 mt-2 mb-1 flex items-center gap-2 px-3 py-2 rounded-lg bg-[#B5622A] text-white text-[11px] font-semibold hover:bg-[#9A4E20] transition-colors">
+            <Plus size={12} /> New Chat
+          </button>
+          <div className="flex-1 overflow-y-auto py-2">
+            {sessions.length === 0 && (
+              <p className="text-[10px] text-white/20 px-3 py-4">No sessions yet</p>
+            )}
+            {sessions.map(s => (
+              <div key={s.id} onClick={() => openSession(s)}
+                className={`group relative mx-2 mb-0.5 px-3 py-2 rounded-lg cursor-pointer transition-all
+                  ${activeSessionId === s.id ? "bg-[#2D2D2D] text-white" : "text-white/40 hover:bg-[#252525] hover:text-white/70"}`}>
+                <div className="flex items-start gap-2">
+                  <MessageSquare size={11} className="shrink-0 mt-0.5 opacity-60" />
+                  <span className="text-[11px] leading-snug line-clamp-2">{s.title || "Chat"}</span>
+                </div>
+                <button onClick={e => deleteSession(s.id, e)}
+                  className="absolute right-1.5 top-2 opacity-0 group-hover:opacity-100 text-white/30 hover:text-red-400 transition-all p-0.5 rounded">
+                  <Trash2 size={10} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Left sidebar — project/repo/task context */}
       <div className="w-[260px] bg-[#0F0F0F] text-white flex flex-col shrink-0">
         <div className="px-4 py-4 border-b border-[#1E1E1E]">
           <div className="flex items-center gap-2">
+            <button onClick={() => setSessionSidebarOpen(v => !v)}
+              className="flex flex-col justify-center items-center w-6 h-6 gap-1 text-white/30 hover:text-white transition-colors shrink-0">
+              <span className="w-3.5 h-0.5 bg-current rounded-full" />
+              <span className="w-3.5 h-0.5 bg-current rounded-full" />
+              <span className="w-3.5 h-0.5 bg-current rounded-full" />
+            </button>
             <span className="text-lg">⚡</span>
             <span className="text-[14px] font-bold">Coding Agent</span>
           </div>
           <p className="text-[11px] text-white/40 mt-0.5">Discuss → Plan → Build → PR</p>
         </div>
 
-        {/* Project selector */}
+        {/* Model selector */}
+        <div className="flex items-center gap-1 px-3 py-2 border-b border-[#1E1E1E]">
+          {CODING_MODELS.map(m => (
+            <button key={m.model}
+              onClick={() => { setSelectedModel(m.model); setSelectedProvider(m.provider as "anthropic" | "openai"); }}
+              className={`flex-1 text-center py-1.5 rounded-lg text-[10px] font-semibold transition-colors
+                ${selectedModel === m.model ? "bg-[#B5622A] text-white" : "text-white/40 hover:text-white hover:bg-[#1E1E1E]"}`}>
+              {m.label}
+            </button>
+          ))}
+        </div>
         <div className="px-4 py-3 border-b border-[#1E1E1E]">
           <p className="text-[10px] text-white/40 uppercase tracking-wide mb-2">Project</p>
           <select
