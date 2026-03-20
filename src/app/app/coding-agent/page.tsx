@@ -55,10 +55,22 @@ export default function CodingAgentPage() {
   const [vercelErrors, setVercelErrors] = useState<any[]>([]);
   const [creatingPR, setCreatingPR] = useState(false);
   const [pendingPR, setPendingPR] = useState<{title: string; branch: string; body: string} | null>(null);
+  const [attachedImages, setAttachedImages] = useState<File[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { init(); loadVercelErrors(); }, []);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = Array.from(e.clipboardData?.items ?? []);
+      const imageItems = items.filter(item => item.type.startsWith("image/"));
+      if (imageItems.length === 0) return;
+      const files = imageItems.map(item => item.getAsFile()).filter(Boolean) as File[];
+      setAttachedImages(prev => [...prev, ...files]);
+    };
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
+  }, []);
 
   async function init() {
     const { data: { user } } = await supabase.auth.getUser();
@@ -131,6 +143,17 @@ export default function CodingAgentPage() {
     setInput("");
     setLoading(true);
 
+    const imageUrls: string[] = [];
+    for (const img of attachedImages) {
+      const dataUrl = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsDataURL(img);
+      });
+      imageUrls.push(dataUrl);
+    }
+    setAttachedImages([]);
+
     const contextParts = [];
     if (selectedProject) contextParts.push(`Working on project: ${selectedProject.name}`);
     if (selectedTask) contextParts.push(`Task:\nTitle: ${selectedTask.title}\nDescription: ${selectedTask.description ?? "n/a"}`);
@@ -174,6 +197,7 @@ RULES:
           provider: "anthropic",
           model: "claude-sonnet-4-5",
           contextEnabled: false,
+          images: imageUrls.length > 0 ? imageUrls : undefined,
         }),
       });
       const data = await res.json();
@@ -472,6 +496,25 @@ RULES:
               <span className="text-[#B5622A] font-semibold">Task:</span>
               <span className="text-[#404040] truncate">{selectedTask.title}</span>
               <button onClick={() => setSelectedTask(null)} className="ml-auto text-[#B0ADA9] hover:text-[#737373]"><X size={11} /></button>
+            </div>
+          )}
+          {attachedImages.length > 0 && (
+            <div className="flex gap-2 mb-2 flex-wrap">
+              {attachedImages.map((img, i) => (
+                <div key={i} className="relative">
+                  <img
+                    src={URL.createObjectURL(img)}
+                    alt={`Attached ${i + 1}`}
+                    className="h-16 w-16 object-cover rounded-lg border border-[#E5E2DE]"
+                  />
+                  <button
+                    onClick={() => setAttachedImages(prev => prev.filter((_, idx) => idx !== i))}
+                    className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-[#737373] rounded-full flex items-center justify-center text-white hover:bg-[#404040]"
+                  >
+                    <X size={9} />
+                  </button>
+                </div>
+              ))}
             </div>
           )}
           <div className="flex gap-3">
