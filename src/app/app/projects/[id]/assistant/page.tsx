@@ -699,10 +699,7 @@ export default function ProjectAssistantPage() {
               const next = e.target.value as 'anthropic' | 'openai' | 'xai';
               setProvider(next);
               localStorage.setItem('buddies-ai-provider', next);
-              const defaultModel =
-                next === 'anthropic' ? 'claude-sonnet-4-5' :
-                next === 'openai' ? 'gpt-4o' :
-                'grok-3';
+              const defaultModel = getDefaultModelForProvider(next);
               setModel(defaultModel);
               localStorage.setItem('buddies-ai-model', defaultModel);
             }}
@@ -883,16 +880,11 @@ export default function ProjectAssistantPage() {
                               action={act}
                               projectId={projectId}
                               sessionId={activeSession?.id ?? null}
-                              onExecuted={async () => {
-                                loadSessions();
-                                setTimeout(async () => {
-                                  const q = activeSession?.id ? `&sessionId=${activeSession.id}` : '';
-                                  const historyRes = await fetch(`/api/projects/chat?projectId=${projectId}${q}`);
-                                  if (historyRes.ok) {
-                                    const historyData = await historyRes.json();
-                                    setMessages(historyData.messages ?? []);
-                                  }
-                                }, 5000);
+                              onExecuted={async (_result) => {
+                                // Refresh session sidebar, then invalidate the router cache so
+                                // the /tasks page reloads fresh on next navigation (Bug 1).
+                                await loadSessions();
+                                router.refresh();
                               }}
                             />
                           ))}

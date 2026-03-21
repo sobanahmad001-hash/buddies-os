@@ -107,6 +107,25 @@ export async function POST(req: NextRequest) {
 
     if (!pid) return NextResponse.json({ error: "No project found to add task to" }, { status: 404 });
 
+    // Idempotency: prevent duplicate tasks created within the last 60 seconds
+    const since = new Date(Date.now() - 60_000).toISOString();
+    const { data: duplicate } = await supabase.from("project_tasks")
+      .select("id, title, status")
+      .eq("project_id", pid)
+      .eq("user_id", user.id)
+      .ilike("title", title.trim())
+      .gte("created_at", since)
+      .limit(1)
+      .maybeSingle();
+
+    if (duplicate) {
+      return NextResponse.json({
+        success: true,
+        result: `✅ Task already created: **${duplicate.title}**`,
+        data: duplicate,
+      });
+    }
+
     const { data, error } = await supabase.from("project_tasks").insert({
       title: title.trim(),
       project_id: pid,

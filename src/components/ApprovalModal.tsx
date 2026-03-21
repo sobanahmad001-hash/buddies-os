@@ -19,6 +19,7 @@ interface Props {
 }
 
 const ACTION_META: Record<string, { label: string; icon: any; color: string; bg: string }> = {
+  // Global app actions
   "app.create_project":      { label: "Create Project",        icon: FolderKanban, color: "#6366F1", bg: "#EEF2FF" },
   "app.generate_document":   { label: "Generate Document",     icon: FileText,     color: "#B5622A", bg: "#FFF4EF" },
   "app.create_task":         { label: "Create Task",           icon: ListTodo,     color: "#3B82F6", bg: "#EFF6FF" },
@@ -26,6 +27,14 @@ const ACTION_META: Record<string, { label: string; icon: any; color: string; bg:
   "app.create_decision":     { label: "Log Decision",          icon: Scale,        color: "#8B5CF6", bg: "#F5F3FF" },
   "app.update_project":      { label: "Update Project",        icon: FolderKanban, color: "#10B981", bg: "#ECFDF5" },
   "app.add_project_update":  { label: "Add Project Update",    icon: FileText,     color: "#F59E0B", bg: "#FFFBEB" },
+  // Project-scoped actions (used by the project assistant)
+  "project.create_task":     { label: "Create Task",           icon: ListTodo,     color: "#3B82F6", bg: "#EFF6FF" },
+  "project.create_decision": { label: "Log Decision",          icon: Scale,        color: "#8B5CF6", bg: "#F5F3FF" },
+  "project.create_rule":     { label: "Add Constraint",        icon: ShieldCheck,  color: "#EF4444", bg: "#FEF2F2" },
+  "project.create_research": { label: "Log Research",          icon: FileText,     color: "#B5622A", bg: "#FFF4EF" },
+  "project.create_document": { label: "Generate Document",     icon: FileText,     color: "#B5622A", bg: "#FFF4EF" },
+  "project.update_task":     { label: "Update Task",           icon: ListTodo,     color: "#10B981", bg: "#ECFDF5" },
+  // Integrations
   "github.create_issue":     { label: "Create GitHub Issue",   icon: Github,       color: "#24292E", bg: "#F6F8FA" },
   "github.create_branch":    { label: "Create GitHub Branch",  icon: Github,       color: "#24292E", bg: "#F6F8FA" },
   "supabase.run_sql":        { label: "Run SQL Query",         icon: Database,     color: "#3ECF8E", bg: "#F0FDF4" },

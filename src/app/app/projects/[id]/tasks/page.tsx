@@ -9,10 +9,11 @@ type Task = { id: string; title: string; status: string; priority: number | null
 export default function ProjectTasksPage() {
   const { id } = useParams<{ id: string }>();
 
-  const [tasks,   setTasks]   = useState<Task[]>([]);
-  const [newTask, setNewTask] = useState('');
-  const [adding,  setAdding]  = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [tasks,     setTasks]     = useState<Task[]>([]);
+  const [newTask,   setNewTask]   = useState('');
+  const [adding,    setAdding]    = useState(false);
+  const [loading,   setLoading]   = useState(true);
+  const [taskError, setTaskError] = useState<string | null>(null);
 
   useEffect(() => { load(); }, [id]);
 
@@ -25,34 +26,54 @@ export default function ProjectTasksPage() {
   async function addTask() {
     if (!newTask.trim()) return;
     setAdding(true);
-    await fetch('/api/projects/tasks', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ project_id: id, title: newTask.trim() }),
-    });
-    setNewTask('');
-    setAdding(false);
-    load();
+    setTaskError(null);
+    try {
+      const res = await fetch('/api/projects/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ project_id: id, title: newTask.trim() }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error((d as any).error || `Failed to add task (${res.status})`);
+      }
+      setNewTask('');
+      load();
+    } catch (err: any) {
+      setTaskError(err.message || 'Failed to add task');
+    } finally {
+      setAdding(false);
+    }
   }
 
   async function cycleStatus(taskId: string, current: string) {
     const normalized = current === 'open' ? 'todo' : current;
     const next = normalized === 'todo' ? 'in_progress' : normalized === 'in_progress' ? 'done' : 'todo';
-    await fetch('/api/projects/tasks', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: taskId, status: next }),
-    });
-    load();
+    try {
+      const res = await fetch('/api/projects/tasks', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: taskId, status: next }),
+      });
+      if (!res.ok) throw new Error('Failed to update task status');
+      load();
+    } catch (err: any) {
+      setTaskError(err.message || 'Failed to update task');
+    }
   }
 
   async function markDone(taskId: string) {
-    await fetch('/api/projects/tasks', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: taskId, status: 'done' }),
-    });
-    load();
+    try {
+      const res = await fetch('/api/projects/tasks', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: taskId, status: 'done' }),
+      });
+      if (!res.ok) throw new Error('Failed to mark task as done');
+      load();
+    } catch (err: any) {
+      setTaskError(err.message || 'Failed to mark task done');
+    }
   }
 
   const open = tasks.filter(t => t.status !== 'done');
@@ -84,6 +105,13 @@ export default function ProjectTasksPage() {
           <Plus size={14} /> {adding ? '…' : 'Add'}
         </button>
       </div>
+
+      {taskError && (
+        <div className="mb-4 flex items-center justify-between gap-3 px-4 py-2.5 bg-[#FEF2F2] border border-[#FECACA] rounded-lg text-[13px] text-[#991B1B]">
+          <span>{taskError}</span>
+          <button onClick={() => setTaskError(null)} className="text-[11px] underline shrink-0">Dismiss</button>
+        </div>
+      )}
 
       {loading && <p className="text-[13px] text-[#737373]">Loading tasks…</p>}
 
