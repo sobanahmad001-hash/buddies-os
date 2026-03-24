@@ -496,6 +496,18 @@ ${recentConversation.length > 0 ? `RECENT CONVERSATION:\n${recentConversation.ma
       userMessageContent = effectiveMessage;
     }
 
+    const isQuotaError = (err: any): boolean => {
+      const msg = String(err?.message ?? err ?? '').toLowerCase();
+      return (
+        msg.includes('usage limits') ||
+        msg.includes('quota') ||
+        msg.includes('you have reached') ||
+        msg.includes('insufficient_quota') ||
+        msg.includes('billing') ||
+        (err?.status === 429 && msg.includes('limit'))
+      );
+    };
+
     let aiResult;
     try {
       aiResult = await callAIProvider({
@@ -510,19 +522,40 @@ ${recentConversation.length > 0 ? `RECENT CONVERSATION:\n${recentConversation.ma
       });
       if (!aiResult.text?.trim()) throw new Error("Empty response");
     } catch (primaryErr: any) {
-      // Fallback to Claude if OpenAI fails or returns empty
+      // Don't fall back to Anthropic if: primary was already Anthropic, or Anthropic quota is exhausted
+      const primaryIsAnthropic = provider === 'anthropic';
+      const primaryQuotaHit = isQuotaError(primaryErr);
+
+      if (primaryIsAnthropic || primaryQuotaHit) {
+        // Surface a clear error rather than hitting a second failing provider
+        const isQuota = isQuotaError(primaryErr);
+        const userMessage = isQuota
+          ? `The ${provider === 'anthropic' ? 'Anthropic' : 'OpenAI'} API quota has been reached. Please switch to a different provider or try again later.`
+          : (primaryErr?.message || 'AI provider error');
+        return NextResponse.json({ error: userMessage }, { status: 503 });
+      }
+
+      // Fallback to Claude only when primary (OpenAI/xAI) failed for a non-quota reason
       console.warn(`[ai] primary provider (${provider}/${model}) failed: ${primaryErr?.message}. Falling back to Claude.`);
       const fallbackModel = messageType === 'chat' ? 'claude-haiku-4-5-20251001' : 'claude-sonnet-4-5';
-      aiResult = await callAIProvider({
-        provider: 'anthropic',
-        model: fallbackModel,
-        system: systemPrompt,
-        messages: [
-          ...(recentConversation as Array<{ role: 'user' | 'assistant'; content: string }>),
-          { role: 'user', content: userMessageContent },
-        ],
-        maxTokens: 4096,
-      });
+      try {
+        aiResult = await callAIProvider({
+          provider: 'anthropic',
+          model: fallbackModel,
+          system: systemPrompt,
+          messages: [
+            ...(recentConversation as Array<{ role: 'user' | 'assistant'; content: string }>),
+            { role: 'user', content: userMessageContent },
+          ],
+          maxTokens: 4096,
+        });
+      } catch (fallbackErr: any) {
+        const fallbackQuota = isQuotaError(fallbackErr);
+        const userMessage = fallbackQuota
+          ? 'Both AI providers are unavailable (quota reached). Please try again later or check your API keys.'
+          : (fallbackErr?.message || 'AI provider error');
+        return NextResponse.json({ error: userMessage }, { status: 503 });
+      }
     }
 
     const text = aiResult.text;
