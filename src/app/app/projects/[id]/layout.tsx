@@ -14,16 +14,17 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 
-type Project = { id: string; name: string; status: string };
+type Project = { id: string; name: string; status: string; coding_agent_enabled?: boolean };
 
-const TABS = [
+const BASE_TABS = [
   { label: 'Overview',  suffix: '',            icon: LayoutGrid  },
   { label: 'Assistant', suffix: '/assistant',  icon: Bot         },
   { label: 'Work',      suffix: '/tasks',      icon: CheckSquare },
   { label: 'Research',  suffix: '/research',   icon: FlaskConical},
   { label: 'Documents', suffix: '/documents',  icon: FileText    },
-  { label: 'Code',      suffix: '/code',       icon: Terminal    },
 ];
+
+const CODE_TAB = { label: 'Code', suffix: '/code', icon: Terminal };
 
 export default function ProjectLayout({ children }: { children: React.ReactNode }) {
   const params = useParams();
@@ -43,7 +44,7 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
 
       const { data } = await supabase
         .from('projects')
-        .select('id, name, status')
+        .select('id, name, status, coding_agent_enabled')
         .eq('id', id)
         .eq('user_id', user.id)
         .single();
@@ -53,6 +54,9 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
   }, [id, router]);
 
   const base = `/app/projects/${id}`;
+  const tabs = project?.coding_agent_enabled
+    ? [...BASE_TABS, CODE_TAB]
+    : BASE_TABS;
 
   const statusColor = (s: string) =>
     s === 'active' ? 'bg-[#DCFCE7] text-[#2D6A4F]'
@@ -84,7 +88,7 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
         </div>
 
         <div className="flex gap-0.5 overflow-x-auto -mb-px">
-          {TABS.map((tab) => {
+          {tabs.map((tab) => {
             const href = base + tab.suffix;
             const active = tab.suffix === '' ? pathname === base : pathname.startsWith(href);
 

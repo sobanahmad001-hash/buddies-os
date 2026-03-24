@@ -24,6 +24,7 @@ type Project = {
   tags: string[] | null;
   updated_at: string;
   memory: string | null;
+  coding_agent_enabled: boolean | null;
 };
 
 type Update = {
@@ -238,6 +239,7 @@ export default function ProjectOverviewPage() {
   const [timeline, setTimeline] = useState<any[]>([]);
   const [livingDoc, setLivingDoc] = useState<any>(null);
   const [updatingDoc, setUpdatingDoc] = useState(false);
+  const [togglingAgent, setTogglingAgent] = useState(false);
 
   useEffect(() => {
     loadAll();
@@ -302,7 +304,14 @@ export default function ProjectOverviewPage() {
     await supabase.from("projects").update({ status: "archived" }).eq("id", id);
     router.push("/app/projects");
   }
-
+  async function toggleCodingAgent() {
+    if (!project) return;
+    setTogglingAgent(true);
+    const next = !project.coding_agent_enabled;
+    await supabase.from('projects').update({ coding_agent_enabled: next }).eq('id', id);
+    setProject(p => p ? { ...p, coding_agent_enabled: next } : p);
+    setTogglingAgent(false);
+  }
   const assistantHref = `/app/projects/${id}/assistant`;
 
   const openTasks = useMemo(() => tasks.filter((t) => t.status !== "done"), [tasks]);
@@ -607,13 +616,32 @@ export default function ProjectOverviewPage() {
             </div>
           </SectionCard>
 
-          <SectionCard title="Developer Surface" subtitle="Code and technical context">
-            <LinkTile
-              icon={Code2}
-              title="Code Workspace"
-              subtitle="Open the code view and connected technical context for this project."
-              onClick={() => router.push(`/app/projects/${id}/code`)}
-            />
+          <SectionCard title="Project Features" subtitle="Enable or disable optional capabilities for this project">
+            {/* Coding Agent toggle */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-[#1A1A1A] border border-[#2D2D2D] flex items-center justify-center shrink-0">
+                  <Code2 size={15} className="text-[#CC785C]" />
+                </div>
+                <div>
+                  <p className="text-[13px] font-semibold text-[#C8C5C0]">Coding Agent</p>
+                  <p className="text-[11px] text-[#737373] mt-0.5">
+                    {project.coding_agent_enabled
+                      ? 'Enabled — Code tab is visible in this project.'
+                      : 'Disabled — only enable for software projects with a linked repo.'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={toggleCodingAgent}
+                disabled={togglingAgent}
+                className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-40
+                  ${project.coding_agent_enabled ? 'bg-[#B5622A]' : 'bg-[#2D2D2D]'}`}
+              >
+                <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform duration-200 ease-in-out
+                  ${project.coding_agent_enabled ? 'translate-x-4' : 'translate-x-0'}`} />
+              </button>
+            </div>
           </SectionCard>
         </div>
       </div>
