@@ -3,13 +3,15 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import {
   TrendingUp, TrendingDown, Minus, Send, Plus, Check, X,
   RefreshCw, AlertTriangle, Loader2, ChevronRight,
-  BarChart3, Brain, Globe, Zap
+  BarChart3, Brain, Globe, Zap, Newspaper, Activity, Sparkles
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type LadderStep = { id: string; step_number: number; target_amount: number; status: string };
-type TradeEntry = { id: string; ladder_step: number; direction: string; entry_price: number; exit_price?: number; result_usd?: number; status: string; opened_at: string; lot_size?: number };
+type TradeEntry = { id: string; ladder_step: number; direction: string; entry_price: number; exit_price?: number; result_usd?: number; status: string; opened_at: string; closed_at?: string; lot_size?: number; stop_loss?: number; r_multiple?: number; checklist_passed?: boolean };
+type Summary = { id: string; period_type: string; period_start: string; period_end: string; content: string; generated_at: string; stats_snapshot: any };
+type NewsItem = { id: string; headline: string; source: string; url: string; datetime: number; summary: string; impact: "HIGH" | "MEDIUM" | "LOW"; assets: string[] };
 type Withdrawal = { id: string; ladder_step: number; amount_usd: number; withdrawn_at: string };
 type Message = { role: "user" | "assistant"; content: string; type?: "fundamental" | "technical" | "decision" | "chat" };
 type SignalData = { configured: boolean; currentPrice: number; rsi: number; macd: any; vsa: any; signal: any; levels: any; positionSize: any; ladder: any; candles: any[] };
@@ -405,6 +407,65 @@ function SignalCard({ signal, positionSize }: { signal: any; positionSize: any }
   );
 }
 
+// ── Equity Chart ──────────────────────────────────────────────────────────────
+function EquityChart({ trades }: { trades: TradeEntry[] }) {
+  const closed = [...trades]
+    .filter(t => t.status === "closed")
+    .sort((a, b) => new Date(a.closed_at || a.opened_at).getTime() - new Date(b.closed_at || b.opened_at).getTime());
+
+  if (closed.length < 2) {
+    return (
+      <div className="bg-[#111111] border border-[#1E1E1E] rounded-xl p-4 text-center">
+        <p className="text-[11px] text-[#525252]">Log at least 2 closed trades to see your equity curve</p>
+      </div>
+    );
+  }
+
+  const curve: number[] = [];
+  let running = 0;
+  for (const t of closed) { running += t.result_usd ?? 0; curve.push(running); }
+
+  const W = 280, H = 60;
+  const minVal = Math.min(0, ...curve);
+  const maxVal = Math.max(0, ...curve);
+  const range = maxVal - minVal || 1;
+  const toX = (i: number) => (i / (curve.length - 1)) * W;
+  const toY = (v: number) => H - 4 - ((v - minVal) / range) * (H - 8);
+  const pathD = curve.map((v, i) => `${i === 0 ? "M" : "L"} ${toX(i).toFixed(1)} ${toY(v).toFixed(1)}`).join(" ");
+  const lastX = toX(curve.length - 1);
+  const lastY = toY(curve[curve.length - 1]);
+  const fillD = `${pathD} L ${lastX.toFixed(1)} ${(H - 4).toFixed(1)} L 0 ${(H - 4).toFixed(1)} Z`;
+  const final = curve[curve.length - 1];
+  const color = final >= 0 ? "#10B981" : "#EF4444";
+  const zeroY = toY(0);
+
+  return (
+    <div className="bg-[#111111] border border-[#1E1E1E] rounded-xl p-3">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[10px] font-bold text-[#737373] uppercase tracking-wider">Equity Curve</p>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-[#525252]">{closed.length} trades</span>
+          <span className={`text-[12px] font-bold font-mono ${final >= 0 ? "text-[#10B981]" : "text-[#EF4444]"}`}>
+            {final >= 0 ? "+" : ""}${final.toFixed(2)}
+          </span>
+        </div>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 60 }}>
+        <defs>
+          <linearGradient id="eq-gradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.25" />
+            <stop offset="100%" stopColor={color} stopOpacity="0.02" />
+          </linearGradient>
+        </defs>
+        <line x1="0" y1={zeroY.toFixed(1)} x2={W} y2={zeroY.toFixed(1)} stroke="#2D2D2D" strokeWidth="0.5" strokeDasharray="3 3" />
+        <path d={fillD} fill="url(#eq-gradient)" />
+        <path d={pathD} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+        <circle cx={lastX.toFixed(1)} cy={lastY.toFixed(1)} r="2.5" fill={color} />
+      </svg>
+    </div>
+  );
+}
+
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function TradingPage() {
   const [ladder, setLadder] = useState<LadderStep[]>([]);
@@ -439,9 +500,15 @@ export default function TradingPage() {
   const [editWatchlist, setEditWatchlist] = useState(false);
   const [showTradeConfirm, setShowTradeConfirm] = useState(false);
   const [pendingTrade, setPendingTrade] = useState<any>(null);
+  const [serverStats, setServerStats] = useState<any>(null);
+  const [summaries, setSummaries] = useState<Summary[]>([]);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
+  const [newsLoading, setNewsLoading] = useState(false);
+  const [expandedNews, setExpandedNews] = useState<Set<string>>(new Set());
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { loadAll(); loadAccounts(); loadWatchlist(); }, []);
+  useEffect(() => { loadAll(); loadAccounts(); loadWatchlist(); loadNews(); loadSummaries(); }, []);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
   async function loadAll() {
@@ -453,6 +520,7 @@ export default function TradingPage() {
     setEntries(tradingRes.entries ?? []);
     setWithdrawals(tradingRes.withdrawals ?? []);
     setGoldPrice(tradingRes.gold_price);
+    setServerStats(tradingRes.stats ?? null);
   }
 
   async function loadAccounts() {
@@ -466,6 +534,38 @@ export default function TradingPage() {
   async function loadWatchlist() {
     const { data } = await supabase.from("trading_watchlist").select("*").order("sort_order");
     setWatchlist(data ?? []);
+  }
+
+  async function loadNews() {
+    setNewsLoading(true);
+    try {
+      const res = await fetch("/api/trading/news");
+      const data = await res.json();
+      setNewsItems(data.news ?? []);
+    } catch {}
+    setNewsLoading(false);
+  }
+
+  async function loadSummaries() {
+    try {
+      const res = await fetch("/api/trading/summaries");
+      const data = await res.json();
+      setSummaries(data.summaries ?? []);
+    } catch {}
+  }
+
+  async function generateSummary(period: "daily" | "weekly" | "manual") {
+    setSummaryLoading(true);
+    try {
+      const res = await fetch("/api/trading/summaries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "generate", period }),
+      });
+      const data = await res.json();
+      if (!data.error) await loadSummaries();
+    } catch {}
+    setSummaryLoading(false);
   }
 
   async function searchSymbols(q: string) {
@@ -1182,10 +1282,140 @@ export default function TradingPage() {
         )}
 
         {activeTab === "journal" && (
-          <div className="flex-1 overflow-y-auto p-4">
-            <div className="text-center py-16">
-              <p className="text-[13px] text-[#525252]">Session journal coming in next update</p>
-              <p className="text-[11px] text-[#3A3A3A] mt-1">Track rule compliance, emotional state, and session notes</p>
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Activity size={14} className="text-[#B5622A]" />
+                <h2 className="text-[14px] font-bold text-[#C8C5C0]">Performance Metrics</h2>
+              </div>
+              <button onClick={loadAll} className="flex items-center gap-1 text-[10px] text-[#525252] hover:text-[#737373] transition-colors">
+                <RefreshCw size={10} /> Refresh
+              </button>
+            </div>
+
+            {/* Metric cards grid */}
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                {
+                  label: "Win Rate",
+                  value: serverStats?.win_rate != null ? `${serverStats.win_rate}%` : "—",
+                  sub: `${wins}W / ${closedTrades.length - wins}L`,
+                  color: (serverStats?.win_rate ?? 0) >= 60 ? "#10B981" : (serverStats?.win_rate ?? 0) >= 40 ? "#EAB308" : "#EF4444",
+                },
+                {
+                  label: "Expectancy",
+                  value: serverStats?.expectancy != null ? `$${serverStats.expectancy.toFixed(2)}` : "—",
+                  sub: "Avg per trade",
+                  color: (serverStats?.expectancy ?? 0) >= 0 ? "#10B981" : "#EF4444",
+                },
+                {
+                  label: "Avg R-Multiple",
+                  value: serverStats?.avg_r_multiple != null ? `${serverStats.avg_r_multiple}R` : "—",
+                  sub: "Risk/reward avg",
+                  color: (serverStats?.avg_r_multiple ?? 0) >= 1.5 ? "#10B981" : "#EAB308",
+                },
+                {
+                  label: "Max Drawdown",
+                  value: `$${((serverStats?.max_drawdown_usd) ?? 0).toFixed(2)}`,
+                  sub: "Peak to trough",
+                  color: "#EF4444",
+                },
+                {
+                  label: "Rule Adherence",
+                  value: serverStats?.rule_adherence != null ? `${serverStats.rule_adherence}%` : "—",
+                  sub: "Checklist passed",
+                  color: (serverStats?.rule_adherence ?? 0) >= 80 ? "#10B981" : "#EAB308",
+                },
+                {
+                  label: "Total Trades",
+                  value: `${serverStats?.total_trades ?? 0}`,
+                  sub: `${openTrades.length} open now`,
+                  color: "#C8C5C0",
+                },
+              ].map(m => (
+                <div key={m.label} className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl px-3 py-2.5 text-center">
+                  <p className="text-[9px] text-[#525252] uppercase tracking-wider mb-1">{m.label}</p>
+                  <p className="text-[15px] font-black font-mono" style={{ color: m.color }}>{m.value}</p>
+                  <p className="text-[9px] text-[#525252] mt-0.5">{m.sub}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Equity curve */}
+            <EquityChart trades={entries} />
+
+            {/* Ladder progress */}
+            {activeStep && (
+              <div className="bg-[#111111] border border-[#1E1E1E] rounded-xl p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[10px] font-bold text-[#737373] uppercase tracking-wider">Ladder Progress</p>
+                  <span className="text-[10px] font-bold text-[#B5622A]">Step {activeStep.step_number} / 20</span>
+                </div>
+                <div className="w-full bg-[#2D2D2D] rounded-full h-1.5 mb-1.5">
+                  <div
+                    className="h-1.5 rounded-full bg-gradient-to-r from-[#B5622A] to-[#E07A3A] transition-all"
+                    style={{ width: `${(activeStep.step_number / 20) * 100}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between text-[9px] text-[#525252]">
+                  <span>$10</span>
+                  <span className="text-[#10B981] font-semibold">Target: ${activeStep.target_amount.toLocaleString()}</span>
+                  <span>$5M</span>
+                </div>
+              </div>
+            )}
+
+            {/* AI Coaching Summaries */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Sparkles size={12} className="text-[#B5622A]" />
+                  <p className="text-[11px] font-bold text-[#C8C5C0]">AI Coaching Summaries</p>
+                </div>
+                <div className="flex items-center gap-1">
+                  {(["daily", "weekly", "manual"] as const).map(p => (
+                    <button key={p} onClick={() => generateSummary(p)} disabled={summaryLoading}
+                      className="px-2 py-1 text-[9px] font-semibold bg-[#1E1E1E] hover:bg-[#2D2D2D] text-[#737373] hover:text-[#C8C5C0] rounded transition-colors disabled:opacity-40 capitalize">
+                      {p === "manual" ? "Now" : p}
+                    </button>
+                  ))}
+                  {summaryLoading && <Loader2 size={10} className="text-[#B5622A] animate-spin ml-1" />}
+                </div>
+              </div>
+
+              {summaries.length === 0 && !summaryLoading && (
+                <div className="text-center py-6 bg-[#111111] border border-[#1E1E1E] rounded-xl">
+                  <p className="text-[11px] text-[#525252]">No summaries yet</p>
+                  <p className="text-[10px] text-[#3A3A3A] mt-1">Click "Now" to generate your first AI coaching report</p>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                {summaries.map(s => (
+                  <div key={s.id} className="bg-[#111111] border border-[#1E1E1E] rounded-xl p-3">
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-bold uppercase
+                          ${s.period_type === "daily" ? "bg-[#3B82F620] text-[#3B82F6]"
+                          : s.period_type === "weekly" ? "bg-[#B5622A20] text-[#B5622A]"
+                          : "bg-[#10B98120] text-[#10B981]"}`}>
+                          {s.period_type}
+                        </span>
+                        <span className="text-[10px] text-[#525252]">
+                          {new Date(s.generated_at).toLocaleDateString()} · {new Date(s.generated_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      </div>
+                      {s.stats_snapshot?.win_rate != null && (
+                        <span className={`text-[10px] font-bold ${s.stats_snapshot.win_rate >= 50 ? "text-[#10B981]" : "text-[#EF4444]"}`}>
+                          {s.stats_snapshot.win_rate}% WR
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-[#C8C5C0] leading-relaxed whitespace-pre-wrap">{s.content}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}
@@ -1251,30 +1481,121 @@ export default function TradingPage() {
         )}
 
         {analysisTab === "fundamental" && (
-          <div className="flex-1 overflow-y-auto p-4">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-[10px] font-bold text-[#737373] uppercase tracking-wider">Fundamental Analysis</p>
-              <button onClick={() => runAnalysis("fundamental")} disabled={analysisLoading.fundamental}
-                className="flex items-center gap-1 text-[10px] text-[#B5622A] hover:text-[#9A4E20] transition-colors">
-                {analysisLoading.fundamental ? <Loader2 size={10} className="animate-spin" /> : <Globe size={10} />}
-                Refresh
-              </button>
-            </div>
-            {!analysisContent.fundamental && (
-              <div className="text-center py-8">
-                <p className="text-[12px] text-[#525252] mb-4">CME data, COT positioning, macro outlook</p>
-                <button onClick={() => runAnalysis("fundamental")} disabled={analysisLoading.fundamental}
-                  className="px-4 py-2 bg-[#B5622A] text-white text-[12px] font-semibold rounded-lg hover:bg-[#9A4E20] disabled:opacity-40 transition-colors flex items-center gap-2 mx-auto">
-                  {analysisLoading.fundamental ? <Loader2 size={12} className="animate-spin" /> : <Globe size={12} />}
-                  Run Fundamental Analysis
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {/* News Feed */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5">
+                  <Newspaper size={11} className="text-[#737373]" />
+                  <p className="text-[10px] font-bold text-[#737373] uppercase tracking-wider">Market News</p>
+                </div>
+                <button onClick={loadNews} disabled={newsLoading}
+                  className="flex items-center gap-1 text-[10px] text-[#525252] hover:text-[#737373] transition-colors disabled:opacity-40">
+                  {newsLoading ? <Loader2 size={9} className="animate-spin" /> : <RefreshCw size={9} />}
+                  Refresh
                 </button>
               </div>
-            )}
-            {analysisContent.fundamental && (
-              <div className="text-[12px] text-[#C8C5C0] leading-relaxed whitespace-pre-wrap">
-                {analysisContent.fundamental}
+
+              {newsLoading && newsItems.length === 0 && (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 size={14} className="animate-spin text-[#525252]" />
+                </div>
+              )}
+
+              {!newsLoading && newsItems.length === 0 && (
+                <div className="bg-[#0D0D0D] border border-[#1E1E1E] rounded-xl p-3 text-center">
+                  <p className="text-[10px] text-[#525252]">Add FINNHUB_API_KEY to .env.local to enable live news</p>
+                  <button onClick={loadNews}
+                    className="mt-1.5 text-[9px] text-[#B5622A] hover:text-[#9A4E20] transition-colors">
+                    Try loading →
+                  </button>
+                </div>
+              )}
+
+              {newsItems.length > 0 && (
+                <div className="space-y-1.5">
+                  {newsItems.slice(0, 8).map(item => (
+                    <div key={item.id} className="bg-[#0D0D0D] border border-[#1E1E1E] hover:border-[#2D2D2D] rounded-xl p-2.5 transition-colors">
+                      <div className="flex items-start gap-2">
+                        <span className={`shrink-0 mt-0.5 text-[7px] px-1 py-0.5 rounded font-bold uppercase tracking-wide
+                          ${item.impact === "HIGH" ? "bg-[#EF444420] text-[#EF4444]"
+                          : item.impact === "MEDIUM" ? "bg-[#EAB30820] text-[#EAB308]"
+                          : "bg-[#52525215] text-[#525252]"}`}>
+                          {item.impact}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <button
+                            onClick={() => setExpandedNews(prev => {
+                              const next = new Set(prev);
+                              if (next.has(item.id)) next.delete(item.id); else next.add(item.id);
+                              return next;
+                            })}
+                            className="text-left w-full">
+                            <p className={`text-[11px] text-[#C8C5C0] leading-snug ${!expandedNews.has(item.id) ? "line-clamp-2" : ""}`}>
+                              {item.headline}
+                            </p>
+                          </button>
+                          {expandedNews.has(item.id) && item.summary && (
+                            <p className="text-[10px] text-[#737373] mt-1 leading-relaxed">{item.summary}</p>
+                          )}
+                          <div className="flex items-center justify-between mt-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[9px] text-[#525252]">{item.source}</span>
+                              {item.assets.length > 0 && (
+                                <>
+                                  <span className="text-[9px] text-[#3A3A3A]">·</span>
+                                  {item.assets.slice(0, 2).map(a => (
+                                    <span key={a} className="text-[7px] px-1 py-0.5 rounded bg-[#B5622A15] text-[#B5622A] font-bold">
+                                      {a}
+                                    </span>
+                                  ))}
+                                </>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[9px] text-[#3A3A3A]">
+                                {Math.round((Date.now() / 1000 - item.datetime) / 3600)}h ago
+                              </span>
+                              {item.url && (
+                                <a href={item.url} target="_blank" rel="noopener noreferrer"
+                                  className="text-[9px] text-[#3B82F6] hover:text-[#60A5FA] transition-colors">↗</a>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* AI Fundamental Analysis */}
+            <div className="border-t border-[#1E1E1E] pt-3">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-[10px] font-bold text-[#737373] uppercase tracking-wider">AI Analysis</p>
+                <button onClick={() => runAnalysis("fundamental")} disabled={analysisLoading.fundamental}
+                  className="flex items-center gap-1 text-[10px] text-[#B5622A] hover:text-[#9A4E20] transition-colors">
+                  {analysisLoading.fundamental ? <Loader2 size={10} className="animate-spin" /> : <Globe size={10} />}
+                  Refresh
+                </button>
               </div>
-            )}
+              {!analysisContent.fundamental && (
+                <div className="text-center py-6">
+                  <p className="text-[11px] text-[#525252] mb-3">CME data, COT positioning, macro outlook</p>
+                  <button onClick={() => runAnalysis("fundamental")} disabled={analysisLoading.fundamental}
+                    className="px-4 py-2 bg-[#B5622A] text-white text-[11px] font-semibold rounded-lg hover:bg-[#9A4E20] disabled:opacity-40 transition-colors flex items-center gap-2 mx-auto">
+                    {analysisLoading.fundamental ? <Loader2 size={11} className="animate-spin" /> : <Globe size={11} />}
+                    Run Fundamental Analysis
+                  </button>
+                </div>
+              )}
+              {analysisContent.fundamental && (
+                <div className="text-[11px] text-[#C8C5C0] leading-relaxed whitespace-pre-wrap">
+                  {analysisContent.fundamental}
+                </div>
+              )}
+            </div>
           </div>
         )}
 

@@ -70,6 +70,38 @@ export async function GET(req: NextRequest) {
     ? Math.round((closedEntries.filter((e: any) => parseFloat(e.result_usd ?? 0) > 0).length / closedEntries.length) * 100)
     : null;
 
+  // Extended performance metrics
+  const winsArr = closedEntries.filter((e: any) => parseFloat(e.result_usd ?? 0) > 0);
+  const lossesArr = closedEntries.filter((e: any) => parseFloat(e.result_usd ?? 0) < 0);
+  const avgWin = winsArr.length > 0 ? winsArr.reduce((s: number, e: any) => s + parseFloat(e.result_usd), 0) / winsArr.length : 0;
+  const avgLoss = lossesArr.length > 0 ? Math.abs(lossesArr.reduce((s: number, e: any) => s + parseFloat(e.result_usd), 0) / lossesArr.length) : 0;
+  const winRateDecimal = closedEntries.length > 0 ? winsArr.length / closedEntries.length : 0;
+  const expectancy = closedEntries.length > 0
+    ? Math.round((avgWin * winRateDecimal - avgLoss * (1 - winRateDecimal)) * 100) / 100
+    : null;
+
+  const sortedClosed = [...closedEntries].sort((a: any, b: any) =>
+    new Date(a.closed_at || a.opened_at).getTime() - new Date(b.closed_at || b.opened_at).getTime()
+  );
+  let runningEq = 0, eqPeak = 0, maxDrawdownUsd = 0;
+  for (const e of sortedClosed) {
+    runningEq += parseFloat(e.result_usd ?? 0);
+    if (runningEq > eqPeak) eqPeak = runningEq;
+    const dd = eqPeak - runningEq;
+    if (dd > maxDrawdownUsd) maxDrawdownUsd = dd;
+  }
+
+  const rEntries = closedEntries.filter((e: any) => e.r_multiple != null);
+  const avgRMultiple = rEntries.length > 0
+    ? Math.round((rEntries.reduce((s: number, e: any) => s + parseFloat(e.r_multiple), 0) / rEntries.length) * 100) / 100
+    : null;
+
+  const allEntries = entries ?? [];
+  const withChecklist = allEntries.filter((e: any) => e.checklist_passed != null);
+  const ruleAdherence = withChecklist.length > 0
+    ? Math.round((withChecklist.filter((e: any) => e.checklist_passed).length / withChecklist.length) * 100)
+    : null;
+
   return NextResponse.json({
     ladder: ladder ?? [],
     entries: entries ?? [],
@@ -82,6 +114,10 @@ export async function GET(req: NextRequest) {
       total_pnl_usd: totalPnl,
       win_rate: winRate,
       total_trades: closedEntries.length,
+      expectancy,
+      avg_r_multiple: avgRMultiple,
+      max_drawdown_usd: Math.round(maxDrawdownUsd * 100) / 100,
+      rule_adherence: ruleAdherence,
     },
   });
 }
