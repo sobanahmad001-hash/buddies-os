@@ -972,7 +972,7 @@ export default function TradingPage() {
         </div>
 
         {/* Exness Account Panel */}
-        <div className="p-3 border-t border-[#1E1E1E]">
+        <div className="p-3 border-t border-[#1E1E1E] overflow-y-auto" style={{ maxHeight: 220 }}>
           <div className="flex items-center justify-between mb-2">
             <p className="text-[9px] font-bold text-[#525252] uppercase tracking-widest">Accounts</p>
             <button
@@ -1144,7 +1144,7 @@ export default function TradingPage() {
           {[
             { id: "terminal", label: "Terminal", icon: BarChart3 },
             { id: "trades", label: `Trades ${openTrades.length > 0 ? `(${openTrades.length} open)` : ""}`, icon: TrendingUp },
-            { id: "journal", label: "Journal", icon: Brain },
+            { id: "journal", label: "Metrics", icon: Activity },
           ].map(t => (
             <button key={t.id} onClick={() => setActiveTab(t.id as any)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] transition-colors
@@ -1219,6 +1219,24 @@ export default function TradingPage() {
 
             {/* Signal card */}
             <SignalCard signal={signalData?.signal} positionSize={signalData?.positionSize} />
+
+            {/* ── Place Trade ─────────────────────────────────────────────── */}
+            <div className="bg-[#111111] border border-[#2D2D2D] rounded-xl p-4">
+              <p className="text-[10px] font-bold text-[#525252] uppercase tracking-wider mb-3">Execute Trade</p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setShowChecklist("reversal")}
+                  className="flex items-center justify-center gap-2 py-3 bg-[#B5622A] text-white text-[12px] font-bold rounded-xl hover:bg-[#9A4E20] transition-colors">
+                  <Zap size={13} /> ⚡ Reversal
+                </button>
+                <button
+                  onClick={() => setShowChecklist("momentum")}
+                  className="flex items-center justify-center gap-2 py-3 bg-[#1E1E1E] border border-[#3D3D3D] text-[#C8C5C0] text-[12px] font-semibold rounded-xl hover:bg-[#2D2D2D] transition-colors">
+                  <TrendingUp size={13} /> 🌊 Momentum
+                </button>
+              </div>
+              <p className="text-[9px] text-[#3A3A3A] mt-2 text-center">Pre-trade checklist → position sizing → order placement</p>
+            </div>
           </div>
         )}
 
@@ -1226,9 +1244,9 @@ export default function TradingPage() {
           <div className="flex-1 overflow-y-auto p-4">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-[14px] font-bold text-[#C8C5C0]">Trade Log</h2>
-              <button onClick={() => setShowLogTrade(true)}
+              <button onClick={() => setShowChecklist("reversal")}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-[#B5622A] text-white text-[11px] font-bold rounded-lg hover:bg-[#9A4E20] transition-colors">
-                <Plus size={11} /> Log Trade
+                <Plus size={11} /> New Trade
               </button>
             </div>
 
@@ -1424,20 +1442,31 @@ export default function TradingPage() {
       {/* ── Right: Analysis + AI ───────────────────────────────────────────── */}
       <div className="w-[360px] shrink-0 flex flex-col border-l border-[#1E1E1E] bg-[#111111]">
         {/* Analysis tabs */}
-        <div className="flex items-center gap-0.5 px-3 py-2 border-b border-[#1E1E1E] shrink-0">
-          {[
-            { id: "signal", label: "Signal" },
-            { id: "fundamental", label: "Fundamental" },
-            { id: "technical", label: "Technical" },
-            { id: "chat", label: "AI Coach" },
-          ].map(t => (
-            <button key={t.id} onClick={() => setAnalysisTab(t.id as any)}
-              className={`flex-1 py-1.5 rounded-lg text-[10px] font-semibold transition-colors
-                ${analysisTab === t.id ? "bg-[#1E1E1E] text-[#C8C5C0]" : "text-[#525252] hover:text-[#737373]"}`}>
-              {t.label}
-            </button>
-          ))}
-        </div>
+        {(() => {
+          const highImpactCount = newsItems.filter(n => n.impact === "HIGH").length;
+          const tabs = [
+            { id: "signal", label: "Signal", badge: null },
+            { id: "fundamental", label: "News", badge: highImpactCount > 0 ? highImpactCount : null },
+            { id: "technical", label: "Technical", badge: null },
+            { id: "chat", label: "AI Coach", badge: null },
+          ];
+          return (
+            <div className="flex items-center gap-0.5 px-3 py-2 border-b border-[#1E1E1E] shrink-0">
+              {tabs.map(t => (
+                <button key={t.id} onClick={() => setAnalysisTab(t.id as any)}
+                  className={`flex-1 py-1.5 rounded-lg text-[10px] font-semibold transition-colors relative
+                    ${analysisTab === t.id ? "bg-[#1E1E1E] text-[#C8C5C0]" : "text-[#525252] hover:text-[#737373]"}`}>
+                  {t.label}
+                  {t.badge != null && (
+                    <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-[#EF4444] text-[7px] font-black text-white flex items-center justify-center">
+                      {t.badge > 9 ? "9+" : t.badge}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          );
+        })()}
 
         {analysisTab === "signal" && (
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -1514,7 +1543,18 @@ export default function TradingPage() {
 
               {newsItems.length > 0 && (
                 <div className="space-y-1.5">
-                  {newsItems.slice(0, 8).map(item => (
+                  {(() => {
+                    const watchlistSymbols = watchlist.map((w: any) => w.symbol.toUpperCase());
+                    const activeSymbolUpper = activeSymbol.replace("/","").toUpperCase();
+                    const relevant = watchlistSymbols.length > 0
+                      ? newsItems.filter(n =>
+                          n.impact === "HIGH" ||
+                          n.assets.some(a => watchlistSymbols.some(ws => ws.includes(a) || a.includes(ws.slice(0,3)))) ||
+                          n.assets.some(a => activeSymbolUpper.includes(a))
+                        )
+                      : newsItems;
+                    const display = relevant.length > 0 ? relevant : newsItems;
+                    return display.slice(0, 10).map(item => (
                     <div key={item.id} className="bg-[#0D0D0D] border border-[#1E1E1E] hover:border-[#2D2D2D] rounded-xl p-2.5 transition-colors">
                       <div className="flex items-start gap-2">
                         <span className={`shrink-0 mt-0.5 text-[7px] px-1 py-0.5 rounded font-bold uppercase tracking-wide
@@ -1565,7 +1605,8 @@ export default function TradingPage() {
                         </div>
                       </div>
                     </div>
-                  ))}
+                  ));
+                  })()}
                 </div>
               )}
             </div>
