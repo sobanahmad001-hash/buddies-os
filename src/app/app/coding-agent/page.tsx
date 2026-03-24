@@ -574,7 +574,7 @@ RULES:
           </button>
         </div>
         <div className="flex-1 overflow-y-auto py-1">
-          {sessions.length === 0 && <p className="text-[10px] text-[#3A3A3A] px-3 py-4 text-center">No sessions yet</p>}
+          {sessions.length === 0 && <p className="text-[10px] text-[#525252] px-3 py-4 text-center">No sessions yet</p>}
           {sessions.map(s => (
             <div key={s.id} onClick={() => openSession(s)}
               className={`group relative px-3 py-2 cursor-pointer transition-colors
@@ -593,7 +593,7 @@ RULES:
 
         {/* Model selector at bottom of session panel */}
         <div className="border-t border-[#1E1E1E] p-2 space-y-1">
-          <p className="text-[9px] text-[#3A3A3A] uppercase tracking-widest px-1 mb-1.5">Model</p>
+          <p className="text-[9px] text-[#525252] uppercase tracking-widest px-1 mb-1.5">Model</p>
           {CODING_MODELS.map(m => (
             <button key={m.model} onClick={() => setSelectedModel(m.model)}
               className={`w-full text-left px-2 py-1.5 rounded text-[11px] transition-colors
@@ -619,7 +619,7 @@ RULES:
               onChange={e => setRepoInput(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter") { setSelectedRepo(repoInput); loadRepo(repoInput); } }}
               placeholder="owner/repo"
-              className="flex-1 text-[11px] px-2 py-1.5 bg-[#0D0D0D] border border-[#2D2D2D] rounded text-[#B0ADA9] placeholder:text-[#3A3A3A] focus:outline-none focus:border-[#B5622A] font-mono"
+              className="flex-1 text-[11px] px-2 py-1.5 bg-[#0D0D0D] border border-[#2D2D2D] rounded text-[#B0ADA9] placeholder:text-[#525252] focus:outline-none focus:border-[#B5622A] font-mono"
             />
             <button onClick={() => { setSelectedRepo(repoInput); loadRepo(repoInput); }}
               className="px-2 py-1.5 bg-[#1E1E1E] hover:bg-[#2D2D2D] rounded transition-colors">
@@ -651,7 +651,7 @@ RULES:
         {/* File tree */}
         <div className="flex-1 overflow-y-auto py-1">
           {fileTree.length === 0 && !repoLoading && (
-            <p className="text-[10px] text-[#3A3A3A] px-3 py-6 text-center leading-relaxed">Enter a repo name above and press Enter</p>
+            <p className="text-[10px] text-[#525252] px-3 py-6 text-center leading-relaxed">Enter a repo name above and press Enter</p>
           )}
           {fileTree.map(node => (
             <TreeNode key={node.path} node={node} depth={0}
@@ -674,10 +674,10 @@ RULES:
               </button>
             </div>
           ) : (
-            <span className="px-4 text-[11px] text-[#3A3A3A]">No file open</span>
+            <span className="px-4 text-[11px] text-[#525252]">No file open</span>
           )}
           {selectedFile && (
-            <span className="ml-2 text-[10px] text-[#3A3A3A] font-mono truncate">{selectedFile}</span>
+            <span className="ml-2 text-[10px] text-[#525252] font-mono truncate">{selectedFile}</span>
           )}
           {prResult && (
             <a href={prResult} target="_blank" rel="noopener noreferrer"
@@ -700,10 +700,10 @@ RULES:
                 <File size={18} className="text-[#525252]" />
               </div>
               <p className="text-[13px] text-[#525252] mb-2">No file selected</p>
-              <p className="text-[11px] text-[#3A3A3A] max-w-[260px] leading-relaxed">Click any file in the explorer to view its contents. The agent can read and modify open files.</p>
+              <p className="text-[11px] text-[#525252] max-w-[260px] leading-relaxed">Click any file in the explorer to view its contents. The agent can read and modify open files.</p>
               {recentCommits.length > 0 && (
                 <div className="mt-6 text-left w-full max-w-[360px]">
-                  <p className="text-[10px] text-[#3A3A3A] uppercase tracking-widest mb-2">Recent commits</p>
+                  <p className="text-[10px] text-[#525252] uppercase tracking-widest mb-2">Recent commits</p>
                   {recentCommits.map((c, i) => (
                     <p key={i} className="text-[11px] text-[#525252] font-mono py-0.5 truncate">� {c}</p>
                   ))}
@@ -716,7 +716,7 @@ RULES:
               <div className="flex">
                 <div className="select-none shrink-0 py-4 px-3 text-right bg-[#0A0A0A] border-r border-[#1A1A1A]">
                   {fileContent.split("\n").map((_, i) => (
-                    <div key={i} className="text-[11px] text-[#3A3A3A] font-mono leading-[1.6] h-[20px]">{i + 1}</div>
+                    <div key={i} className="text-[11px] text-[#525252] font-mono leading-[1.6] h-[20px]">{i + 1}</div>
                   ))}
                 </div>
                 <pre className="flex-1 p-4 text-[12px] font-mono text-[#C8C5C0] overflow-x-auto leading-[1.6] select-text whitespace-pre">
@@ -735,14 +735,14 @@ RULES:
           <div className="flex items-center gap-2">
             <span className="text-[13px]">?</span>
             <span className="text-[12px] font-bold text-[#B0ADA9]">Agent</span>
-            <span className="text-[10px] text-[#3A3A3A]">�</span>
+            <span className="text-[10px] text-[#525252]">�</span>
             <span className="text-[10px] text-[#525252]">{selectedModel}</span>
           </div>
           {selectedTask && (
             <div className="flex items-center gap-1.5 max-w-[160px]">
               <div className="w-1.5 h-1.5 rounded-full bg-[#B5622A] shrink-0" />
               <span className="text-[10px] text-[#737373] truncate">{selectedTask.title}</span>
-              <button onClick={() => setSelectedTask(null)} className="text-[#3A3A3A] hover:text-[#737373] transition-colors shrink-0"><X size={9} /></button>
+              <button onClick={() => setSelectedTask(null)} className="text-[#525252] hover:text-[#737373] transition-colors shrink-0"><X size={9} /></button>
             </div>
           )}
         </div>
@@ -846,11 +846,11 @@ RULES:
               onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
               placeholder="Ask about code, request changes... (Enter to send)"
               rows={2}
-              className="w-full bg-transparent text-[13px] text-[#C8C5C0] placeholder:text-[#3A3A3A] resize-none focus:outline-none px-3 pt-3 leading-relaxed font-mono"
+              className="w-full bg-transparent text-[13px] text-[#C8C5C0] placeholder:text-[#525252] resize-none focus:outline-none px-3 pt-3 leading-relaxed font-mono"
               style={{ maxHeight: "160px", minHeight: "52px" }}
             />
             <div className="flex items-center justify-between px-3 pb-2">
-              <span className="text-[10px] text-[#3A3A3A]">?? new line</span>
+              <span className="text-[10px] text-[#525252]">?? new line</span>
               <button onClick={send} disabled={loading || !input.trim()}
                 className="w-7 h-7 rounded-lg flex items-center justify-center transition-all disabled:opacity-30 bg-[#B5622A] hover:bg-[#9A4E20] text-white">
                 <Send size={12} />

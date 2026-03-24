@@ -126,7 +126,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="flex-1 overflow-auto bg-[#0D0D0D] p-8">
+    <div className="flex-1 overflow-auto bg-[#0D0D0D] p-4 md:p-8">
       <div className="max-w-[600px] mx-auto">
         <div className="mb-8">
           <h1 className="text-[20px] font-bold text-[#C8C5C0]">Settings</h1>
@@ -181,7 +181,7 @@ export default function SettingsPage() {
                 <>
                   <Upload size={20} className="text-[#525252] mx-auto mb-2" />
                   <p className="text-[13px] text-[#737373]">Click or drag to upload</p>
-                  <p className="text-[11px] text-[#3A3A3A] mt-1">PNG, JPG, SVG, WebP · max 5MB</p>
+                  <p className="text-[11px] text-[#525252] mt-1">PNG, JPG, SVG, WebP · max 5MB</p>
                 </>
               )}
             </div>

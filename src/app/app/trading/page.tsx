@@ -337,7 +337,7 @@ function TradeConfirmModal({
           {/* MT5 Symbol — editable */}
           <div>
             <label className="text-[10px] font-bold text-[#525252] uppercase tracking-wider">
-              MT5 Symbol <span className="normal-case text-[#3A3A3A]">(e.g. XAUUSDm for Exness gold)</span>
+              MT5 Symbol <span className="normal-case text-[#525252]">(e.g. XAUUSDm for Exness gold)</span>
             </label>
             <input
               value={mt5Symbol}
@@ -446,7 +446,7 @@ function SignalCard({ signal, positionSize }: { signal: any; positionSize: any }
   if (!signal) return (
     <div className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl p-4 text-center">
       <p className="text-[12px] text-[#525252]">No high-probability setup detected</p>
-      <p className="text-[10px] text-[#3A3A3A] mt-1">Waiting for conditions to align — missing trades is part of the system</p>
+      <p className="text-[10px] text-[#525252] mt-1">Waiting for conditions to align — missing trades is part of the system</p>
     </div>
   );
 
@@ -584,6 +584,7 @@ export default function TradingPage() {
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
   const [newsLoading, setNewsLoading] = useState(false);
   const [expandedNews, setExpandedNews] = useState<Set<string>>(new Set());
+  const [mobilePanelTab, setMobilePanelTab] = useState<"ladder" | "chart" | "analysis">("chart");
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { loadAll(); loadAccounts(); loadWatchlist(); loadNews(); loadSummaries(); }, []);
@@ -889,10 +890,25 @@ export default function TradingPage() {
   const macdBull = signalData?.macd?.histogram > 0;
 
   return (
-    <div className="flex h-full bg-[#0D0D0D] text-white overflow-hidden">
+    <div className="flex flex-col md:flex-row h-full bg-[#0D0D0D] text-white overflow-hidden">
+
+      {/* Mobile panel switcher */}
+      <div className="md:hidden flex items-center bg-[#111111] border-b border-[#1E1E1E] shrink-0">
+        {([
+          { id: "ladder", label: "Ladder", icon: TrendingUp },
+          { id: "chart",  label: "Chart",  icon: BarChart3 },
+          { id: "analysis", label: "Analysis", icon: Activity },
+        ] as const).map(t => (
+          <button key={t.id} onClick={() => setMobilePanelTab(t.id)}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[12px] font-semibold transition-colors
+              ${mobilePanelTab === t.id ? "text-[#B5622A] border-b-2 border-[#B5622A]" : "text-[#525252]"}`}>
+            <t.icon size={13} />{t.label}
+          </button>
+        ))}
+      </div>
 
       {/* ── Left: Ladder + Stats ────────────────────────────────────────────── */}
-      <div className="w-[220px] shrink-0 flex flex-col border-r border-[#1E1E1E] bg-[#111111]">
+      <div className={`${mobilePanelTab === "ladder" ? "flex" : "hidden"} md:flex w-full md:w-[220px] shrink-0 flex-col border-r border-[#1E1E1E] bg-[#111111]`}>
         {/* Header */}
         <div className="px-4 py-4 border-b border-[#1E1E1E]">
           <div className="flex items-center gap-2 mb-1">
@@ -1254,7 +1270,7 @@ export default function TradingPage() {
             </div>
 
             {/* Indicators strip */}
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {[
                 { label: "RSI (14)", value: signalData?.rsi ? `${signalData.rsi}` : "—", color: rsiColor, sub: signalData?.rsi ? (signalData.rsi > 70 ? "Overbought" : signalData.rsi < 30 ? "Oversold" : "Neutral") : "No data" },
                 { label: "MACD", value: signalData?.macd ? (macdBull ? "▲ Bull" : "▼ Bear") : "—", color: macdBull ? "#10B981" : "#EF4444", sub: signalData?.macd ? `Hist: ${signalData.macd.histogram?.toFixed(2)}` : "" },
@@ -1313,7 +1329,7 @@ export default function TradingPage() {
                   <TrendingUp size={13} /> 🌊 Momentum
                 </button>
               </div>
-              <p className="text-[9px] text-[#3A3A3A] mt-2 text-center">Pre-trade checklist → position sizing → order placement</p>
+              <p className="text-[9px] text-[#525252] mt-2 text-center">Pre-trade checklist → position sizing → order placement</p>
             </div>
           </div>
         )}
@@ -1354,7 +1370,7 @@ export default function TradingPage() {
             {closedTrades.length === 0 && openTrades.length === 0 && (
               <div className="text-center py-16">
                 <p className="text-[13px] text-[#525252]">No trades logged yet</p>
-                <p className="text-[11px] text-[#3A3A3A] mt-1">Run pre-trade checklist before every trade</p>
+                <p className="text-[11px] text-[#525252] mt-1">Run pre-trade checklist before every trade</p>
               </div>
             )}
 
@@ -1391,7 +1407,7 @@ export default function TradingPage() {
             </div>
 
             {/* Metric cards grid */}
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
               {[
                 {
                   label: "Win Rate",
@@ -1483,7 +1499,7 @@ export default function TradingPage() {
               {summaries.length === 0 && !summaryLoading && (
                 <div className="text-center py-6 bg-[#111111] border border-[#1E1E1E] rounded-xl">
                   <p className="text-[11px] text-[#525252]">No summaries yet</p>
-                  <p className="text-[10px] text-[#3A3A3A] mt-1">Click "Now" to generate your first AI coaching report</p>
+                  <p className="text-[10px] text-[#525252] mt-1">Click "Now" to generate your first AI coaching report</p>
                 </div>
               )}
 
@@ -1661,7 +1677,7 @@ export default function TradingPage() {
                               <span className="text-[9px] text-[#525252]">{item.source}</span>
                               {item.assets.length > 0 && (
                                 <>
-                                  <span className="text-[9px] text-[#3A3A3A]">·</span>
+                                  <span className="text-[9px] text-[#525252]">·</span>
                                   {item.assets.slice(0, 2).map(a => (
                                     <span key={a} className="text-[7px] px-1 py-0.5 rounded bg-[#B5622A15] text-[#B5622A] font-bold">
                                       {a}
@@ -1671,7 +1687,7 @@ export default function TradingPage() {
                               )}
                             </div>
                             <div className="flex items-center gap-2">
-                              <span className="text-[9px] text-[#3A3A3A]">
+                              <span className="text-[9px] text-[#525252]">
                                 {Math.round((Date.now() / 1000 - item.datetime) / 3600)}h ago
                               </span>
                               {item.url && (
@@ -1798,14 +1814,14 @@ export default function TradingPage() {
                 <input value={input} onChange={e => setInput(e.target.value)}
                   onKeyDown={e => { if (e.key === "Enter") sendChat(); }}
                   placeholder="Ask your trading coach..."
-                  className="flex-1 px-3 py-2 bg-[#0D0D0D] border border-[#2D2D2D] rounded-xl text-[12px] text-[#C8C5C0] placeholder:text-[#3A3A3A] focus:outline-none focus:border-[#B5622A]"
+                  className="flex-1 px-3 py-2 bg-[#0D0D0D] border border-[#2D2D2D] rounded-xl text-[12px] text-[#C8C5C0] placeholder:text-[#525252] focus:outline-none focus:border-[#B5622A]"
                 />
                 <button onClick={sendChat} disabled={chatLoading || !input.trim()}
                   className="w-9 h-9 flex items-center justify-center bg-[#B5622A] rounded-xl hover:bg-[#9A4E20] disabled:opacity-40 transition-colors">
                   <Send size={13} className="text-white" />
                 </button>
               </div>
-              <p className="text-[9px] text-[#3A3A3A] mt-1.5 text-center">GPT-4.1 for all analysis · multi-asset</p>
+              <p className="text-[9px] text-[#525252] mt-1.5 text-center">GPT-4.1 for all analysis · multi-asset</p>
             </div>
           </div>
         )}

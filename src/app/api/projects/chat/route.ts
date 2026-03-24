@@ -711,6 +711,7 @@ PROJECT RULES FOR BEHAVIOR:
 - If the user asks only for generated content (for example: "write", "draft", "generate copy") and does not explicitly ask to save/create a project document, return plain content with NO action block.
 - Read-only analysis, summaries, and recommendations do not need action blocks.
 - Never say "done" unless the write has actually been executed by the app after approval.
+- CRITICAL: ALWAYS write at least one sentence of explanation before any [BUDDIES_ACTION] block. Never open a response with a bare action block — the user needs context first. Explain what you are proposing and why, then place the action block(s) at the end of your response.
 
 ACTION BLOCK FORMAT:
 [BUDDIES_ACTION]
@@ -851,6 +852,17 @@ ${referentialNote}`;
     }
 
     reply = normalizeAllActionBlocks(reply);
+
+    // Guard: if reply starts directly with an action block (no explanation text before it),
+    // prepend a minimal intro so the chat bubble is never blank above the action card.
+    {
+      const plainBefore = stripAllActionBlocks(reply).trim();
+      if (!plainBefore && reply.includes(ACTION_OPEN)) {
+        const firstAction = extractFirstActionFromReply(reply);
+        const desc = firstAction?.description ?? "Proposed action";
+        reply = `Here's what I'd like to do — ${desc}:\n\n${reply.trimStart()}`;
+      }
+    }
 
     if (isContentOnlyDraftRequest(effectiveMessage)) {
       // Hard guard: content-only drafting requests must never surface action blocks.

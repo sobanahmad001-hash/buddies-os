@@ -129,7 +129,7 @@ export default function ClientProfile() {
   return (
     <div className="flex-1 overflow-auto bg-[#F7F5F2]">
       {/* Header */}
-      <div className="bg-[#0F0F0F] text-white px-8 py-6">
+      <div className="bg-[#0F0F0F] text-white px-4 md:px-8 py-4 md:py-6">
         <div className="max-w-[1000px] mx-auto">
           <button onClick={() => router.push("/app/clients")}
             className="flex items-center gap-1.5 text-white/40 hover:text-white text-xs mb-4 transition-colors">
@@ -166,7 +166,7 @@ export default function ClientProfile() {
         </div>
       </div>
 
-      <div className="px-8 py-6 max-w-[1000px] mx-auto">
+      <div className="px-4 md:px-8 py-4 md:py-6 max-w-[1000px] mx-auto">
         {/* Tabs */}
         <div className="flex gap-1 mb-6 bg-white border border-[#E5E2DE] p-1 rounded-xl w-fit">
           {TABS.map(t => (
@@ -271,7 +271,7 @@ export default function ClientProfile() {
           <div>
             {/* Add row */}
             <div className="bg-white rounded-2xl border border-[#E5E2DE] p-4 mb-4">
-              <div className="grid grid-cols-3 gap-2 mb-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-2">
                 <input value={newKw.page_name}
                   onChange={e => setNewKw(p => ({ ...p, page_name: e.target.value }))}
                   placeholder="Page name (e.g. Home)"

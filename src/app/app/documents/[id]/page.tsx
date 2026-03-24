@@ -171,7 +171,7 @@ export default function DocumentEditorPage() {
             onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); generateWithAI(); } }}
             placeholder='Describe what to write, e.g. "Introduction paragraph about our design process"'
             rows={2}
-            className="flex-1 text-sm px-3 py-2 bg-white border border-[#FDDACB] rounded-lg focus:outline-none focus:border-[#B5622A] resize-none"
+            className="flex-1 text-sm px-3 py-2 bg-white text-[#1A1A1A] border border-[#FDDACB] rounded-lg focus:outline-none focus:border-[#B5622A] placeholder:text-[#B0ADA9] resize-none"
           />
           <button
             onClick={generateWithAI}

@@ -85,7 +85,7 @@ export default function IntegrationsPage() {
 
         {showAdd && (
           <div className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl p-5 mb-6">
-            <div className="grid grid-cols-2 gap-3 mb-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
               <div>
                 <label className="text-[10px] font-bold text-[#737373] uppercase tracking-wider block mb-1">Type</label>
                 <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}
@@ -100,14 +100,14 @@ export default function IntegrationsPage() {
               <div>
                 <label className="text-[10px] font-bold text-[#737373] uppercase tracking-wider block mb-1">Name</label>
                 <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
-                  placeholder="e.g. buddies-os repo" className="w-full text-sm px-3 py-2 border border-[#2D2D2D] rounded-lg" />
+                  placeholder="e.g. buddies-os repo" className="w-full text-sm px-3 py-2 bg-[#0D0D0D] border border-[#2D2D2D] rounded-lg text-[#C8C5C0] placeholder:text-[#525252] focus:outline-none focus:border-[#B5622A]" />
               </div>
             </div>
             <div className="mb-3">
               <label className="text-[10px] font-bold text-[#737373] uppercase tracking-wider block mb-1">Config (JSON or key=value)</label>
               <textarea value={form.config} onChange={e => setForm({ ...form, config: e.target.value })}
                 rows={3} placeholder='{"org_or_user":"myorg","repo_url":"https://github.com/org/repo","access_token":"ghp_..."}'
-                className="w-full text-sm px-3 py-2 border border-[#2D2D2D] rounded-lg font-mono text-xs resize-none" />
+                className="w-full text-sm px-3 py-2 bg-[#0D0D0D] border border-[#2D2D2D] rounded-lg font-mono text-xs text-[#C8C5C0] placeholder:text-[#525252] resize-none focus:outline-none focus:border-[#B5622A]" />
             </div>
             <div className="flex gap-2">
               <button onClick={handleAdd} disabled={saving}

@@ -330,6 +330,17 @@ OPERATING RULES:
 - For project write actions from Main AI (e.g., add task/update), if no project is explicitly mentioned, ask a single short follow-up question to select the target project.
 - Only use deep project context when the user explicitly names a project.
 
+ACTION PROPOSALS (write operations):
+When the user explicitly asks to CREATE or COMPLETE a task, project, or decision, propose it using a [BUDDIES_ACTION] block at the end of your response. Always write a brief sentence of context first — never open with a bare action block. The user must approve before anything is saved. Never claim the action already happened.
+[BUDDIES_ACTION]
+{ "type": "app.create_task" | "app.create_project" | "app.complete_task" | "app.create_decision", "description": "brief human explanation", "warning": null, "params": { ... } }
+[/BUDDIES_ACTION]
+- app.create_task params: { title, project_id (omit if unclear), priority (1-4, default 3), due_date (optional) }
+- app.create_project params: { name, description (optional) }
+- app.complete_task params: { task_id, title }
+- app.create_decision params: { context, verdict (optional) }
+Read-only questions, analysis, and advice never need action blocks.
+
 ${sections.join('\n\n')}`;
 }
 

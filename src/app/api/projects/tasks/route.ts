@@ -30,12 +30,13 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const body = await req.json();
-  const { project_id, title, description, priority, due_date, source_message_id } = body;
+  const { project_id, title, description, priority, due_date, source_message_id, assigned_to } = body;
   if (!project_id || !title) return NextResponse.json({ error: "project_id and title required" }, { status: 400 });
 
   const { data, error } = await supabase.from("project_tasks").insert({
     user_id: user.id, project_id, title, description, priority: priority ?? 2,
     due_date: due_date ?? null, source_message_id: source_message_id ?? null,
+    assigned_to: assigned_to ?? null,
   }).select().single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

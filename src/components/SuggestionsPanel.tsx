@@ -70,7 +70,7 @@ export default function SuggestionsPanel() {
       <div className="flex items-center justify-between mb-2.5 px-0.5">
         <div className="flex items-center gap-1.5">
           <Sparkles className="w-3.5 h-3.5 text-[#B5622A]" />
-          <span className="text-[11px] font-bold text-[#3A3A3A] uppercase tracking-widest">
+          <span className="text-[11px] font-bold text-[#525252] uppercase tracking-widest">
             Suggestions{visible.length > 0 ? ` (${visible.length})` : ''}
           </span>
         </div>

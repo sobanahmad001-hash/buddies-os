@@ -684,15 +684,11 @@ export default function ProjectAssistantPage() {
   return (
     <div className="flex flex-col h-full bg-[#0D0D0D]">
 
-      {/* Header */}
-      <div className="flex flex-col gap-2 px-3 sm:px-5 py-3 bg-[#1A1A1A] border-b border-[#2D2D2D] shrink-0">
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="w-7 h-7 rounded-lg bg-[#0F0F0F] flex items-center justify-center text-[14px]">🤖</div>
-          <span className="text-[14px] font-semibold text-[#C8C5C0] truncate">Project Assistant</span>
-          <span className="hidden sm:inline-flex text-[11px] text-[#737373] bg-[#111111] px-2 py-0.5 rounded-full border border-[#2D2D2D]">Scoped to this project</span>
-          <span className="hidden sm:inline-flex text-[11px] text-[#737373] bg-[#111111] px-2 py-0.5 rounded-full border border-[#2D2D2D]">{provider} · {model || 'default'}</span>
-        </div>
-        <div className="flex items-center gap-2 overflow-x-auto">
+      {/* Header — single compact row on mobile */}
+      <div className="flex items-center gap-2 px-3 py-2 bg-[#1A1A1A] border-b border-[#2D2D2D] shrink-0 min-w-0">
+        <div className="w-6 h-6 rounded-lg bg-[#0F0F0F] flex items-center justify-center text-[12px] shrink-0">🤖</div>
+        <span className="text-[13px] font-semibold text-[#C8C5C0] truncate hidden sm:block flex-1">Project Assistant</span>
+        <div className="flex items-center gap-1.5 ml-auto shrink-0">
           <select
             value={provider}
             onChange={(e) => {
@@ -703,50 +699,46 @@ export default function ProjectAssistantPage() {
               setModel(defaultModel);
               localStorage.setItem('buddies-ai-model', defaultModel);
             }}
-            className="shrink-0 text-[12px] px-2 py-1.5 rounded-lg border border-[#2D2D2D] bg-[#1A1A1A] text-[#C8C5C0]"
+            className="text-[11px] px-1.5 py-1 rounded-lg border border-[#2D2D2D] bg-[#111111] text-[#C8C5C0]"
           >
             <option value="anthropic">Claude</option>
             <option value="openai">OpenAI</option>
             <option value="xai">Grok</option>
           </select>
-
           <select
             value={model}
             onChange={(e) => {
               setModel(e.target.value);
               localStorage.setItem('buddies-ai-model', e.target.value);
             }}
-            className="shrink-0 text-[12px] px-2 py-1.5 rounded-lg border border-[#2D2D2D] bg-[#1A1A1A] text-[#C8C5C0]"
+            className="text-[11px] px-1.5 py-1 rounded-lg border border-[#2D2D2D] bg-[#111111] text-[#C8C5C0] max-w-[110px]"
           >
             {providerModels[provider].map((m) => (
               <option key={m.value} value={m.value}>{m.label}</option>
             ))}
           </select>
-
-          <button onClick={clearHistory}
-          disabled={!activeSession}
-
-          className="shrink-0 flex items-center gap-1.5 text-[12px] text-[#737373] hover:text-[#EF4444] transition-colors px-2 py-1 rounded-lg hover:bg-[#FEF2F2] disabled:opacity-40">
-          <Trash2 size={13} /> <span className="hidden sm:inline">Clear history</span>
-        </button>
+          <button onClick={clearHistory} disabled={!activeSession}
+            className="flex items-center justify-center w-7 h-7 text-[#737373] hover:text-[#EF4444] transition-colors rounded-lg hover:bg-[#1E1E1E] disabled:opacity-40">
+            <Trash2 size={13} />
+          </button>
         </div>
       </div>
 
-      {/* Chat submenu */}
-      <div className="px-3 sm:px-5 py-2 bg-[#1A1A1A] border-b border-[#EDE9E4] shrink-0">
-        <div className="flex items-center gap-2 overflow-x-auto">
+      {/* Chat submenu — sessions */}
+      <div className="px-3 py-1.5 bg-[#1A1A1A] border-b border-[#2D2D2D] shrink-0">
+        <div className="flex items-center gap-1.5 overflow-x-auto">
           <button
             onClick={startNewChat}
-            className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#B5622A] text-white text-[12px] font-semibold hover:bg-[#9A4E20] transition-colors"
+            className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#B5622A] text-white text-[11px] font-semibold hover:bg-[#9A4E20] transition-colors"
           >
-            <Plus size={13} /> New chat
+            <Plus size={11} /> New
           </button>
 
           {sessions.map((session) => (
             <button
               key={session.id}
               onClick={() => openSession(session)}
-              className={`shrink-0 px-3 py-1.5 rounded-lg text-[12px] border transition-colors max-w-[220px] truncate ${
+              className={`shrink-0 px-2.5 py-1 rounded-lg text-[11px] border transition-colors max-w-[160px] truncate ${
                 activeSession?.id === session.id
                   ? 'bg-[#0F0F0F] text-white border-[#0F0F0F]'
                   : 'bg-[#111111] text-[#A8A5A0] border-[#2D2D2D] hover:bg-[#1E1E1E]'
@@ -773,7 +765,7 @@ export default function ProjectAssistantPage() {
               <p className="text-[14px] text-[#737373] mb-8 max-w-[380px]">
                 Scoped to this project — asks about tasks, decisions, rules, research, and your connected GitHub & Supabase.
               </p>
-              <div className="grid grid-cols-2 gap-3 w-full max-w-[560px]">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-[560px]">
                 {suggestions.map(s => (
                   <button key={s} onClick={() => send(s)}
                     className="text-left text-[13px] text-[#737373] bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl px-4 py-4 hover:border-[#B5622A] hover:text-[#C8C5C0] hover:shadow-sm transition-all">
@@ -880,11 +872,36 @@ export default function ProjectAssistantPage() {
                               action={act}
                               projectId={projectId}
                               sessionId={activeSession?.id ?? null}
-                              onExecuted={async (_result) => {
-                                // Refresh session sidebar, then invalidate the router cache so
-                                // the /tasks page reloads fresh on next navigation (Bug 1).
+                              onExecuted={async (result) => {
+                                // Refresh session sidebar + invalidate router cache
                                 await loadSessions();
                                 router.refresh();
+
+                                // Inject a confirmation + follow-up prompt into the chat
+                                let confirmMsg: string | null = null;
+                                if (result.ok) {
+                                  if (result.entity_type === 'task' && result.data?.title) {
+                                    confirmMsg = `✅ Task **"${result.data.title}"** has been created.\n\nHow would you like to proceed — shall I help break this down further, assign it, set a due date, or move on to something else?`;
+                                  } else if (result.entity_type === 'decision' && result.data?.title) {
+                                    confirmMsg = `✅ Decision **"${result.data.title}"** has been logged.\n\nAnything else to capture, or shall we move on?`;
+                                  } else if (result.entity_type === 'rule') {
+                                    confirmMsg = `✅ Rule added to the project constraints.\n\nAnything else to set up, or shall we move on?`;
+                                  } else if (result.entity_type === 'research') {
+                                    confirmMsg = `✅ Research note saved.\n\nWould you like to turn this into tasks, or continue exploring?`;
+                                  } else if (result.entity_type === 'document' && result.data?.title) {
+                                    confirmMsg = `✅ Document **"${result.data.title}"** created.\n\nWould you like to refine it, share it, or move on to something else?`;
+                                  } else {
+                                    confirmMsg = `✅ Done — ${result.message || 'Action completed'}. How would you like to proceed?`;
+                                  }
+                                }
+
+                                if (confirmMsg) {
+                                  setMessages(prev => [...prev, {
+                                    role: 'assistant',
+                                    content: confirmMsg!,
+                                    ts: new Date().toISOString(),
+                                  }]);
+                                }
                               }}
                             />
                           ))}

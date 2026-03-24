@@ -46,7 +46,7 @@ export default function ProjectsPage() {
 
   return (
     <div className="flex-1 overflow-auto">
-      <div className="p-8 max-w-[900px]">
+      <div className="p-4 md:p-8 max-w-[900px]">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-[20px] font-semibold text-[#C8C5C0]">Projects</h1>

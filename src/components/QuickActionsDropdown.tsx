@@ -120,7 +120,7 @@ export default function QuickActionsDropdown({ onSelectAction }: QuickActionsDro
             </div>
 
             <div className="px-4 py-2.5 border-t border-[#1E1E1E] bg-[#0A0A0A]">
-              <p className="text-[10px] text-[#3A3A3A]">
+              <p className="text-[10px] text-[#525252]">
                 Buddies can also extract these naturally from plain language
               </p>
             </div>

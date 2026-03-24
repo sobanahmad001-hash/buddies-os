@@ -84,6 +84,42 @@ function extractActionBlock(content: string): ActionRequest | null {
   }
 }
 
+/** Extract every [BUDDIES_ACTION] block from a message (handles multi-task responses). */
+function extractAllActionBlocks(content: string): ActionRequest[] {
+  const open = "[BUDDIES_ACTION]";
+  const close = "[/BUDDIES_ACTION]";
+  const blocks: ActionRequest[] = [];
+  let remaining = content;
+  let safetyCount = 0;
+
+  while (remaining.includes(open) && safetyCount < 10) {
+    const start = remaining.indexOf(open);
+    const afterOpen = remaining.slice(start + open.length);
+    const closeIdx = afterOpen.indexOf(close);
+    const raw = (closeIdx === -1 ? afterOpen : afterOpen.slice(0, closeIdx)).trim();
+
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed?.type && parsed?.params) blocks.push(parsed as ActionRequest);
+    } catch {
+      const candidate = extractFirstJsonObject(raw);
+      if (candidate) {
+        try {
+          const parsed = JSON.parse(candidate);
+          if (parsed?.type && parsed?.params) blocks.push(parsed as ActionRequest);
+        } catch {}
+      }
+    }
+
+    remaining = closeIdx === -1
+      ? remaining.slice(start + open.length)
+      : remaining.slice(start + open.length + closeIdx + close.length);
+    safetyCount++;
+  }
+
+  return blocks;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const cookieStore = await cookies();
@@ -151,19 +187,20 @@ export async function POST(req: NextRequest) {
       const content = String(m.content ?? "");
       if (!content.includes("[BUDDIES_ACTION]")) return false;
 
-      const block = extractActionBlock(content);
-      if (!block) return false;
-
-      const blockFingerprint =
-        block.params?._fingerprint ||
-        createActionFingerprint(
-          block.type,
-          Object.fromEntries(
-            Object.entries(block.params || {}).filter(([k]) => k !== "_fingerprint")
-          )
-        );
-
-      return String(blockFingerprint) === String(fingerprint);
+      // Check ALL blocks in the message — multi-task responses store several blocks
+      // in a single assistant message; only checking the first caused tasks 2-N to 409.
+      const blocks = extractAllActionBlocks(content);
+      return blocks.some(block => {
+        const blockFingerprint =
+          block.params?._fingerprint ||
+          createActionFingerprint(
+            block.type,
+            Object.fromEntries(
+              Object.entries(block.params || {}).filter(([k]) => k !== "_fingerprint")
+            )
+          );
+        return String(blockFingerprint) === String(fingerprint);
+      });
     });
 
     if (!matchedProposal) {

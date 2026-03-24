@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Send, Plus, Trash2, ExternalLink, Check, Copy,
-  FolderKanban, Globe, ChevronDown, ChevronUp, X,
+  FolderKanban, Globe, ChevronDown, ChevronUp, X, Menu,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -158,6 +158,7 @@ export default function ResearchPage() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [showProjectPicker, setShowProjectPicker] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -275,8 +276,17 @@ export default function ResearchPage() {
   return (
     <div className="flex h-full bg-[#0D0D0D] overflow-hidden">
 
+      {/* Mobile sidebar overlay */}
+      {mobileSidebarOpen && (
+        <div className="md:hidden fixed inset-0 bg-black/60 z-30" onClick={() => setMobileSidebarOpen(false)} />
+      )}
+
       {/* Session sidebar */}
-      <div className="w-[220px] shrink-0 flex flex-col border-r border-[#2D2D2D] bg-[#1A1A1A]">
+      <div className={`${
+        mobileSidebarOpen
+          ? "fixed left-0 top-0 h-full z-40 flex"
+          : "hidden md:flex"
+      } w-[220px] shrink-0 flex-col border-r border-[#2D2D2D] bg-[#1A1A1A]`}>
         <div className="px-4 py-4 border-b border-[#2D2D2D]">
           <button onClick={startNew}
             className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-[#B5622A] text-white text-[12px] font-semibold hover:bg-[#9A4E20] transition-colors">
@@ -309,27 +319,35 @@ export default function ResearchPage() {
       <div className="flex-1 flex flex-col overflow-hidden">
 
         {/* Header — project selector */}
-        <div className="px-6 py-3 bg-[#1A1A1A] border-b border-[#2D2D2D] shrink-0">
-          <div className="flex items-center gap-3 max-w-[800px]">
-            <div className="flex items-center gap-1.5">
-              <Globe size={14} className="text-[#B5622A]" />
+        <div className="px-3 md:px-6 py-2 md:py-3 bg-[#1A1A1A] border-b border-[#2D2D2D] shrink-0">
+          <div className="flex items-center gap-2 max-w-[800px]">
+            <button
+              onClick={() => setMobileSidebarOpen(v => !v)}
+              className="md:hidden flex items-center justify-center w-7 h-7 rounded-lg hover:bg-[#2D2D2D] text-[#737373] transition-colors shrink-0">
+              <Menu size={15} />
+            </button>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Globe size={13} className="text-[#B5622A] shrink-0" />
               <span className="text-[13px] font-semibold text-[#C8C5C0]">Research</span>
-              <span className="text-[11px] text-[#737373] ml-1">· Live web search · Cited sources</span>
+              <span className="hidden sm:inline text-[11px] text-[#737373] ml-1">· Live web search · Cited sources</span>
             </div>
 
-            <div className="ml-auto flex items-center gap-2 flex-wrap">
-              {selectedProjects.map(p => (
-                <div key={p.id} className="flex items-center gap-1 px-2.5 py-1 bg-[#B5622A15] border border-[#B5622A30] rounded-full text-[11px] font-medium text-[#B5622A]">
-                  <FolderKanban size={9} /> {p.name}
+            <div className="ml-auto flex items-center gap-1.5 shrink-0">
+              {selectedProjects.slice(0, 1).map(p => (
+                <div key={p.id} className="hidden sm:flex items-center gap-1 px-2 py-0.5 bg-[#B5622A15] border border-[#B5622A30] rounded-full text-[11px] font-medium text-[#B5622A]">
+                  <FolderKanban size={9} /> <span className="truncate max-w-[80px]">{p.name}</span>
                   <button onClick={() => toggleProject(p.id)} className="ml-0.5 hover:text-red-500 transition-colors"><X size={9} /></button>
                 </div>
               ))}
+              {selectedProjects.length > 1 && (
+                <span className="hidden sm:inline text-[10px] text-[#B5622A] font-medium">+{selectedProjects.length - 1}</span>
+              )}
 
               <div className="relative">
                 <button onClick={() => setShowProjectPicker(v => !v)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#2D2D2D] bg-[#1A1A1A] text-[11px] text-[#737373] hover:border-[#B5622A] hover:text-[#C8C5C0] transition-colors">
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg border border-[#2D2D2D] bg-[#111111] text-[11px] text-[#737373] hover:border-[#B5622A] hover:text-[#C8C5C0] transition-colors">
                   <FolderKanban size={11} />
-                  {selectedProjectIds.length === 0 ? "Link projects" : `+${projects.length - selectedProjects.length} more`}
+                  <span className="hidden sm:inline">{selectedProjectIds.length === 0 ? "Link" : `${selectedProjectIds.length} linked`}</span>
                   <ChevronDown size={10} />
                 </button>
                 {showProjectPicker && (
@@ -378,7 +396,7 @@ export default function ResearchPage() {
                     ))}
                   </div>
                 )}
-                <div className="grid grid-cols-2 gap-3 max-w-[600px] mx-auto mt-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-[600px] mx-auto mt-6">
                   {STARTERS.map(s => (
                     <button key={s} onClick={() => { setInput(s); setTimeout(() => textareaRef.current?.focus(), 0); }}
                       className="text-left text-[12px] text-[#737373] bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl px-4 py-3 hover:border-[#B5622A] hover:text-[#C8C5C0] hover:shadow-sm transition-all leading-relaxed">

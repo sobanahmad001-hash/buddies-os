@@ -8,6 +8,35 @@ import { supabase } from "@/lib/supabaseClient";
 import VoiceInputButton from "@/components/VoiceInputButton";
 import FileUpload from "@/components/FileUpload";
 import WebSearchButton from "@/components/WebSearchButton";
+import ApprovalModal, { type PendingAction } from "@/components/ApprovalModal";
+
+// ── Action-block helpers (global AI) ─────────────────────────────────────────
+const AI_ACTION_OPEN = "[BUDDIES_ACTION]";
+const AI_ACTION_CLOSE = "[/BUDDIES_ACTION]";
+
+function parseGlobalActionBlock(text: string): PendingAction | null {
+  const start = text.indexOf(AI_ACTION_OPEN);
+  if (start === -1) return null;
+  const afterOpen = text.slice(start + AI_ACTION_OPEN.length);
+  const closeIdx = afterOpen.indexOf(AI_ACTION_CLOSE);
+  const raw = (closeIdx === -1 ? afterOpen : afterOpen.slice(0, closeIdx)).trim();
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed?.type || !parsed?.params) return null;
+    return { type: parsed.type, description: parsed.description ?? parsed.type, warning: parsed.warning ?? null, params: parsed.params };
+  } catch { return null; }
+}
+
+function stripGlobalActionBlocks(text: string): string {
+  let result = text;
+  while (true) {
+    const s = result.indexOf(AI_ACTION_OPEN);
+    if (s === -1) break;
+    const close = result.indexOf(AI_ACTION_CLOSE, s + AI_ACTION_OPEN.length);
+    result = close === -1 ? result.slice(0, s) : result.slice(0, s) + result.slice(close + AI_ACTION_CLOSE.length);
+  }
+  return result.trim();
+}
 
 // ── Markdown renderer ─────────────────────────────────────────────────────────
 function renderMarkdown(text: string): React.ReactNode[] {
@@ -134,8 +163,7 @@ export default function AIPage() {
   const [sessionSummary, setSessionSummary] = useState("");
   const [projects, setProjects] = useState<Array<{ id: string; name: string }>>([]);
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
-  const [showProjectPicker, setShowProjectPicker] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const [showProjectPicker, setShowProjectPicker] = useState(false);  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);  const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -143,6 +171,9 @@ export default function AIPage() {
 
   useEffect(() => { loadSessions(); }, []);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 768) setSidebarOpen(false);
+  }, []);
 
   useEffect(() => {
     supabase
@@ -329,9 +360,14 @@ export default function AIPage() {
       const payload = await res.json();
       const rawText = payload?.response || payload?.reply || "";
 
+      // Parse + strip any action block from the AI response
+      const parsedAction = parseGlobalActionBlock(rawText);
+      const displayText = parsedAction ? stripGlobalActionBlocks(rawText) : rawText;
+      if (parsedAction) setPendingAction(parsedAction);
+
       const assistantMsg: Message = {
         role: "assistant",
-        content: rawText || "No response returned.",
+        content: displayText || "No response returned.",
         ts: new Date().toISOString(),
         webSearchUsed: Boolean(payload?.webSearchUsed),
       };
@@ -400,7 +436,7 @@ export default function AIPage() {
             if (!items.length) return null;
             return (
               <div key={group} className="mb-4">
-                <div className="px-4 py-1.5 text-[10px] font-bold text-[#3A3A3A] uppercase tracking-widest">{group}</div>
+                <div className="px-4 py-1.5 text-[10px] font-bold text-[#525252] uppercase tracking-widest">{group}</div>
                 {items.map(s => (
                   <div key={s.id} onClick={() => openSession(s)}
                     className={`group relative mx-2 mb-1 px-3 py-2.5 rounded-lg cursor-pointer transition-all
@@ -418,7 +454,7 @@ export default function AIPage() {
               </div>
             );
           })}
-          {sessions.length === 0 && <div className="px-4 py-12 text-center text-[#3A3A3A] text-[11px]">No chats yet</div>}
+          {sessions.length === 0 && <div className="px-4 py-12 text-center text-[#525252] text-[11px]">No chats yet</div>}
         </div>
       </div>
 
@@ -426,29 +462,28 @@ export default function AIPage() {
       <div className="flex flex-col flex-1 overflow-hidden">
 
         {/* Header — clean */}
-        <div className="flex items-center justify-between px-4 py-3 bg-[#1A1A1A] border-b border-[#2D2D2D] shrink-0">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between px-3 md:px-4 py-2 md:py-3 bg-[#1A1A1A] border-b border-[#2D2D2D] shrink-0 gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             {/* Hamburger */}
             <button onClick={() => setSidebarOpen(v => !v)}
-              className="flex flex-col justify-center items-center w-8 h-8 gap-1.5 text-[#737373] hover:text-[#C8C5C0] rounded-lg hover:bg-[#1E1E1E] transition-colors">
-              <span className="w-4 h-0.5 bg-current rounded-full" />
-              <span className="w-4 h-0.5 bg-current rounded-full" />
-              <span className="w-4 h-0.5 bg-current rounded-full" />
+              className="flex flex-col justify-center items-center w-7 h-7 md:w-8 md:h-8 gap-1.5 text-[#737373] hover:text-[#C8C5C0] rounded-lg hover:bg-[#1E1E1E] transition-colors shrink-0">
+              <span className="w-3.5 h-0.5 bg-current rounded-full" />
+              <span className="w-3.5 h-0.5 bg-current rounded-full" />
+              <span className="w-3.5 h-0.5 bg-current rounded-full" />
             </button>
-            <span className="text-[15px] font-semibold text-[#C8C5C0]">
+            <span className="text-[13px] md:text-[15px] font-semibold text-[#C8C5C0] truncate min-w-0">
               {activeSession?.title ?? "Buddies AI"}
             </span>
           </div>
 
           {/* Model selector */}
-          <div className="relative">
+          <div className="relative shrink-0">
             <button onClick={() => setModelOpen(!modelOpen)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#1A1A1A] text-white text-[11px] font-medium hover:bg-[#1A1A1A] transition-colors">
-              <div className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
-              <span className="capitalize">{selectedProvider}</span>
-              <span className="text-white/40">·</span>
-              <span className="truncate max-w-[120px]">{selectedModel}</span>
-              <ChevronDown size={11} />
+              className="flex items-center gap-1.5 px-2 md:px-3 py-1.5 rounded-full bg-[#1E1E1E] border border-[#2D2D2D] text-white text-[10px] md:text-[11px] font-medium hover:bg-[#2D2D2D] transition-colors">
+              <div className="w-1.5 h-1.5 rounded-full bg-[#10B981] shrink-0" />
+              <span className="hidden sm:inline capitalize">{selectedProvider} · </span>
+              <span className="truncate max-w-[80px] md:max-w-[120px]">{selectedModel.replace('claude-','').replace('gpt-','').replace('grok-','')}</span>
+              <ChevronDown size={10} />
             </button>
 
             {modelOpen && (
@@ -686,7 +721,7 @@ export default function AIPage() {
                 <textarea ref={textareaRef} value={input} onChange={autoResize} onKeyDown={handleKey}
                   placeholder="Ask anything, mention a project by name for deep context..."
                   rows={2}
-                  className="flex-1 bg-transparent text-[15px] text-[#C8C5C0] placeholder-[#3A3A3A] resize-none focus:outline-none leading-relaxed"
+                  className="flex-1 bg-transparent text-[15px] text-[#C8C5C0] placeholder:text-[#525252] resize-none focus:outline-none leading-relaxed"
                   style={{ maxHeight: "180px", minHeight: "52px" }} />
                 {input.length > 8000 && (
                   <span className={`text-[10px] font-mono shrink-0 self-end mb-1 ${input.length > MAX_CHARS ? "text-red-500" : "text-amber-500"}`}>
@@ -709,6 +744,30 @@ export default function AIPage() {
           </div>
         </div>
       </div>
+
+      {/* Action approval modal — shown when AI proposes a write action */}
+      {pendingAction && (
+        <ApprovalModal
+          action={pendingAction}
+          onApprove={async () => {
+            const res = await fetch("/api/ai/execute", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ type: pendingAction.type, params: pendingAction.params }),
+            });
+            const data = await res.json();
+            if (!res.ok || !data?.success) throw new Error(data?.error || "Action failed");
+            const confirmMsg: Message = {
+              role: "assistant",
+              content: `${data.result || "✅ Done."}\n\nHow would you like to proceed?`,
+              ts: new Date().toISOString(),
+            };
+            setMessages(prev => [...prev, confirmMsg]);
+            setPendingAction(null);
+          }}
+          onDeny={() => setPendingAction(null)}
+        />
+      )}
     </div>
   );
 }
