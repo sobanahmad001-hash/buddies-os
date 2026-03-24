@@ -73,8 +73,8 @@ export async function getAccountState(
 }
 
 /** Fetch live account info (balance, equity, margin, etc.) from MT5 via MetaAPI.
- *  MetaAPI client API is regional — we resolve the correct regional URL from the
- *  provisioning API before making the data request. */
+ *  Tries the regional URL first (resolved from provisioning API), then falls
+ *  back to the global load-balanced URL, so mismatched regions don't silently fail. */
 export async function getLiveAccountInfo(
   token: string,
   metaapiAccountId: string
@@ -97,20 +97,26 @@ export async function getLiveAccountInfo(
     return { _error: `Provisioning API ${accountRes.status}: ${await accountRes.text().catch(() => "")}` };
   }
   const accountData = await accountRes.json();
-  const region: string = accountData.region ?? "vint-hill";
+  const region: string | undefined = accountData.region;
 
-  // Step 2: use the correct regional client API URL
-  const regionalClientApi = `https://mt-client-api-v1.${region}.agiliumtrade.ai`;
+  // Step 2: build candidate URLs — regional first, global as fallback
+  const candidates: string[] = [];
+  if (region) candidates.push(`https://mt-client-api-v1.${region}.agiliumtrade.ai`);
+  candidates.push(CLIENT_API); // global load-balancer fallback
 
-  const res = await fetch(
-    `${regionalClientApi}/users/current/accounts/${metaapiAccountId}/account-information`,
-    {
-      headers: { "auth-token": token },
-      signal: AbortSignal.timeout(15000),
+  let lastError = "";
+  for (const base of candidates) {
+    try {
+      const res = await fetch(
+        `${base}/users/current/accounts/${metaapiAccountId}/account-information`,
+        { headers: { "auth-token": token }, signal: AbortSignal.timeout(15000) }
+      );
+      if (res.ok) return res.json();
+      const body = await res.text().catch(() => "");
+      lastError = `[${base.includes(region ?? "___") ? region : "global"}] ${res.status}: ${body}`;
+    } catch (e: any) {
+      lastError = e.message ?? "fetch failed";
     }
-  );
-  if (!res.ok) {
-    return { _error: `Client API [${region}] ${res.status}: ${await res.text().catch(() => "")}` };
   }
-  return res.json();
+  return { _error: lastError };
 }

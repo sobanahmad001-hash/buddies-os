@@ -311,6 +311,7 @@ export default function TradingPage() {
   const [metaApiForm, setMetaApiForm] = useState({ token: "", login: "", password: "", server: "Exness-MT5Trial4" });
   const [showMetaApiForm, setShowMetaApiForm] = useState(false);
   const [syncingAccount, setSyncingAccount] = useState<string | null>(null);
+  const [syncErrors, setSyncErrors] = useState<Record<string, string>>({});
   const [connectError, setConnectError] = useState("");
   const [showSymbolSearch, setShowSymbolSearch] = useState(false);
   const [symbolQuery, setSymbolQuery] = useState("");
@@ -432,6 +433,7 @@ export default function TradingPage() {
 
   async function syncMetaApi(accountId: string) {
     setSyncingAccount(accountId);
+    setSyncErrors(p => ({ ...p, [accountId]: "" }));
     try {
       const res = await fetch("/api/trading/metaapi", {
         method: "POST",
@@ -439,8 +441,14 @@ export default function TradingPage() {
         body: JSON.stringify({ action: "sync", account_id: accountId }),
       });
       const data = await res.json();
-      if (!data.error) await loadAccounts();
-    } catch {}
+      if (data.error) {
+        setSyncErrors(p => ({ ...p, [accountId]: data.error }));
+      } else {
+        await loadAccounts();
+      }
+    } catch (e: any) {
+      setSyncErrors(p => ({ ...p, [accountId]: e.message ?? "Network error" }));
+    }
     setSyncingAccount(null);
   }
 
@@ -737,7 +745,12 @@ export default function TradingPage() {
                   {syncingAccount === acc.id ? "Syncing..." : "Sync Live"}
                 </button>
               )}
-              {acc.last_synced_at && acc.metaapi_account_id && (
+              {syncErrors[acc.id] && (
+                <p className="text-[8px] text-red-400 bg-red-400/10 rounded px-1.5 py-1 mt-1 break-all">
+                  {syncErrors[acc.id]}
+                </p>
+              )}
+              {acc.last_synced_at && acc.metaapi_account_id && !syncErrors[acc.id] && (
                 <p className="text-[8px] text-[#525252] mt-0.5 text-center">
                   {new Date(acc.last_synced_at).toLocaleTimeString()}
                 </p>
