@@ -11,6 +11,7 @@ import {
   FlaskConical,
   FileText,
   Terminal,
+  Layers,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 
@@ -20,6 +21,7 @@ const BASE_TABS = [
   { label: 'Overview',  suffix: '',            icon: LayoutGrid  },
   { label: 'Assistant', suffix: '/assistant',  icon: Bot         },
   { label: 'Work',      suffix: '/tasks',      icon: CheckSquare },
+  { label: 'Plan',      suffix: '/plan',       icon: Layers      },
   { label: 'Research',  suffix: '/research',   icon: FlaskConical},
   { label: 'Documents', suffix: '/documents',  icon: FileText    },
 ];
