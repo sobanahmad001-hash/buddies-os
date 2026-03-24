@@ -120,3 +120,52 @@ export async function getLiveAccountInfo(
   }
   return { _error: lastError };
 }
+
+/** Place a market order on MT5 via MetaAPI.
+ *  symbol must be the exact MT5 broker symbol name, e.g. "XAUUSDm" for Exness gold.
+ *  Tries the regional URL first, then falls back to the global load-balancer. */
+export async function placeOrder(
+  token: string,
+  metaapiAccountId: string,
+  actionType: "ORDER_TYPE_BUY" | "ORDER_TYPE_SELL",
+  symbol: string,
+  volume: number,
+  stopLoss: number,
+  takeProfit: number,
+  comment = "buddies-os"
+): Promise<{ orderId: string; positionId?: string; stringCode: string } | { _error: string }> {
+  // Resolve regional URL (same pattern as getLiveAccountInfo)
+  const accountRes = await fetch(
+    `${PROVISIONING_API}/users/current/accounts/${metaapiAccountId}`,
+    { headers: { "auth-token": token }, signal: AbortSignal.timeout(8000) }
+  );
+  if (!accountRes.ok) {
+    return { _error: `Provisioning API ${accountRes.status}: ${await accountRes.text().catch(() => "")}` };
+  }
+  const accountData = await accountRes.json();
+  const region: string | undefined = accountData.region;
+
+  const candidates: string[] = [];
+  if (region) candidates.push(`https://mt-client-api-v1.${region}.agiliumtrade.ai`);
+  candidates.push(CLIENT_API);
+
+  let lastError = "";
+  for (const base of candidates) {
+    try {
+      const res = await fetch(`${base}/users/current/accounts/${metaapiAccountId}/trade`, {
+        method: "POST",
+        headers: { "auth-token": token, "Content-Type": "application/json" },
+        body: JSON.stringify({ actionType, symbol, volume, stopLoss, takeProfit, comment }),
+        signal: AbortSignal.timeout(20000),
+      });
+      const data = await res.json().catch(() => ({})) as any;
+      if (res.ok && data?.stringCode === "TRADE_RETCODE_DONE") {
+        return { orderId: data.orderId, positionId: data.positionId, stringCode: data.stringCode };
+      }
+      lastError = data?.message ?? data?.stringCode ?? `HTTP ${res.status}`;
+    } catch (e: any) {
+      lastError = e.message ?? "fetch failed";
+    }
+  }
+  return { _error: lastError };
+}

@@ -192,6 +192,125 @@ function LogTradeModal({ ladder, positionSize, onClose, onSave }: any) {
   );
 }
 
+// ── Trade Confirm Modal ───────────────────────────────────────────────────────
+function TradeConfirmModal({
+  form,
+  connectedAccount,
+  onExecute,
+  onLogOnly,
+  onClose,
+}: {
+  form: any;
+  connectedAccount: { id: string; account_number: string; server: string } | null;
+  onExecute: (mt5Symbol: string) => Promise<string | undefined>;
+  onLogOnly: () => void;
+  onClose: () => void;
+}) {
+  // Derive a default MT5 symbol from the instrument — Exness adds 'm' suffix
+  const defaultSymbol = (form.instrument ?? "XAUUSDm")
+    .replace("/", "")
+    .replace(/\s/g, "")
+    .replace(/m$/, "") + "m";
+  const [mt5Symbol, setMt5Symbol] = useState(defaultSymbol);
+  const [placing, setPlacing] = useState(false);
+  const [placeError, setPlaceError] = useState("");
+
+  async function handleExecute() {
+    setPlacing(true);
+    setPlaceError("");
+    const err = await onExecute(mt5Symbol);
+    if (err) setPlaceError(err);
+    setPlacing(false);
+  }
+
+  const isLong = form.direction === "buy";
+
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div className="bg-[#111111] border border-[#2D2D2D] rounded-2xl w-full max-w-[420px] overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#2D2D2D]">
+          <div className="flex items-center gap-2">
+            <div className={`w-2 h-2 rounded-full ${isLong ? "bg-[#10B981]" : "bg-[#EF4444]"}`} />
+            <h2 className="text-[14px] font-bold text-[#C8C5C0]">Confirm Order</h2>
+          </div>
+          <button onClick={onClose} className="text-[#525252] hover:text-white"><X size={15} /></button>
+        </div>
+
+        <div className="px-5 py-4 space-y-3">
+          {/* Direction badge */}
+          <div className={`flex items-center justify-center py-2 rounded-lg text-[13px] font-bold
+            ${isLong ? "bg-[#10B98115] text-[#10B981] border border-[#10B98130]" : "bg-[#EF444415] text-[#EF4444] border border-[#EF444430]"}`}>
+            {isLong ? "▲ LONG / BUY" : "▼ SHORT / SELL"}
+          </div>
+
+          {/* Order details */}
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { label: "Lot Size", value: form.lot_size },
+              { label: "Entry Price", value: form.entry_price || "Market" },
+              { label: "Stop Loss", value: form.stop_loss },
+              { label: "Take Profit", value: form.take_profit },
+            ].map(item => (
+              <div key={item.label} className="bg-[#0D0D0D] rounded-lg px-3 py-2">
+                <p className="text-[9px] text-[#525252] uppercase tracking-wider">{item.label}</p>
+                <p className="text-[13px] font-bold text-[#C8C5C0] font-mono">{item.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* MT5 Symbol — editable */}
+          <div>
+            <label className="text-[10px] font-bold text-[#525252] uppercase tracking-wider">
+              MT5 Symbol <span className="normal-case text-[#3A3A3A]">(e.g. XAUUSDm for Exness gold)</span>
+            </label>
+            <input
+              value={mt5Symbol}
+              onChange={e => setMt5Symbol(e.target.value)}
+              placeholder="XAUUSDm"
+              className="w-full mt-1 px-3 py-2 bg-[#0D0D0D] border border-[#2D2D2D] rounded-lg text-[13px] text-[#C8C5C0] focus:outline-none focus:border-[#B5622A] font-mono"
+            />
+          </div>
+
+          {/* Executing account */}
+          {connectedAccount && (
+            <div className="bg-[#0D1220] border border-[#3B82F630] rounded-lg px-3 py-2 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-bold text-[#3B82F6]">EXECUTING VIA METAAPI</p>
+                <p className="text-[12px] text-[#C8C5C0] font-mono mt-0.5">#{connectedAccount.account_number}</p>
+              </div>
+              <div className="text-[10px] text-[#525252]">{connectedAccount.server}</div>
+            </div>
+          )}
+
+          {placeError && (
+            <div className="bg-[#EF444415] border border-[#EF444430] rounded-lg px-3 py-2">
+              <p className="text-[11px] text-[#EF4444]">{placeError}</p>
+            </div>
+          )}
+        </div>
+
+        <div className="px-5 pb-4 space-y-2">
+          {connectedAccount && (
+            <button
+              onClick={handleExecute}
+              disabled={placing || !mt5Symbol.trim()}
+              className="w-full py-2.5 bg-[#B5622A] text-white text-[13px] font-bold rounded-xl hover:bg-[#9A4E20] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+              {placing ? <Loader2 size={13} className="animate-spin" /> : null}
+              {placing ? "Placing order…" : "Place on Exness"}
+            </button>
+          )}
+          <button
+            onClick={onLogOnly}
+            disabled={placing}
+            className="w-full py-2.5 bg-[#1E1E1E] text-[#C8C5C0] text-[13px] font-semibold rounded-xl hover:bg-[#2D2D2D] transition-colors disabled:opacity-50">
+            Log to Journal Only
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Mini chart ────────────────────────────────────────────────────────────────
 function MiniChart({ candles, levels }: { candles: any[]; levels: any }) {
   if (!candles?.length) return (
@@ -318,6 +437,8 @@ export default function TradingPage() {
   const [symbolResults, setSymbolResults] = useState<any[]>([]);
   const [symbolSearching, setSymbolSearching] = useState(false);
   const [editWatchlist, setEditWatchlist] = useState(false);
+  const [showTradeConfirm, setShowTradeConfirm] = useState(false);
+  const [pendingTrade, setPendingTrade] = useState<any>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { loadAll(); loadAccounts(); loadWatchlist(); }, []);
@@ -502,6 +623,22 @@ export default function TradingPage() {
   }
 
   async function saveTrade(form: any) {
+    const tradeForm = { ...form, instrument: activeSymbol.replace("/", "") };
+    const connectedAccount = accounts.find(a => a.metaapi_account_id);
+    if (connectedAccount) {
+      // Show confirmation modal so user can choose to execute on broker or just journal
+      setShowLogTrade(false);
+      setPendingTrade(tradeForm);
+      setShowTradeConfirm(true);
+      return;
+    }
+    // No connected account — log to journal only
+    await logTradeToJournal(tradeForm);
+    setShowLogTrade(false);
+    await loadAll();
+  }
+
+  async function logTradeToJournal(form: any) {
     await fetch("/api/trading", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -510,8 +647,8 @@ export default function TradingPage() {
         trade: {
           ladder_step: form.ladder_step,
           direction: form.direction,
-          instrument: "XAUUSD",
-          entry_price: parseFloat(form.entry_price),
+          instrument: form.instrument ?? "XAUUSD",
+          entry_price: parseFloat(form.entry_price) || null,
           lot_size: parseFloat(form.lot_size),
           stop_loss: parseFloat(form.stop_loss),
           take_profit: parseFloat(form.take_profit),
@@ -521,7 +658,45 @@ export default function TradingPage() {
         },
       }),
     });
-    setShowLogTrade(false);
+  }
+
+  async function executeOnExness(mt5Symbol: string): Promise<string | undefined> {
+    const connectedAccount = accounts.find(a => a.metaapi_account_id);
+    if (!connectedAccount || !pendingTrade) return "No connected account found";
+    try {
+      const res = await fetch("/api/trading/metaapi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "place_order",
+          account_id: connectedAccount.id,
+          direction: pendingTrade.direction,
+          symbol: mt5Symbol,
+          volume: parseFloat(pendingTrade.lot_size),
+          stop_loss: parseFloat(pendingTrade.stop_loss),
+          take_profit: parseFloat(pendingTrade.take_profit),
+          entry_price: parseFloat(pendingTrade.entry_price) || null,
+          ladder_step: pendingTrade.ladder_step,
+          notes: pendingTrade.notes,
+        }),
+      });
+      const data = await res.json();
+      if (data.error) return data.error as string;
+      setShowTradeConfirm(false);
+      setPendingTrade(null);
+      await loadAll();
+      await loadAccounts();
+      return undefined;
+    } catch (e: any) {
+      return e.message ?? "Network error";
+    }
+  }
+
+  async function handleLogOnly() {
+    if (!pendingTrade) return;
+    await logTradeToJournal(pendingTrade);
+    setShowTradeConfirm(false);
+    setPendingTrade(null);
     await loadAll();
   }
 
@@ -1214,6 +1389,16 @@ export default function TradingPage() {
           positionSize={signalData?.positionSize}
           onClose={() => setShowLogTrade(false)}
           onSave={saveTrade}
+        />
+      )}
+
+      {showTradeConfirm && pendingTrade && (
+        <TradeConfirmModal
+          form={pendingTrade}
+          connectedAccount={accounts.find(a => a.metaapi_account_id) ?? null}
+          onExecute={executeOnExness}
+          onLogOnly={handleLogOnly}
+          onClose={() => { setShowTradeConfirm(false); setPendingTrade(null); }}
         />
       )}
     </div>

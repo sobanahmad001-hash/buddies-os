@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { provisionAndDeploy, getLiveAccountInfo, getAccountState } from "@/lib/metaapi";
+import { provisionAndDeploy, getLiveAccountInfo, getAccountState, placeOrder } from "@/lib/metaapi";
 
 export async function POST(req: NextRequest) {
   try {
@@ -125,6 +125,60 @@ export async function POST(req: NextRequest) {
         state: state?.state ?? "UNKNOWN",
         connectionStatus: state?.connectionStatus,
       });
+    }
+
+    // ── Place Order: execute a real market order on MT5 via MetaAPI ──────────
+    if (action === "place_order") {
+      const { account_id, direction, symbol, volume, stop_loss, take_profit, ladder_step, entry_price, notes } = body;
+      if (!account_id || !direction || !symbol || volume == null || stop_loss == null || take_profit == null) {
+        return NextResponse.json(
+          { error: "account_id, direction, symbol, volume, stop_loss, take_profit are all required" },
+          { status: 400 }
+        );
+      }
+
+      const { data: account } = await supabase
+        .from("trading_accounts")
+        .select("metaapi_token, metaapi_account_id")
+        .eq("id", account_id)
+        .eq("user_id", user.id)
+        .single();
+
+      if (!account?.metaapi_token || !account?.metaapi_account_id) {
+        return NextResponse.json({ error: "Account is not connected to MetaAPI" }, { status: 400 });
+      }
+
+      const actionType = direction === "buy" ? "ORDER_TYPE_BUY" : "ORDER_TYPE_SELL";
+      const result = await placeOrder(
+        account.metaapi_token,
+        account.metaapi_account_id,
+        actionType,
+        symbol,
+        parseFloat(volume),
+        parseFloat(stop_loss),
+        parseFloat(take_profit)
+      );
+
+      if ("_error" in result) {
+        return NextResponse.json({ error: result._error }, { status: 503 });
+      }
+
+      // Log to journal — store MetaAPI order ID in notes
+      await supabase.from("trading_entries").insert({
+        user_id: user.id,
+        ladder_step: ladder_step ?? 1,
+        direction,
+        instrument: symbol,
+        entry_price: entry_price ? parseFloat(entry_price) : null,
+        lot_size: parseFloat(volume),
+        stop_loss: parseFloat(stop_loss),
+        take_profit: parseFloat(take_profit),
+        notes: `[MetaAPI orderId:${result.orderId}]${notes ? " " + notes : ""}`,
+        account_type: "demo",
+        status: "open",
+      });
+
+      return NextResponse.json({ success: true, orderId: result.orderId });
     }
 
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
