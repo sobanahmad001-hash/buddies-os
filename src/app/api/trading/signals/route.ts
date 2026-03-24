@@ -69,12 +69,16 @@ function calcMACD(closes: number[]) {
 function calcVSA(candles: any[]) {
   if (!candles.length) return null;
   const recent = candles.slice(-20);
-  const volumes = recent.map(c => c.volume || 1);
+  // Exclude zero-volume (in-progress live candle) from the average
+  const completedRecent = recent.filter(c => (c.volume || 0) > 0);
+  const volumes = (completedRecent.length ? completedRecent : recent).map(c => c.volume || 1);
   const spreads = recent.map(c => c.high - c.low);
   const avgVol = volumes.reduce((a, b) => a + b, 0) / volumes.length;
   const avgSpread = spreads.reduce((a, b) => a + b, 0) / spreads.length;
 
-  const last = candles[candles.length - 1];
+  // Use the last candle with actual volume (avoids 0-volume live candle)
+  const lastCompleted = candles.slice().reverse().find(c => (c.volume || 0) > 0) ?? candles[candles.length - 1];
+  const last = lastCompleted;
   const spread = last.high - last.low;
   const volumeRatio = avgVol > 0 ? Math.round((last.volume / avgVol) * 100) / 100 : 1;
   const isVolumeSpike = volumeRatio >= 1.8;
