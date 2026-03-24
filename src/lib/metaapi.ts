@@ -134,38 +134,53 @@ export async function placeOrder(
   takeProfit: number,
   comment = "buddies-os"
 ): Promise<{ orderId: string; positionId?: string; stringCode: string } | { _error: string }> {
-  // Resolve regional URL (same pattern as getLiveAccountInfo)
-  const accountRes = await fetch(
-    `${PROVISIONING_API}/users/current/accounts/${metaapiAccountId}`,
-    { headers: { "auth-token": token }, signal: AbortSignal.timeout(8000) }
-  );
-  if (!accountRes.ok) {
-    return { _error: `Provisioning API ${accountRes.status}: ${await accountRes.text().catch(() => "")}` };
-  }
-  const accountData = await accountRes.json();
-  const region: string | undefined = accountData.region;
-
-  const candidates: string[] = [];
-  if (region) candidates.push(`https://mt-client-api-v1.${region}.agiliumtrade.ai`);
-  candidates.push(CLIENT_API);
-
-  let lastError = "";
-  for (const base of candidates) {
-    try {
-      const res = await fetch(`${base}/users/current/accounts/${metaapiAccountId}/trade`, {
-        method: "POST",
-        headers: { "auth-token": token, "Content-Type": "application/json" },
-        body: JSON.stringify({ actionType, symbol, volume, stopLoss, takeProfit, comment }),
-        signal: AbortSignal.timeout(20000),
-      });
-      const data = await res.json().catch(() => ({})) as any;
-      if (res.ok && data?.stringCode === "TRADE_RETCODE_DONE") {
-        return { orderId: data.orderId, positionId: data.positionId, stringCode: data.stringCode };
-      }
-      lastError = data?.message ?? data?.stringCode ?? `HTTP ${res.status}`;
-    } catch (e: any) {
-      lastError = e.message ?? "fetch failed";
+  try {
+    // Resolve regional URL (same pattern as getLiveAccountInfo)
+    const accountRes = await fetch(
+      `${PROVISIONING_API}/users/current/accounts/${metaapiAccountId}`,
+      { headers: { "auth-token": token }, signal: AbortSignal.timeout(6000) }
+    );
+    if (!accountRes.ok) {
+      const txt = await accountRes.text().catch(() => "");
+      return { _error: `Provisioning API ${accountRes.status}: ${txt}` };
     }
+    const accountData = await accountRes.json();
+    const region: string | undefined = accountData.region;
+
+    // Check terminal is actually connected before attempting trade
+    if (accountData.connectionStatus && accountData.connectionStatus !== "CONNECTED") {
+      return { _error: `MT5 terminal not ready (${accountData.state ?? ""} / ${accountData.connectionStatus}). Try syncing first.` };
+    }
+
+    const candidates: string[] = [];
+    if (region) candidates.push(`https://mt-client-api-v1.${region}.agiliumtrade.ai`);
+    candidates.push(CLIENT_API);
+
+    let lastError = "";
+    for (const base of candidates) {
+      try {
+        const res = await fetch(`${base}/users/current/accounts/${metaapiAccountId}/trade`, {
+          method: "POST",
+          headers: { "auth-token": token, "Content-Type": "application/json" },
+          body: JSON.stringify({ actionType, symbol, volume, stopLoss, takeProfit, comment }),
+          signal: AbortSignal.timeout(12000),
+        });
+        const data = await res.json().catch(() => ({})) as any;
+        // Accept any numeric retcode 10008 (placed) or 10009 (done)
+        const code: number = data?.numericCode ?? 0;
+        const str: string = data?.stringCode ?? "";
+        if (res.ok && (str === "TRADE_RETCODE_DONE" || str === "TRADE_RETCODE_PLACED" || code === 10009 || code === 10008)) {
+          return { orderId: data.orderId ?? data.positionId ?? "unknown", positionId: data.positionId, stringCode: str };
+        }
+        // Surface the broker error message if present
+        lastError = data?.message ?? str ?? `HTTP ${res.status} from ${base.includes(region ?? "--") ? region : "global"}`;
+        if (lastError && !lastError.includes("fetch")) break; // real broker error, no point trying fallback
+      } catch (e: any) {
+        lastError = e.message ?? "trade fetch failed";
+      }
+    }
+    return { _error: lastError || "Order rejected by broker" };
+  } catch (e: any) {
+    return { _error: e.message ?? "placeOrder failed" };
   }
-  return { _error: lastError };
 }

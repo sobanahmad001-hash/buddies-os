@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { provisionAndDeploy, getLiveAccountInfo, getAccountState, placeOrder } from "@/lib/metaapi";
 
+// Extend serverless function timeout so MetaAPI calls don't get cut short
+export const maxDuration = 30;
+
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createClient();
@@ -160,6 +163,7 @@ export async function POST(req: NextRequest) {
       );
 
       if ("_error" in result) {
+        console.error("[place_order] MetaAPI error:", result._error);
         return NextResponse.json({ error: result._error }, { status: 503 });
       }
 

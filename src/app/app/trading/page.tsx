@@ -286,7 +286,11 @@ function TradeConfirmModal({
 
           {placeError && (
             <div className="bg-[#EF444415] border border-[#EF444430] rounded-lg px-3 py-2">
-              <p className="text-[11px] text-[#EF4444]">{placeError}</p>
+              <p className="text-[11px] text-[#EF4444] font-semibold">
+                {placeError === "fetch failed"
+                  ? "Connection timed out — MetaAPI is slow to wake up. Sync Live first, then retry."
+                  : placeError}
+              </p>
             </div>
           )}
         </div>
