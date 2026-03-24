@@ -312,6 +312,11 @@ export default function TradingPage() {
   const [showMetaApiForm, setShowMetaApiForm] = useState(false);
   const [syncingAccount, setSyncingAccount] = useState<string | null>(null);
   const [connectError, setConnectError] = useState("");
+  const [showSymbolSearch, setShowSymbolSearch] = useState(false);
+  const [symbolQuery, setSymbolQuery] = useState("");
+  const [symbolResults, setSymbolResults] = useState<any[]>([]);
+  const [symbolSearching, setSymbolSearching] = useState(false);
+  const [editWatchlist, setEditWatchlist] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { loadAll(); loadAccounts(); loadWatchlist(); }, []);
@@ -339,6 +344,39 @@ export default function TradingPage() {
   async function loadWatchlist() {
     const { data } = await supabase.from("trading_watchlist").select("*").order("sort_order");
     setWatchlist(data ?? []);
+  }
+
+  async function searchSymbols(q: string) {
+    setSymbolQuery(q);
+    if (!q.trim()) { setSymbolResults([]); return; }
+    setSymbolSearching(true);
+    try {
+      const res = await fetch(`/api/trading/symbols?q=${encodeURIComponent(q)}`);
+      const data = await res.json();
+      setSymbolResults(data.results ?? []);
+    } catch {}
+    setSymbolSearching(false);
+  }
+
+  async function addToWatchlist(symbol: string, displayName: string, assetType: string) {
+    await fetch("/api/trading/account", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "add_to_watchlist", symbol, display_name: displayName, asset_type: assetType }),
+    });
+    setShowSymbolSearch(false);
+    setSymbolQuery("");
+    setSymbolResults([]);
+    await loadWatchlist();
+  }
+
+  async function removeFromWatchlist(watchlistId: string) {
+    await fetch("/api/trading/account", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "remove_from_watchlist", watchlist_id: watchlistId }),
+    });
+    await loadWatchlist();
   }
 
   async function switchSymbol(symbol: string) {
@@ -508,9 +546,63 @@ export default function TradingPage() {
 
         {/* Asset switcher / Watchlist */}
         <div className="px-3 py-2 border-b border-[#1E1E1E]">
-          <p className="text-[9px] font-bold text-[#525252] uppercase tracking-widest mb-1.5">Watchlist</p>
+          <div className="flex items-center justify-between mb-1.5">
+            <p className="text-[9px] font-bold text-[#525252] uppercase tracking-widest">Watchlist</p>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setEditWatchlist(v => !v)}
+                className={`text-[9px] transition-colors font-semibold ${
+                  editWatchlist ? "text-[#EF4444]" : "text-[#525252] hover:text-[#737373]"
+                }`}>
+                {editWatchlist ? "Done" : "Edit"}
+              </button>
+              <button
+                onClick={() => { setShowSymbolSearch(v => !v); setSymbolQuery(""); setSymbolResults([]); }}
+                className="text-[9px] text-[#B5622A] hover:text-[#9A4E20] transition-colors font-semibold">+ Add</button>
+            </div>
+          </div>
+
+          {/* Symbol search panel */}
+          {showSymbolSearch && (
+            <div className="mb-1.5">
+              <div className="relative">
+                <input
+                  value={symbolQuery}
+                  onChange={e => searchSymbols(e.target.value)}
+                  placeholder="Search symbol (e.g. XAU, BTC)"
+                  autoFocus
+                  className="w-full px-2 py-1.5 bg-[#0D0D0D] border border-[#2D2D2D] rounded text-[11px] text-[#C8C5C0] focus:outline-none focus:border-[#B5622A] pr-6"
+                />
+                {symbolSearching && (
+                  <Loader2 size={9} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#525252] animate-spin" />
+                )}
+              </div>
+              {symbolResults.length > 0 && (
+                <div className="mt-1 bg-[#0D0D0D] border border-[#2D2D2D] rounded-lg overflow-hidden max-h-[180px] overflow-y-auto">
+                  {symbolResults.map((r: any) => (
+                    <button
+                      key={r.symbol}
+                      onClick={() => addToWatchlist(r.symbol, r.display_name, r.asset_type)}
+                      className="w-full flex items-center justify-between px-2 py-1.5 hover:bg-[#1A1A1A] transition-colors text-left border-b border-[#1E1E1E] last:border-0">
+                      <div>
+                        <p className="text-[11px] font-semibold text-[#C8C5C0]">{r.symbol}</p>
+                        <p className="text-[9px] text-[#525252] truncate max-w-[140px]">{r.display_name}</p>
+                      </div>
+                      <span className="text-[8px] px-1 py-0.5 rounded bg-[#2D2D2D] text-[#737373] uppercase font-bold shrink-0">
+                        {r.asset_type}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {symbolQuery.length > 0 && !symbolSearching && symbolResults.length === 0 && (
+                <p className="text-[9px] text-[#525252] text-center py-2">No results</p>
+              )}
+            </div>
+          )}
+
           <div className="space-y-0.5">
-            {watchlist.length === 0
+            {watchlist.length === 0 && !showSymbolSearch
               ? (["XAU/USD", "XAG/USD", "ETH/USD", "BTC/USD"] as string[]).map(s => (
                 <button key={s} onClick={() => switchSymbol(s)}
                   className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-[11px] transition-colors
@@ -522,19 +614,28 @@ export default function TradingPage() {
                 </button>
               ))
               : watchlist.map((w: any) => (
-                <button key={w.symbol} onClick={() => switchSymbol(w.symbol)}
-                  className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-[11px] transition-colors
-                    ${activeSymbol === w.symbol ? "bg-[#B5622A20] text-[#B5622A] font-semibold border border-[#B5622A30]" : "text-[#737373] hover:bg-[#1A1A1A] hover:text-[#C8C5C0]"}`}>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[9px] text-[#525252]">
-                      {w.asset_type === "crypto" ? "₿" : w.asset_type === "commodity" ? "◈" : "€"}
-                    </span>
-                    <span>{w.display_name ?? w.symbol}</span>
-                  </div>
-                  {activeSymbol === w.symbol && signalData?.currentPrice && (
-                    <span className="text-[10px] font-mono">${signalData.currentPrice.toLocaleString()}</span>
+                <div key={w.symbol} className="flex items-center gap-1">
+                  {editWatchlist && (
+                    <button
+                      onClick={() => removeFromWatchlist(w.id)}
+                      className="shrink-0 w-4 h-4 flex items-center justify-center rounded-full bg-[#EF444420] text-[#EF4444] hover:bg-[#EF444440] transition-colors">
+                      <X size={8} />
+                    </button>
                   )}
-                </button>
+                  <button onClick={() => switchSymbol(w.symbol)}
+                    className={`flex-1 flex items-center justify-between px-2 py-1.5 rounded-lg text-[11px] transition-colors
+                      ${activeSymbol === w.symbol ? "bg-[#B5622A20] text-[#B5622A] font-semibold border border-[#B5622A30]" : "text-[#737373] hover:bg-[#1A1A1A] hover:text-[#C8C5C0]"}`}>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[9px] text-[#525252]">
+                        {w.asset_type === "crypto" ? "₿" : w.asset_type === "commodity" ? "◈" : "€"}
+                      </span>
+                      <span>{w.display_name ?? w.symbol}</span>
+                    </div>
+                    {activeSymbol === w.symbol && signalData?.currentPrice && (
+                      <span className="text-[10px] font-mono">${signalData.currentPrice.toLocaleString()}</span>
+                    )}
+                  </button>
+                </div>
               ))
             }
           </div>

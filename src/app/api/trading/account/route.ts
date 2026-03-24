@@ -87,6 +87,55 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
+    if (action === "add_to_watchlist") {
+      const { symbol, display_name, asset_type } = body;
+      if (!symbol || !display_name) {
+        return NextResponse.json({ error: "symbol and display_name are required" }, { status: 400 });
+      }
+
+      // sort_order = current max + 1
+      const { data: existing } = await supabase
+        .from("trading_watchlist")
+        .select("sort_order")
+        .eq("user_id", user.id)
+        .order("sort_order", { ascending: false })
+        .limit(1)
+        .single();
+
+      const nextOrder = ((existing as any)?.sort_order ?? -1) + 1;
+
+      const { data, error } = await supabase
+        .from("trading_watchlist")
+        .upsert(
+          {
+            user_id: user.id,
+            symbol,
+            display_name,
+            asset_type: asset_type ?? "commodity",
+            sort_order: nextOrder,
+            is_active: true,
+          },
+          { onConflict: "user_id,symbol" }
+        )
+        .select()
+        .single();
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ item: data });
+    }
+
+    if (action === "remove_from_watchlist") {
+      const { watchlist_id } = body;
+      if (!watchlist_id) return NextResponse.json({ error: "watchlist_id required" }, { status: 400 });
+
+      await supabase
+        .from("trading_watchlist")
+        .delete()
+        .eq("id", watchlist_id)
+        .eq("user_id", user.id);
+      return NextResponse.json({ ok: true });
+    }
+
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
