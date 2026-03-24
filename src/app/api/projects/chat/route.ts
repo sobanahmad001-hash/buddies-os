@@ -804,6 +804,17 @@ ${referentialNote}`;
       }
 
       let providerError: any = null;
+      const isQuotaError = (err: any): boolean => {
+        const msg = String(err?.message ?? err ?? '').toLowerCase();
+        return (
+          msg.includes('usage limits') ||
+          msg.includes('quota') ||
+          msg.includes('you have reached') ||
+          msg.includes('insufficient_quota') ||
+          msg.includes('billing') ||
+          (err?.status === 429 && msg.includes('limit'))
+        );
+      };
 
       for (const providerAttempt of configuredOrder) {
         const selectedModel = providerAllowedModels[providerAttempt].includes(normalizedModel)
@@ -838,11 +849,20 @@ ${referentialNote}`;
           providerError = new Error(`Empty response from ${providerAttempt}`);
         } catch (err: any) {
           providerError = err;
+          const isQuota = isQuotaError(err);
           console.error(`[project-chat] provider attempt failed (${providerAttempt}):`, err?.message ?? err);
+          if (isQuota) {
+            console.warn(`[project-chat] ${providerAttempt} quota exhausted; trying next provider`);
+          }
         }
       }
 
       if (!reply) {
+        // Check if all providers failed due to quota
+        const isAllQuotaErrors = isQuotaError(providerError);
+        if (isAllQuotaErrors) {
+          throw new Error(`All configured AI providers have reached their usage limits. Please try again after updating API quotas or on ${new Date(new Date().getTime() + 24 * 60 * 60 * 1000).toLocaleDateString()}.`);
+        }
         throw providerError || new Error("No provider response");
       }
     } catch (err: any) {

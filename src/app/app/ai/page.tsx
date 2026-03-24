@@ -353,7 +353,20 @@ export default function AIPage() {
 
       if (!res.ok) {
         let errMsg = "Something went wrong.";
-        try { const p = await res.json(); errMsg = p?.error || errMsg; } catch {}
+        try {
+          const p = await res.json();
+          errMsg = p?.error || errMsg;
+          // Enhance error message for quota errors
+          if (typeof errMsg === 'string') {
+            if (res.status === 503) {
+              errMsg = `⚠️ Service temporarily unavailable: ${errMsg}`;
+            } else if (errMsg.includes('usage limits') || errMsg.includes('quota')) {
+              errMsg = `⚠️ API quota reached. ${errMsg}`;
+            } else if (errMsg.includes('both') && errMsg.includes('unavailable')) {
+              errMsg = `⚠️ ${errMsg}`;
+            }
+          }
+        } catch {}
         throw new Error(errMsg);
       }
 

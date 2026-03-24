@@ -618,16 +618,19 @@ export default function ProjectAssistantPage() {
         document: extracted.document,
       }]);
     } catch (err: any) {
-      const errorMsg = err?.message || 'Network error. Please check your connection.';
-      if (errorMsg.includes('Rate limit')) {
+      let errorMsg = err?.message || 'Network error. Please check your connection.';
+      // Enhance error messaging for quota errors
+      if (errorMsg.includes('usage limits') || errorMsg.includes('quota')) {
+        errorMsg = `⚠️ API quota reached. ${errorMsg}`;
         toastError(errorMsg);
-      } else {
-        setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: `❌ ${errorMsg}`,
-          ts: new Date().toISOString(),
-        }]);
+      } else if (errorMsg.includes('Rate limit')) {
+        toastError(errorMsg);
       }
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: `❌ ${errorMsg}`,
+        ts: new Date().toISOString(),
+      }]);
     } finally {
       setLoading(false);
     }
