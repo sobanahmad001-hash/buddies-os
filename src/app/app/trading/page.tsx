@@ -17,25 +17,79 @@ type Message = { role: "user" | "assistant"; content: string; type?: "fundamenta
 type SignalData = { configured: boolean; currentPrice: number; rsi: number; macd: any; vsa: any; signal: any; levels: any; positionSize: any; ladder: any; candles: any[] };
 
 // ── Checklist Modal ───────────────────────────────────────────────────────────
-function ChecklistModal({ strategy, onClose, onConfirm }: { strategy: "reversal" | "momentum"; onClose: () => void; onConfirm: (passed: boolean, checks: any) => void }) {
-  const [checks, setChecks] = useState({ location_valid: false, volume_confirms: false, structure_valid: false, confirmation_present: false, clean_rr: false });
+type VsaData = { isVolumeSpike: boolean; isWideSpread: boolean; isClimatic: boolean; closedOffHighs: boolean; closedOffLows: boolean; volumeRatio: number };
+
+function buildVsaAutoMap(strategy: "reversal" | "momentum", vsa: VsaData | null | undefined): Record<string, boolean> {
+  if (!vsa) return {};
+  if (strategy === "reversal") {
+    return {
+      volume_confirms: vsa.isClimatic,
+      structure_valid: vsa.closedOffHighs || vsa.closedOffLows,
+    };
+  }
+  return {
+    volume_confirms: vsa.isClimatic,
+  };
+}
+
+function ChecklistModal({ strategy, onClose, onConfirm, autoResults }: {
+  strategy: "reversal" | "momentum";
+  onClose: () => void;
+  onConfirm: (passed: boolean, checks: any) => void;
+  autoResults?: VsaData | null;
+}) {
+  const autoMap = buildVsaAutoMap(strategy, autoResults);
+  const [checks, setChecks] = useState({
+    location_valid: autoMap.location_valid ?? false,
+    volume_confirms: autoMap.volume_confirms ?? false,
+    structure_valid: autoMap.structure_valid ?? false,
+    confirmation_present: autoMap.confirmation_present ?? false,
+    clean_rr: autoMap.clean_rr ?? false,
+  });
   const toggle = (key: string) => setChecks(p => ({ ...p, [key]: !(p as any)[key] }));
   const allPassed = Object.values(checks).every(Boolean);
 
-  const items = strategy === "reversal"
+  const items: Array<{ key: string; label: string; sub: string; autoTooltip?: string }> = strategy === "reversal"
     ? [
         { key: "location_valid", label: "Price at clear EXTREME (session high/low, range boundary)", sub: "Not middle of chart, not after breakout" },
-        { key: "volume_confirms", label: "VOLUME SPIKE above recent bars + climactic behavior", sub: "Wide aggressive candles, emotional push, overextended" },
-        { key: "structure_valid", label: "FAILURE SIGNAL present", sub: "Candle closes off highs (short) or off lows (long) — effort failed" },
-        { key: "confirmation_present", label: "CONFIRMATION CANDLE next", sub: "Next candle confirms reversal — no confirmation = no trade" },
-        { key: "clean_rr", label: "Clean 1.5R–2R available", sub: "SL above extreme high (short) or below extreme low (long)" },
+        {
+          key: "volume_confirms",
+          label: "VOLUME SPIKE above recent bars + climactic behavior",
+          sub: "Wide aggressive candles, emotional push, overextended",
+          autoTooltip: autoResults
+            ? autoResults.isClimatic
+              ? `Auto-detected: Volume spike (${autoResults.volumeRatio}x avg) + wide spread \u2713`
+              : `Auto: No climactic signal (${autoResults.volumeRatio}x avg volume)`
+            : undefined,
+        },
+        {
+          key: "structure_valid",
+          label: "FAILURE SIGNAL present",
+          sub: "Candle closes off highs (short) or off lows (long) \u2014 effort failed",
+          autoTooltip: autoResults
+            ? (autoResults.closedOffHighs || autoResults.closedOffLows)
+              ? `Auto-detected: Candle closed off ${autoResults.closedOffHighs ? "highs" : "lows"} \u2713`
+              : "Auto: No failure candle detected on last bar"
+            : undefined,
+        },
+        { key: "confirmation_present", label: "CONFIRMATION CANDLE next", sub: "Next candle confirms reversal \u2014 no confirmation = no trade" },
+        { key: "clean_rr", label: "Clean 1.5R\u20132R available", sub: "SL above extreme high (short) or below extreme low (long)" },
       ]
     : [
-        { key: "location_valid", label: "BREAK + ACCEPTANCE: held outside range for 2+ candles (5m)", sub: "Not just a wick — must close and hold" },
-        { key: "volume_confirms", label: "Breakout candle: WIDE SPREAD + HIGH VOLUME", sub: "Weak volume = no trade" },
+        { key: "location_valid", label: "BREAK + ACCEPTANCE: held outside range for 2+ candles (5m)", sub: "Not just a wick \u2014 must close and hold" },
+        {
+          key: "volume_confirms",
+          label: "Breakout candle: WIDE SPREAD + HIGH VOLUME",
+          sub: "Weak volume = no trade",
+          autoTooltip: autoResults
+            ? autoResults.isClimatic
+              ? `Auto-detected: Wide spread + high volume (${autoResults.volumeRatio}x avg) \u2713`
+              : `Auto: No wide-spread/high-volume breakout (${autoResults.volumeRatio}x avg)`
+            : undefined,
+        },
         { key: "structure_valid", label: "CLEAN STRUCTURE: HH+HL (bull) or LL+LH (bear)", sub: "Choppy = no trade" },
         { key: "confirmation_present", label: "PULLBACK complete: small candles, low volume", sub: "No pullback = no trade. Never enter on breakout candle." },
-        { key: "clean_rr", label: "Entry on 1m/5m trigger after pullback, clean 1.5R–2R", sub: "SL below pullback low (long) or above pullback high (short)" },
+        { key: "clean_rr", label: "Entry on 1m/5m trigger after pullback, clean 1.5R\u20132R", sub: "SL below pullback low (long) or above pullback high (short)" },
       ];
 
   return (
@@ -50,20 +104,40 @@ function ChecklistModal({ strategy, onClose, onConfirm }: { strategy: "reversal"
         </div>
 
         <div className="px-6 py-4 space-y-3">
-          {items.map(item => (
-            <button key={item.key} onClick={() => toggle(item.key)}
-              className={`w-full flex items-start gap-3 p-3 rounded-xl border text-left transition-all
-                ${(checks as any)[item.key] ? "bg-[#10B98115] border-[#10B98140]" : "bg-[#1A1A1A] border-[#2D2D2D] hover:border-[#525252]"}`}>
-              <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors
-                ${(checks as any)[item.key] ? "bg-[#10B981] border-[#10B981]" : "border-[#525252]"}`}>
-                {(checks as any)[item.key] && <Check size={11} className="text-white" />}
-              </div>
-              <div>
-                <p className="text-[13px] font-semibold text-[#C8C5C0] leading-snug">{item.label}</p>
-                <p className="text-[11px] text-[#525252] mt-0.5">{item.sub}</p>
-              </div>
-            </button>
-          ))}
+          {items.map(item => {
+            const isAutoTracked = item.autoTooltip !== undefined;
+            const autoVal = isAutoTracked ? (autoMap as any)[item.key] as boolean | undefined : undefined;
+            return (
+              <button key={item.key} onClick={() => toggle(item.key)}
+                className={`w-full flex items-start gap-3 p-3 rounded-xl border text-left transition-all
+                  ${(checks as any)[item.key] ? "bg-[#10B98115] border-[#10B98140]" : "bg-[#1A1A1A] border-[#2D2D2D] hover:border-[#525252]"}`}>
+                <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors
+                  ${(checks as any)[item.key] ? "bg-[#10B981] border-[#10B981]" : "border-[#525252]"}`}>
+                  {(checks as any)[item.key] && <Check size={11} className="text-white" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-[13px] font-semibold text-[#C8C5C0] leading-snug">{item.label}</p>
+                    {isAutoTracked && (
+                      <span
+                        title={item.autoTooltip}
+                        className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 cursor-help
+                          ${autoVal
+                            ? "bg-[#3B82F620] text-[#3B82F6] border border-[#3B82F630]"
+                            : "bg-[#52525215] text-[#525252] border border-[#52525225]"}`}>
+                        {autoVal ? "VSA \u2713" : "VSA \u2014"}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-[#525252] mt-0.5">{item.sub}</p>
+                  {isAutoTracked && item.autoTooltip && (
+                    <p className="text-[10px] mt-0.5 italic truncate"
+                      style={{ color: autoVal ? "#3B82F680" : "#52525280" }}>{item.autoTooltip}</p>
+                  )}
+                </div>
+              </button>
+            );
+          })}
         </div>
 
         <div className="px-6 py-4 border-t border-[#2D2D2D]">
@@ -1741,6 +1815,7 @@ export default function TradingPage() {
       {showChecklist && (
         <ChecklistModal
           strategy={showChecklist}
+          autoResults={signalData?.vsa ?? null}
           onClose={() => setShowChecklist(null)}
           onConfirm={(passed, checks) => {
             setShowChecklist(null);
