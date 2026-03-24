@@ -73,7 +73,8 @@ export async function getAccountState(
 }
 
 /** Fetch live account info (balance, equity, margin, etc.) from MT5 via MetaAPI.
- *  The account must be in DEPLOYED state and connected to the broker first. */
+ *  MetaAPI client API is regional — we resolve the correct regional URL from the
+ *  provisioning API before making the data request. */
 export async function getLiveAccountInfo(
   token: string,
   metaapiAccountId: string
@@ -86,14 +87,30 @@ export async function getLiveAccountInfo(
   currency: string;
   server: string;
   name: string;
-} | null> {
+} | { _error: string }> {
+  // Step 1: resolve the account's region from the provisioning API
+  const accountRes = await fetch(
+    `${PROVISIONING_API}/users/current/accounts/${metaapiAccountId}`,
+    { headers: { "auth-token": token }, signal: AbortSignal.timeout(8000) }
+  );
+  if (!accountRes.ok) {
+    return { _error: `Provisioning API ${accountRes.status}: ${await accountRes.text().catch(() => "")}` };
+  }
+  const accountData = await accountRes.json();
+  const region: string = accountData.region ?? "vint-hill";
+
+  // Step 2: use the correct regional client API URL
+  const regionalClientApi = `https://mt-client-api-v1.${region}.agiliumtrade.ai`;
+
   const res = await fetch(
-    `${CLIENT_API}/users/current/accounts/${metaapiAccountId}/account-information`,
+    `${regionalClientApi}/users/current/accounts/${metaapiAccountId}/account-information`,
     {
       headers: { "auth-token": token },
       signal: AbortSignal.timeout(15000),
     }
   );
-  if (!res.ok) return null;
+  if (!res.ok) {
+    return { _error: `Client API [${region}] ${res.status}: ${await res.text().catch(() => "")}` };
+  }
   return res.json();
 }

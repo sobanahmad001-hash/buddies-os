@@ -78,11 +78,8 @@ export async function POST(req: NextRequest) {
       }
 
       const info = await getLiveAccountInfo(account.metaapi_token, account.metaapi_account_id);
-      if (!info) {
-        return NextResponse.json(
-          { error: "MetaAPI returned no data — account may still be connecting (try again in ~30s)" },
-          { status: 503 }
-        );
+      if ("_error" in info) {
+        return NextResponse.json({ error: info._error }, { status: 503 });
       }
 
       await supabase
