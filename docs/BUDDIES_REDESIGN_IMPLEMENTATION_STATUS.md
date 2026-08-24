@@ -35,8 +35,16 @@
 ## Deliberately deferred runtime enhancements
 
 - Background scheduling/execution for personal automation rules. The rules, modes, and run-history data model are ready; autonomous execution should only be enabled after each rule is reviewed.
-- Automatic capture of every Coding Agent verification command and terminal output. The verification evidence schema and review workflow are ready.
 - Cross-browser and deployed-route smoke testing of the final commit after it is pushed.
+
+## Coding Agent execution upgrade (next release)
+
+- Personal Windows runner with authenticated job polling.
+- Isolated Git worktree and branch for every coding request.
+- Local Codex execution with workspace-write boundaries.
+- Automatic changed-file, diff, terminal-log, and verification capture.
+- Buddies UI status, verification badges, and review-before-PR handoff.
+- Setup is documented in `docs/CODING_AGENT_RUNNER_SETUP.md`; the new Supabase migration and Vercel runner token are required before this capability is enabled.
 
 ## Final redesign scope
 

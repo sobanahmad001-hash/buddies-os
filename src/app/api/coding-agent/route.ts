@@ -124,12 +124,13 @@ export async function POST(req: NextRequest) {
         const writeRes = await fetch(
           `https://api.github.com/repos/${repo}/contents/${file.path}`,
           {
-            method: "PUT",
+            method: file.operation === "delete" ? "DELETE" : "PUT",
             headers,
-            body: JSON.stringify({
+            body: JSON.stringify(file.operation === "delete" ? {
+              message: `delete: ${file.path} — ${prTitle}`, branch, sha: existingSha,
+            } : {
               message: `fix: ${file.path} — ${prTitle}`,
-              content: Buffer.from(file.content, "utf-8").toString("base64"),
-              branch,
+              content: Buffer.from(file.content, "utf-8").toString("base64"), branch,
               ...(existingSha ? { sha: existingSha } : {}),
             }),
           }

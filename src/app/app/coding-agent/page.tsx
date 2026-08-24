@@ -3,7 +3,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import {
   Send, Check, Copy, X, Plus, Trash2, MessageSquare,
   ChevronRight, ChevronDown, File, Folder, FolderOpen,
-  GitBranch, RefreshCw, ExternalLink, AlertCircle, Loader2, ShieldCheck
+  GitBranch, RefreshCw, ExternalLink, AlertCircle, Loader2, ShieldCheck, Play, Terminal
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -14,6 +14,12 @@ type Task = { id: string; title: string; description?: string; status: string; p
 type Message = { role: "user" | "assistant"; content: string; ts?: string };
 type Session = { id: string; title: string; created_at: string };
 type FileNode = { path: string; type: "blob" | "tree"; name: string; children?: FileNode[] };
+type CodingJob = {
+  id: string; repository: string; prompt: string; status: "queued" | "claimed" | "running" | "succeeded" | "failed" | "cancelled";
+  changed_files?: Array<{ path: string; status: string; content: string | null }>;
+  verification_results?: Array<{ name: string; status: string; command?: string; output?: string }>;
+  stdout?: string; stderr?: string; diff?: string; error?: string; created_at: string;
+};
 
 // -- File tree builder ---------------------------------------------------------
 function buildTree(paths: string[]): FileNode[] {
@@ -163,11 +169,17 @@ export default function CodingAgentPage() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
   // File changes / PR
-  const [fileChanges, setFileChanges] = useState<Array<{path: string; content: string; description: string}>>([]);
+  const [fileChanges, setFileChanges] = useState<Array<{path: string; content: string; description: string; operation?: "write" | "delete"}>>([]);
   const [pendingPR, setPendingPR] = useState<{title: string; branch: string; body: string} | null>(null);
   const [creatingPR, setCreatingPR] = useState(false);
   const [prResult, setPrResult] = useState<string | null>(null);
   const [reviewConfirmed, setReviewConfirmed] = useState(false);
+
+  // Local Codex runner
+  const [jobs, setJobs] = useState<CodingJob[]>([]);
+  const [lastUserRequest, setLastUserRequest] = useState("");
+  const [queueingJob, setQueueingJob] = useState(false);
+  const [runnerError, setRunnerError] = useState("");
 
   // Model
   const [selectedModel, setSelectedModel] = useState<"gpt-4.1" | "claude-sonnet-4-5">("gpt-4.1");
@@ -178,7 +190,13 @@ export default function CodingAgentPage() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  useEffect(() => { init(); loadSessions(); }, []);
+  useEffect(() => { init(); loadSessions(); loadJobs(); }, []);
+  useEffect(() => {
+    const active = jobs.some(job => ["queued", "claimed", "running"].includes(job.status));
+    if (!active) return;
+    const timer = window.setInterval(loadJobs, 4000);
+    return () => window.clearInterval(timer);
+  }, [jobs]);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
 
   // Paste handler
@@ -228,6 +246,44 @@ export default function CodingAgentPage() {
     if (!res.ok) return;
     const { sessions: data } = await res.json();
     setSessions(data ?? []);
+  }
+
+  async function loadJobs() {
+    try {
+      const res = await fetch("/api/coding-agent/jobs", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      setJobs(data.jobs ?? []);
+    } catch {}
+  }
+
+  async function queueLocalJob() {
+    if (!selectedRepo || !lastUserRequest || queueingJob) return;
+    setQueueingJob(true); setRunnerError("");
+    try {
+      const res = await fetch("/api/coding-agent/jobs", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          repository: selectedRepo, prompt: lastUserRequest,
+          projectId: selectedProject?.id ?? null, taskId: selectedTask?.id ?? null,
+          verificationCommands: ["typecheck", "test", "build"],
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not queue coding job");
+      setJobs(prev => [data.job, ...prev]);
+      setMessages(prev => [...prev, { role: "assistant", content: "Execution queued for your personal Buddies Runner. I’ll show the diff and verification results here when it finishes." }]);
+    } catch (error: any) { setRunnerError(error.message); }
+    finally { setQueueingJob(false); }
+  }
+
+  function reviewRunnerChanges(job: CodingJob) {
+    const reviewable = (job.changed_files ?? []).filter(file => file.status === "D" || typeof file.content === "string").map(file => ({
+      path: file.path, content: file.content ?? "", description: `${file.status || "M"} by verified local Coding Agent run`,
+      operation: (file.status === "D" ? "delete" : "write") as "write" | "delete",
+    }));
+    setFileChanges(reviewable); setReviewConfirmed(false);
+    if (!reviewable.length) setRunnerError("This run has no text-file changes available for PR review.");
   }
 
   async function openSession(session: Session) {
@@ -353,6 +409,7 @@ export default function CodingAgentPage() {
   async function send() {
     if (!input.trim() || loading) return;
     const userMsg = input;
+    setLastUserRequest(userMsg);
     const newMsg: Message = { role: "user", content: userMsg, ts: new Date().toISOString() };
     setMessages(prev => [...prev, newMsg]);
     setInput("");
@@ -442,7 +499,7 @@ RULES:
 
       // Parse FILE_CHANGE blocks
       const fileChangeRegex = /\[FILE_CHANGE\]\s*([\s\S]*?)\s*\[\/FILE_CHANGE\]/g;
-      const newChanges: Array<{path: string; content: string; description: string}> = [];
+      const newChanges: Array<{path: string; content: string; description: string; operation?: "write" | "delete"}> = [];
       let match;
       while ((match = fileChangeRegex.exec(reply)) !== null) {
         try {
@@ -828,6 +885,26 @@ RULES:
 
         {/* Input */}
         <div className="px-3 pb-3 shrink-0">
+          {jobs[0] && (
+            <div className="mb-2 rounded-xl border border-line bg-surface-subtle p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-2">
+                  <Terminal size={12} className="text-accent" />
+                  <span className="truncate text-[11px] font-semibold text-ink">Local run</span>
+                  <span className={`text-[10px] ${jobs[0].status === "succeeded" ? "text-positive" : jobs[0].status === "failed" ? "text-red-400" : "text-accent"}`}>{jobs[0].status}</span>
+                </div>
+                {jobs[0].status === "succeeded" && (
+                  <button onClick={() => reviewRunnerChanges(jobs[0])} className="text-[10px] font-semibold text-positive hover:opacity-80">Review diff</button>
+                )}
+              </div>
+              {(jobs[0].verification_results ?? []).length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {jobs[0].verification_results!.map(result => <span key={result.name} className={`rounded px-1.5 py-0.5 text-[9px] ${result.status === "passed" ? "bg-positive/10 text-positive" : result.status === "failed" ? "bg-red-500/10 text-red-400" : "bg-surface text-muted"}`}>{result.name}: {result.status}</span>)}
+                </div>
+              )}
+              {(jobs[0].error || runnerError) && <p className="mt-2 text-[10px] text-red-400">{jobs[0].error || runnerError}</p>}
+            </div>
+          )}
           {attachedImages.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-2">
               {attachedImages.map((file, i) => (
@@ -851,11 +928,18 @@ RULES:
               style={{ maxHeight: "160px", minHeight: "52px" }}
             />
             <div className="flex items-center justify-between px-3 pb-2">
-              <span className="text-[10px] text-faint">Shift + Enter for new line</span>
-              <button onClick={send} disabled={loading || !input.trim()}
-                className="w-7 h-7 rounded-lg flex items-center justify-center transition-all disabled:opacity-30 bg-accent hover:opacity-90 text-white">
-                <Send size={12} />
+              <button onClick={queueLocalJob} disabled={!selectedRepo || !lastUserRequest || queueingJob}
+                title="Execute the latest request in an isolated worktree on your PC"
+                className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-[10px] font-semibold text-accent hover:bg-accent-soft disabled:opacity-30">
+                {queueingJob ? <Loader2 size={10} className="animate-spin" /> : <Play size={10} />} Run on my PC
               </button>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-faint">Shift + Enter for new line</span>
+                <button onClick={send} disabled={loading || !input.trim()}
+                  className="w-7 h-7 rounded-lg flex items-center justify-center transition-all disabled:opacity-30 bg-accent hover:opacity-90 text-white">
+                  <Send size={12} />
+                </button>
+              </div>
             </div>
           </div>
         </div>
