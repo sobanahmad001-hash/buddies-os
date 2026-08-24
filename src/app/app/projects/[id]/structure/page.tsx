@@ -45,10 +45,10 @@ export default function ProjectStructurePage() {
     </div>
     <div className="grid gap-4 lg:grid-cols-2">
       <Section icon={Target} title="Workstreams" count={workstreams.length} input={name} setInput={setName} placeholder="Add workstream" add={() => create("workstream", name)}>
-        {workstreams.map((item) => <Row key={item.id} title={item.name} meta={item.owner_name || "No owner"} status={item.status} statuses={["planned","active","blocked","complete"]} onStatus={(status) => update("workstream", item.id, { status })} />)}
+        {workstreams.map((item) => <Row key={item.id} title={item.name} meta={item.owner_name || "No owner"} status={item.status} statuses={["planned","active","blocked","complete"]} onStatus={(status: string) => update("workstream", item.id, { status })} />)}
       </Section>
       <Section icon={Flag} title="Deliverables" count={`${delivered}/${deliverables.length}`} input={deliverable} setInput={setDeliverable} placeholder="Add deliverable" add={() => create("deliverable", deliverable)}>
-        {deliverables.map((item) => <Row key={item.id} title={item.title} meta={item.due_date ? `Due ${item.due_date}` : "No due date"} status={item.status} statuses={["planned","in_progress","review","delivered"]} onStatus={(status) => update("deliverable", item.id, { status })} />)}
+        {deliverables.map((item) => <Row key={item.id} title={item.title} meta={item.due_date ? `Due ${item.due_date}` : "No due date"} status={item.status} statuses={["planned","in_progress","review","delivered"]} onStatus={(status: string) => update("deliverable", item.id, { status })} />)}
       </Section>
     </div>
   </div>;

@@ -13,7 +13,7 @@ export function makeRequest(
   } = {}
 ): NextRequest {
   const { method = "GET", body, headers = {} } = options;
-  const init: RequestInit = { method, headers: { "Content-Type": "application/json", ...headers } };
+  const init: ConstructorParameters<typeof NextRequest>[1] = { method, headers: { "Content-Type": "application/json", ...headers } };
   if (body) init.body = JSON.stringify(body);
   return new NextRequest(url, init);
 }

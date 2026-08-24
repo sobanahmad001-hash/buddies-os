@@ -48,6 +48,19 @@ export async function POST(req: NextRequest) {
     const headers = await getGithubHeaders(supabase, user.id, repo);
     if (!headers) return NextResponse.json({ error: "GitHub not configured" }, { status: 400 });
 
+    if (action === "get_tree") {
+      const [treeRes, commitsRes] = await Promise.all([
+        fetch(`https://api.github.com/repos/${repo}/git/trees/HEAD?recursive=1`, { headers, signal: AbortSignal.timeout(8000) }),
+        fetch(`https://api.github.com/repos/${repo}/commits?per_page=5`, { headers, signal: AbortSignal.timeout(5000) }),
+      ]);
+      if (!treeRes.ok) return NextResponse.json({ error: "Could not load repository" }, { status: treeRes.status });
+      const treeData = await treeRes.json();
+      const commitsData = commitsRes.ok ? await commitsRes.json() : [];
+      const paths = (treeData.tree ?? []).filter((file: any) => file.type === "blob" && !file.path.includes("node_modules") && !file.path.includes(".next") && !file.path.startsWith(".git")).map((file: any) => file.path);
+      const commits = (commitsData ?? []).map((commit: any) => commit.commit?.message?.split("\n")[0] ?? "").filter(Boolean);
+      return NextResponse.json({ paths, commits });
+    }
+
     // ── Get file content ──────────────────────────────────────────────────────
     if (action === "get_file") {
       const { path } = body;
@@ -170,15 +183,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
-    if (action === "get_tree") {
-      const [treeRes, commitsRes] = await Promise.all([
-        fetch(`https://api.github.com/repos/${repo}/git/trees/HEAD?recursive=1`, { headers, signal: AbortSignal.timeout(8000) }),
-        fetch(`https://api.github.com/repos/${repo}/commits?per_page=5`, { headers, signal: AbortSignal.timeout(5000) }),
-      ]);
-      if (!treeRes.ok) return NextResponse.json({ error: "Could not load repository" }, { status: treeRes.status });
-      const treeData = await treeRes.json();
-      const commitsData = commitsRes.ok ? await commitsRes.json() : [];
-      const paths = (treeData.tree ?? []).filter((file: any) => file.type === "blob" && !file.path.includes("node_modules") && !file.path.includes(".next") && !file.path.startsWith(".git")).map((file: any) => file.path);
-      const commits = (commitsData ?? []).map((commit: any) => commit.commit?.message?.split("\n")[0] ?? "").filter(Boolean);
-      return NextResponse.json({ paths, commits });
-    }
