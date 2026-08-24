@@ -14,7 +14,7 @@ type Summary = { id: string; period_type: string; period_start: string; period_e
 type NewsItem = { id: string; headline: string; source: string; url: string; datetime: number; summary: string; impact: "HIGH" | "MEDIUM" | "LOW"; assets: string[] };
 type Withdrawal = { id: string; ladder_step: number; amount_usd: number; withdrawn_at: string };
 type Message = { role: "user" | "assistant"; content: string; type?: "fundamental" | "technical" | "decision" | "chat" };
-type SignalData = { configured: boolean; currentPrice: number; rsi: number; macd: any; vsa: any; signal: any; levels: any; positionSize: any; ladder: any; candles: any[] };
+type SignalData = { configured: boolean; currentPrice: number; rsi: number; macd: any; vsa: any; wyckoff: any; timeframes: Record<string, any>; signal: any; levels: any; positionSize: any; ladder: any; candles: any[] };
 
 // ── Checklist Modal ───────────────────────────────────────────────────────────
 type VsaData = { isVolumeSpike: boolean; isWideSpread: boolean; isClimatic: boolean; closedOffHighs: boolean; closedOffLows: boolean; volumeRatio: number };
@@ -1543,6 +1543,16 @@ export default function TradingPage() {
               <p className="text-[10px] font-bold text-[#737373] uppercase tracking-wider mb-3">Signal Summary</p>
               <SignalCard signal={signalData?.signal} positionSize={signalData?.positionSize} />
             </div>
+
+            {signalData?.wyckoff && <div className="rounded-xl border border-[#2D2D2D] bg-[#1A1A1A] p-4">
+              <div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-wider text-[#737373]">Current Wyckoff position</p><p className="mt-1 text-[13px] font-semibold text-[#C8C5C0]">{signalData.wyckoff.phase}</p><p className="text-[11px] text-[#CC785C]">{signalData.wyckoff.event}</p></div><span className="rounded-full bg-[#B5622A20] px-2 py-1 text-[10px] font-bold text-[#CC785C]">{signalData.wyckoff.confidence}% provisional</span></div>
+              <div className="mt-3 grid grid-cols-4 gap-1">{Object.entries(signalData.timeframes ?? {}).map(([frame, data]: any) => <div key={frame} className="rounded-lg bg-[#0D0D0D] p-2 text-center"><p className="text-[9px] font-bold text-[#737373]">{frame}</p><p className="mt-1 truncate text-[9px] capitalize text-[#C8C5C0]">{data.wyckoff.bias}</p><p className="text-[9px] text-[#525252]">{data.vsa?.volumeRatio ?? "—"}× vol</p></div>)}</div>
+              <div className="mt-3 space-y-1">{signalData.wyckoff.evidence?.map((item: string) => <p key={item} className="text-[10px] text-[#737373]">• {item}</p>)}</div><p className="mt-2 text-[10px] text-[#EF9F76]">Invalidation: {signalData.wyckoff.invalidation}</p><p className="mt-2 text-[9px] font-semibold uppercase tracking-wide text-[#EAB308]">Manual chart confirmation required</p>
+            </div>}
+
+            {signalData?.vsa && <div className="grid grid-cols-2 gap-2 rounded-xl border border-[#2D2D2D] bg-[#111111] p-3">
+              {[['Volume', signalData.vsa.volume], ['Average volume', signalData.vsa.averageVolume], ['Volume ratio', `${signalData.vsa.volumeRatio}×`], ['Spread', signalData.vsa.spread], ['Average spread', signalData.vsa.avgSpread], ['Spread ratio', `${signalData.vsa.spreadRatio}×`], ['Close location', `${signalData.vsa.closeLocation}%`], ['Price change', signalData.vsa.priceChange]].map(([label, value]) => <div key={String(label)}><p className="text-[9px] uppercase text-[#525252]">{label}</p><p className="font-mono text-[11px] text-[#C8C5C0]">{value}</p></div>)}<div className="col-span-2 border-t border-[#2D2D2D] pt-2"><p className="text-[10px] text-[#CC785C]">{signalData.vsa.reading}</p><p className="mt-1 text-[9px] text-[#525252]">Source: {signalData.vsa.source}; verify whether the feed represents tick or exchange volume.</p></div>
+            </div>}
 
             {/* VSA breakdown */}
             {signalData?.vsa && (

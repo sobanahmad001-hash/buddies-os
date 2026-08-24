@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { analyzeWyckoff } from "@/lib/trading/wyckoff-analysis";
 
 // ── OHLCV fetching ─────────────────────────────────────────────────────────────
 async function fetchOHLCV(symbol: string, interval: string, outputsize: number) {
@@ -95,6 +96,8 @@ function calcVSA(candles: any[]) {
   const noSupply = !isVolumeSpike && !isWideSpread && last.close < last.open && volumeRatio < 0.7;
 
   return {
+    volume: Math.round(last.volume * 100) / 100,
+    averageVolume: Math.round(avgVol * 100) / 100,
     volumeRatio,
     isVolumeSpike,
     isWideSpread,
@@ -105,6 +108,11 @@ function calcVSA(candles: any[]) {
     noSupply,
     spread: Math.round(spread * 100) / 100,
     avgSpread: Math.round(avgSpread * 100) / 100,
+    spreadRatio: avgSpread > 0 ? Math.round((spread / avgSpread) * 100) / 100 : 0,
+    closeLocation: range > 0 ? Math.round(((last.close - last.low) / range) * 100) : 50,
+    priceChange: Math.round((last.close - last.open) * 100) / 100,
+    reading: isClimatic && (closedOffHighs || closedOffLows) ? "High effort with rejection — possible absorption" : isClimatic ? "High effort with wide result" : volumeRatio < 0.7 ? "Low participation" : "Balanced effort and result",
+    source: "Twelve Data instrument volume",
   };
 }
 
@@ -219,7 +227,10 @@ export async function GET(req: NextRequest) {
       : "forex";
 
     // Fetch OHLCV
-    const candles = await fetchOHLCV(symbol, "1h", 50);
+    const [candles, candles15m, candles5m, candles1m] = await Promise.all([
+      fetchOHLCV(symbol, "1h", 50), fetchOHLCV(symbol, "15min", 50),
+      fetchOHLCV(symbol, "5min", 50), fetchOHLCV(symbol, "1min", 50),
+    ]);
 
     if (!candles || candles.length < 10) {
       return NextResponse.json({
@@ -245,6 +256,13 @@ export async function GET(req: NextRequest) {
     const vsa = calcVSA(candles);
     const levels = calcLevels(candles);
     const signal = detectSignal(candles, rsi, macd, vsa!, levels);
+    const wyckoff = analyzeWyckoff(candles);
+    const timeframes = {
+      "1H": { wyckoff, vsa },
+      "15M": { wyckoff: analyzeWyckoff(candles15m ?? []), vsa: calcVSA(candles15m ?? []) },
+      "5M": { wyckoff: analyzeWyckoff(candles5m ?? []), vsa: calcVSA(candles5m ?? []) },
+      "1M": { wyckoff: analyzeWyckoff(candles1m ?? []), vsa: calcVSA(candles1m ?? []) },
+    };
 
     // Get active ladder step for position sizing
     const { data: ladderStep } = await supabase
@@ -264,6 +282,8 @@ export async function GET(req: NextRequest) {
       rsi,
       macd,
       vsa,
+      wyckoff,
+      timeframes,
       signal,
       levels,
       positionSize,
