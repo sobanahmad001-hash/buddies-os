@@ -181,14 +181,14 @@ export default function SettingsPage() {
               />
               {uploading ? (
                 <div className="flex items-center justify-center gap-2">
-                  <Loader2 size={16} className="text-[#B5622A] animate-spin" />
-                  <span className="text-[13px] text-[#737373]">Uploading...</span>
+                  <Loader2 size={16} className="text-accent animate-spin" />
+                  <span className="text-[13px] text-muted">Uploading...</span>
                 </div>
               ) : (
                 <>
-                  <Upload size={20} className="text-[#525252] mx-auto mb-2" />
-                  <p className="text-[13px] text-[#737373]">Click or drag to upload</p>
-                  <p className="text-[11px] text-[#525252] mt-1">PNG, JPG, SVG, WebP · max 5MB</p>
+                  <Upload size={20} className="text-faint mx-auto mb-2" />
+                  <p className="text-[13px] text-muted">Click or drag to upload</p>
+                  <p className="text-[11px] text-faint mt-1">PNG, JPG, SVG, WebP · max 5MB</p>
                 </>
               )}
             </div>
@@ -234,17 +234,17 @@ export default function SettingsPage() {
               type="color"
               value={accentColor}
               onChange={e => setAccentColor(e.target.value)}
-              className="w-10 h-10 rounded-lg border border-[#2D2D2D] bg-[#111111] cursor-pointer p-1"
+              className="w-10 h-10 rounded-lg border border-line bg-surface-subtle cursor-pointer p-1"
             />
             <input
               value={accentColor}
               onChange={e => setAccentColor(e.target.value)}
-              className="w-32 px-3 py-2 bg-[#111111] border border-[#2D2D2D] rounded-lg text-[13px] text-[#C8C5C0] font-mono focus:outline-none focus:border-[#B5622A]"
+              className="w-32 px-3 py-2 bg-surface-subtle border border-line rounded-lg text-[13px] text-ink font-mono focus:outline-none focus:border-accent"
               placeholder="#B5622A"
             />
-            <div className="flex-1 h-10 rounded-lg border border-[#2D2D2D] flex items-center px-3 gap-2">
+            <div className="flex-1 h-10 rounded-lg border border-line flex items-center px-3 gap-2 bg-surface-subtle">
               <div className="w-4 h-4 rounded-full" style={{ backgroundColor: accentColor }} />
-              <span className="text-[12px] text-[#737373]">Preview</span>
+              <span className="text-[12px] text-muted">Preview</span>
               <div
                 className="ml-auto px-3 py-1 rounded-lg text-[11px] font-semibold text-white"
                 style={{ backgroundColor: accentColor }}
@@ -256,15 +256,15 @@ export default function SettingsPage() {
         </div>
 
         {/* Account info */}
-        <div className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-2xl p-6 mb-6">
-          <h2 className="text-[14px] font-bold text-[#C8C5C0] mb-4">Account</h2>
+        <div className="bg-surface border border-line rounded-2xl p-6 mb-6">
+          <h2 className="text-[14px] font-bold text-ink mb-4">Account</h2>
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-full bg-[#B5622A] flex items-center justify-center text-white font-bold text-[14px]">
+            <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center text-white font-bold text-[14px]">
               {user?.email?.[0]?.toUpperCase() ?? "U"}
             </div>
             <div>
-              <p className="text-[13px] font-semibold text-[#C8C5C0]">{user?.email ?? "—"}</p>
-              <p className="text-[11px] text-[#525252]">
+              <p className="text-[13px] font-semibold text-ink">{user?.email ?? "—"}</p>
+              <p className="text-[11px] text-faint">
                 Member since {user?.created_at ? new Date(user.created_at).toLocaleDateString() : "—"}
               </p>
             </div>

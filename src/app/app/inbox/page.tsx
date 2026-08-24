@@ -54,7 +54,7 @@ export default function InboxPage() {
   return (
     <div className="flex-1 overflow-auto bg-canvas">
       <div className="mx-auto max-w-[920px] p-4 md:p-8">
-        <header className="mb-6 flex items-start justify-between gap-4">
+        <header className="mb-6 flex flex-col items-start justify-between gap-4 sm:flex-row">
           <div><p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent">Personal control</p>
             <h1 className="mt-1 text-2xl font-semibold text-ink">Inbox</h1>
             <p className="mt-1 text-sm text-muted">Capture once. Decide what deserves attention.</p></div>
@@ -64,7 +64,7 @@ export default function InboxPage() {
         <form onSubmit={e => { e.preventDefault(); capture(); }} className="mb-5 flex gap-2 rounded-2xl border border-line bg-surface p-2 shadow-panel focus-within:border-accent">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-soft text-accent"><Plus size={17}/></div>
           <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Capture a thought, task, promise, or decision…" className="min-w-0 flex-1 bg-transparent px-1 text-sm text-ink outline-none placeholder:text-faint" />
-          <button disabled={!title.trim() || capturing} className="rounded-xl bg-accent px-4 text-xs font-semibold text-white disabled:opacity-40">{capturing ? <Loader2 size={15} className="animate-spin"/> : "Capture"}</button>
+          <button disabled={!title.trim() || capturing} className="rounded-xl bg-accent px-3 sm:px-4 text-xs font-semibold text-white disabled:opacity-40">{capturing ? <Loader2 size={15} className="animate-spin"/> : "Capture"}</button>
         </form>
 
         <div className="mb-4 flex gap-1 overflow-x-auto rounded-xl border border-line bg-surface-subtle p-1">

@@ -11,6 +11,8 @@
 - Personal automation templates with automatic, suggestion, and approval-required modes.
 - Coding Agent file-review acknowledgement before creating a review PR.
 - Schema support for milestones, task dependencies, automation runs, memory feedback, reviews, and Coding Agent verification evidence.
+- Full dual-theme redesign of Today, Projects, project overview, Coding Agent, Paper Trading, Knowledge, Research, Search, Documents, Inbox, Goals, Reviews, Automations, Memory, and Settings.
+- Responsive expert workspaces: agent-first Coding view on small screens and separate Ladder, Chart, and Analysis modes for mobile Trading.
 
 ## Existing capabilities retained
 
@@ -30,8 +32,8 @@
 
 ## Next refinement pass
 
-- Convert remaining legacy screen-level hard-coded colors to semantic theme tokens.
-- Add full milestone and dependency editing inside each project workspace.
+- Convert remaining secondary project subpages and legacy dialogs to semantic theme tokens.
+- Add dependency editing inside each project workspace.
 - Connect automation rule evaluation to scheduled execution after the rules are reviewed.
 - Record Coding Agent verification commands and output automatically for every execution.
-- Add memory confirm/correct/forget controls to Knowledge.
+- Complete cross-browser and deployed-route smoke testing after the final branch is pushed.

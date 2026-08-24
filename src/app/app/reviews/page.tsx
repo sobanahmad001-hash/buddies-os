@@ -43,7 +43,7 @@ export default function ReviewsPage() {
   }
   const completion = stats.completed + stats.open ? Math.round(stats.completed/(stats.completed+stats.open)*100) : 0;
   return <div className="flex-1 overflow-auto bg-canvas"><div className="mx-auto max-w-[1000px] p-4 md:p-8">
-    <header className="mb-6 flex items-start justify-between"><div><p className="text-[11px] font-semibold uppercase tracking-[.16em] text-accent">Learning loop</p><h1 className="mt-1 text-2xl font-semibold text-ink">Reviews</h1><p className="mt-1 text-sm text-muted">See what moved, what stalled, and what to change next.</p></div>
+    <header className="mb-6 flex flex-col items-start justify-between gap-4 sm:flex-row"><div><p className="text-[11px] font-semibold uppercase tracking-[.16em] text-accent">Learning loop</p><h1 className="mt-1 text-2xl font-semibold text-ink">Reviews</h1><p className="mt-1 text-sm text-muted">See what moved, what stalled, and what to change next.</p></div>
       <div className="flex rounded-xl border border-line bg-surface-subtle p-1">{(["daily","weekly"] as const).map(x=><button key={x} onClick={()=>setPeriod(x)} className={`rounded-lg px-3 py-2 text-xs font-medium capitalize ${period===x?"bg-surface text-ink shadow-sm":"text-muted"}`}>{x}</button>)}</div></header>
     {loading?<div className="flex items-center gap-2 p-10 text-muted"><Loader2 className="animate-spin" size={16}/>Building your review…</div>:<>
       <div className="mb-5 grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-6">{[
