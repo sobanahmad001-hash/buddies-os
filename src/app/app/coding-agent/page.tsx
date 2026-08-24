@@ -3,7 +3,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import {
   Send, Check, Copy, X, Plus, Trash2, MessageSquare,
   ChevronRight, ChevronDown, File, Folder, FolderOpen,
-  GitBranch, RefreshCw, ExternalLink, AlertCircle, Loader2
+  GitBranch, RefreshCw, ExternalLink, AlertCircle, Loader2, ShieldCheck
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -205,6 +205,17 @@ export default function CodingAgentPage() {
     ]);
     setProjects(proj ?? []);
     setIntegrations(integ ?? []);
+    const query = new URLSearchParams(window.location.search);
+    const requestedProject = (proj ?? []).find((project) => project.id === query.get("projectId"));
+    if (requestedProject) {
+      setSelectedProject(requestedProject);
+      const { data: projectTasks } = await supabase.from("project_tasks")
+        .select("id, title, description, status, priority")
+        .eq("project_id", requestedProject.id).neq("status", "cancelled").neq("status", "done").order("priority");
+      setTasks(projectTasks ?? []);
+      const requestedTask = (projectTasks ?? []).find((task) => task.id === query.get("taskId"));
+      if (requestedTask) setSelectedTask(requestedTask);
+    }
     // Auto-load first repo
     const firstRepo = integ?.[0]?.config?.repo_url
       ?.replace(/^https?:\/\/github\.com\//, "")
@@ -560,7 +571,20 @@ RULES:
   ];
 
   return (
-    <div className="flex h-full bg-[#0D0D0D] text-white overflow-hidden">
+    <div className="flex h-full flex-col bg-[#0D0D0D] text-white overflow-hidden">
+      <div className="shrink-0 border-b border-[#1E1E1E] bg-[#111111] px-4 py-2.5">
+        <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex items-center gap-2">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#B5622A] text-[13px]">⚡</div>
+            <div><p className="text-[12px] font-semibold text-[#C8C5C0]">Single Coding Agent</p><p className="text-[10px] text-[#525252]">{selectedProject ? `${selectedProject.name}${selectedTask ? ` · ${selectedTask.title}` : ""}` : "Choose project context when needed"}</p></div>
+          </div>
+          <div className="flex items-center gap-1 overflow-x-auto">
+            {["Plan", "Review", "Approve", "Execute", "Verify"].map((step, index) => <div key={step} className="flex items-center gap-1"><span className={`rounded-md border px-2 py-1 text-[9px] font-semibold uppercase tracking-wide ${index === 0 ? "border-[#B5622A] bg-[#B5622A]/15 text-[#CC785C]" : "border-[#2D2D2D] text-[#737373]"}`}>{index + 1}. {step}</span>{index < 4 && <ChevronRight size={10} className="text-[#3A3A3A]" />}</div>)}
+          </div>
+          <div className="flex items-center gap-1.5 text-[10px] text-[#86A789]"><ShieldCheck size={12} /> Changes require approval</div>
+        </div>
+      </div>
+      <div className="flex min-h-0 flex-1 overflow-hidden">
 
       {/* -- Panel 1: Session history ---------------------------------------- */}
       <div className="w-[180px] shrink-0 flex flex-col border-r border-[#1E1E1E] bg-[#111111]">
@@ -858,6 +882,7 @@ RULES:
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
