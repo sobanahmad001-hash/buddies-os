@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+function createAnthropicClient() {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not configured');
+  return new Anthropic({ apiKey });
+}
 
 export async function POST(request: NextRequest) {
   try {
+    const anthropic = createAnthropicClient();
     const { message } = await request.json();
 
     const prompt = `Extract structured command data from this message. Return ONLY valid JSON, no other text.

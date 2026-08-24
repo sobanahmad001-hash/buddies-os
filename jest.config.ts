@@ -1,10 +1,8 @@
 import type { Config } from "jest";
-
 const config: Config = {
-  preset: "ts-jest",
   testEnvironment: "node",
   transform: {
-    "^.+\\.tsx?$": ["ts-jest", { tsconfig: { jsx: "react-jsx" }, isolatedModules: true }],
+    "^.+\\.tsx?$": "<rootDir>/jest-transformer.cjs",
   },
   moduleNameMapper: {
     // Resolve @/ path alias
@@ -12,7 +10,7 @@ const config: Config = {
   },
   testMatch: ["**/__tests__/**/*.test.ts", "**/__tests__/**/*.test.tsx"],
   clearMocks: true,
-  collectCoverage: true,
+  collectCoverage: false,
   coverageDirectory: "coverage",
   // Env vars available to all tests
   testEnvironmentOptions: {
