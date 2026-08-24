@@ -48,16 +48,16 @@ function buildTree(paths: string[]): FileNode[] {
 function CodeBlock({ code, lang }: { code: string; lang: string }) {
   const [copied, setCopied] = useState(false);
   return (
-    <div className="my-3 rounded-lg overflow-hidden border border-[#2D2D2D]">
-      <div className="flex items-center justify-between px-3 py-2 bg-[#161616]">
-        <span className="text-[10px] text-[#737373] font-mono uppercase tracking-wider">{lang || "code"}</span>
+    <div className="my-3 rounded-lg overflow-hidden border border-line">
+      <div className="flex items-center justify-between px-3 py-2 bg-surface-subtle">
+        <span className="text-[10px] text-muted font-mono uppercase tracking-wider">{lang || "code"}</span>
         <button onClick={() => { navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-          className="flex items-center gap-1 text-[10px] text-[#737373] hover:text-white transition-colors">
+          className="flex items-center gap-1 text-[10px] text-muted hover:text-ink transition-colors">
           {copied ? <Check size={10} /> : <Copy size={10} />}
           {copied ? "Copied" : "Copy"}
         </button>
       </div>
-      <pre className="bg-[#0D0D0D] text-[#E5E2DE] text-[12px] font-mono p-4 overflow-x-auto leading-relaxed">{code}</pre>
+      <pre className="bg-canvas text-ink text-[12px] font-mono p-4 overflow-x-auto leading-relaxed">{code}</pre>
     </div>
   );
 }
@@ -75,12 +75,12 @@ function renderMessage(text: string): React.ReactNode[] {
     const segments = part.split(/(`[^`]+`|\*\*[^*]+\*\*)/g);
     const rendered = segments.map((seg, j) => {
       if (seg.startsWith("`") && seg.endsWith("`"))
-        return <code key={j} className="font-mono text-[11px] bg-[#1E1E1E] text-[#B5622A] px-1 py-0.5 rounded">{seg.slice(1,-1)}</code>;
+        return <code key={j} className="font-mono text-[11px] bg-surface-subtle text-accent px-1 py-0.5 rounded">{seg.slice(1,-1)}</code>;
       if (seg.startsWith("**") && seg.endsWith("**"))
-        return <strong key={j} className="font-semibold text-white">{seg.slice(2,-2)}</strong>;
+        return <strong key={j} className="font-semibold text-ink">{seg.slice(2,-2)}</strong>;
       return seg;
     });
-    return <p key={i} className="text-[13px] text-[#C8C5C0] leading-relaxed whitespace-pre-wrap mb-1">{rendered}</p>;
+    return <p key={i} className="text-[13px] text-ink leading-relaxed whitespace-pre-wrap mb-1">{rendered}</p>;
   });
 }
 
@@ -109,7 +109,7 @@ function TreeNode({ node, depth, selectedFile, onSelect, expandedDirs, toggleDir
       <div
         onClick={() => isDir ? toggleDir(node.path) : onSelect(node.path)}
         className={`flex items-center gap-1.5 px-2 py-[3px] cursor-pointer rounded transition-colors group
-          ${isSelected ? "bg-[#B5622A20] text-white" : "text-[#8A8A8A] hover:bg-[#1E1E1E] hover:text-[#C8C5C0]"}`}
+          ${isSelected ? "bg-accent-soft text-ink" : "text-muted hover:bg-surface-subtle hover:text-ink"}`}
         style={{ paddingLeft: `${8 + depth * 12}px` }}
       >
         {isDir ? (
@@ -544,41 +544,41 @@ RULES:
   ];
 
   return (
-    <div className="flex h-full flex-col bg-[#0D0D0D] text-white overflow-hidden">
-      <div className="shrink-0 border-b border-[#1E1E1E] bg-[#111111] px-4 py-2.5">
+    <div className="flex h-full flex-col bg-canvas text-ink overflow-hidden">
+      <div className="shrink-0 border-b border-line bg-surface px-4 py-3">
         <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#B5622A] text-[13px]">⚡</div>
-            <div><p className="text-[12px] font-semibold text-[#C8C5C0]">Single Coding Agent</p><p className="text-[10px] text-[#525252]">{selectedProject ? `${selectedProject.name}${selectedTask ? ` · ${selectedTask.title}` : ""}` : "Choose project context when needed"}</p></div>
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-accent text-[13px] text-white">⚡</div>
+            <div><p className="text-[12px] font-semibold text-ink">Single Coding Agent</p><p className="text-[10px] text-muted">{selectedProject ? `${selectedProject.name}${selectedTask ? ` · ${selectedTask.title}` : ""}` : "Choose project context when needed"}</p></div>
           </div>
           <div className="flex items-center gap-1 overflow-x-auto">
-            {["Plan", "Review", "Approve", "Execute", "Verify"].map((step, index) => <div key={step} className="flex items-center gap-1"><span className={`rounded-md border px-2 py-1 text-[9px] font-semibold uppercase tracking-wide ${index === 0 ? "border-[#B5622A] bg-[#B5622A]/15 text-[#CC785C]" : "border-[#2D2D2D] text-[#737373]"}`}>{index + 1}. {step}</span>{index < 4 && <ChevronRight size={10} className="text-[#3A3A3A]" />}</div>)}
+            {["Plan", "Review", "Approve", "Execute", "Verify"].map((step, index) => <div key={step} className="flex items-center gap-1"><span className={`rounded-lg border px-2 py-1 text-[9px] font-semibold uppercase tracking-wide ${index === 0 ? "border-accent bg-accent-soft text-accent" : "border-line text-muted"}`}>{index + 1}. {step}</span>{index < 4 && <ChevronRight size={10} className="text-faint" />}</div>)}
           </div>
-          <div className="flex items-center gap-1.5 text-[10px] text-[#86A789]"><ShieldCheck size={12} /> Changes require approval</div>
+          <div className="flex items-center gap-1.5 text-[10px] text-positive"><ShieldCheck size={12} /> Changes require approval</div>
         </div>
       </div>
       <div className="flex min-h-0 flex-1 overflow-hidden">
 
       {/* -- Panel 1: Session history ---------------------------------------- */}
-      <div className="w-[180px] shrink-0 flex flex-col border-r border-[#1E1E1E] bg-[#111111]">
-        <div className="px-3 py-3 border-b border-[#1E1E1E]">
+      <div className="hidden w-[190px] shrink-0 flex-col border-r border-line bg-surface xl:flex">
+        <div className="px-3 py-3 border-b border-line">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-bold text-[#525252] uppercase tracking-widest">Sessions</span>
+            <span className="text-[10px] font-bold text-muted uppercase tracking-widest">Sessions</span>
           </div>
           <button onClick={startNewChat}
-            className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded bg-[#B5622A] text-white text-[11px] font-semibold hover:bg-[#9A4E20] transition-colors">
+            className="w-full flex items-center gap-1.5 px-2 py-2 rounded-lg bg-accent text-white text-[11px] font-semibold hover:opacity-90 transition-opacity">
             <Plus size={11} /> New Chat
           </button>
         </div>
         <div className="flex-1 overflow-y-auto py-1">
-          {sessions.length === 0 && <p className="text-[10px] text-[#525252] px-3 py-4 text-center">No sessions yet</p>}
+          {sessions.length === 0 && <p className="text-[10px] text-faint px-3 py-4 text-center">No sessions yet</p>}
           {sessions.map(s => (
             <div key={s.id} onClick={() => openSession(s)}
               className={`group relative px-3 py-2 cursor-pointer transition-colors
-                ${activeSessionId === s.id ? "bg-[#1E1E1E]" : "hover:bg-[#161616]"}`}>
+                ${activeSessionId === s.id ? "bg-accent-soft" : "hover:bg-surface-subtle"}`}>
               <div className="flex items-start gap-1.5">
-                <MessageSquare size={10} className="shrink-0 mt-0.5 text-[#525252]" />
-                <span className="text-[11px] text-[#737373] group-hover:text-[#B0ADA9] line-clamp-2 leading-snug">{s.title || "Chat"}</span>
+                <MessageSquare size={10} className="shrink-0 mt-0.5 text-faint" />
+                <span className="text-[11px] text-muted group-hover:text-ink line-clamp-2 leading-snug">{s.title || "Chat"}</span>
               </div>
               <button onClick={e => deleteSession(s.id, e)}
                 className="absolute right-1.5 top-1.5 opacity-0 group-hover:opacity-100 text-[#525252] hover:text-red-400 transition-all p-0.5 rounded">
@@ -589,12 +589,12 @@ RULES:
         </div>
 
         {/* Model selector at bottom of session panel */}
-        <div className="border-t border-[#1E1E1E] p-2 space-y-1">
-          <p className="text-[9px] text-[#525252] uppercase tracking-widest px-1 mb-1.5">Model</p>
+        <div className="border-t border-line p-2 space-y-1">
+          <p className="text-[9px] text-faint uppercase tracking-widest px-1 mb-1.5">Model</p>
           {CODING_MODELS.map(m => (
             <button key={m.model} onClick={() => setSelectedModel(m.model)}
               className={`w-full text-left px-2 py-1.5 rounded text-[11px] transition-colors
-                ${selectedModel === m.model ? "bg-[#B5622A20] text-[#B5622A] font-semibold" : "text-[#525252] hover:text-[#737373] hover:bg-[#161616]"}`}>
+                ${selectedModel === m.model ? "bg-accent-soft text-accent font-semibold" : "text-muted hover:text-ink hover:bg-surface-subtle"}`}>
               {m.label}
             </button>
           ))}
@@ -602,13 +602,13 @@ RULES:
       </div>
 
       {/* -- Panel 2: File explorer ------------------------------------------ */}
-      <div className="w-[220px] shrink-0 flex flex-col border-r border-[#1E1E1E] bg-[#111111]">
+      <div className="hidden w-[230px] shrink-0 flex-col border-r border-line bg-surface lg:flex">
         {/* Repo input */}
-        <div className="px-3 py-3 border-b border-[#1E1E1E]">
+        <div className="px-3 py-3 border-b border-line">
           <div className="flex items-center gap-1 mb-2">
-            <GitBranch size={11} className="text-[#525252]" />
-            <span className="text-[10px] font-bold text-[#525252] uppercase tracking-widest">Explorer</span>
-            {repoLoading && <Loader2 size={10} className="ml-auto text-[#737373] animate-spin" />}
+            <GitBranch size={11} className="text-muted" />
+            <span className="text-[10px] font-bold text-muted uppercase tracking-widest">Explorer</span>
+            {repoLoading && <Loader2 size={10} className="ml-auto text-muted animate-spin" />}
           </div>
           <div className="flex gap-1">
             <input
@@ -616,29 +616,29 @@ RULES:
               onChange={e => setRepoInput(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter") { setSelectedRepo(repoInput); loadRepo(repoInput); } }}
               placeholder="owner/repo"
-              className="flex-1 text-[11px] px-2 py-1.5 bg-[#0D0D0D] border border-[#2D2D2D] rounded text-[#B0ADA9] placeholder:text-[#525252] focus:outline-none focus:border-[#B5622A] font-mono"
+              className="flex-1 text-[11px] px-2 py-1.5 bg-surface-subtle border border-line rounded-lg text-ink placeholder:text-faint focus:outline-none focus:border-accent font-mono"
             />
             <button onClick={() => { setSelectedRepo(repoInput); loadRepo(repoInput); }}
-              className="px-2 py-1.5 bg-[#1E1E1E] hover:bg-[#2D2D2D] rounded transition-colors">
-              <RefreshCw size={11} className="text-[#737373]" />
+              className="px-2 py-1.5 bg-surface-subtle hover:bg-surface-raised rounded-lg transition-colors">
+              <RefreshCw size={11} className="text-muted" />
             </button>
           </div>
           {repoError && <p className="text-[10px] text-red-400 mt-1">{repoError}</p>}
           {selectedRepo && !repoLoading && fileTree.length > 0 && (
-            <p className="text-[10px] text-[#525252] mt-1 font-mono truncate">{selectedRepo}</p>
+            <p className="text-[10px] text-faint mt-1 font-mono truncate">{selectedRepo}</p>
           )}
         </div>
 
         {/* Project + task selector */}
-        <div className="px-3 py-2 border-b border-[#1E1E1E]">
+        <div className="px-3 py-2 border-b border-line">
           <select value={selectedProject?.id ?? ""} onChange={e => { const p = projects.find(p => p.id === e.target.value); if (p) selectProject(p); }}
-            className="w-full text-[11px] px-2 py-1.5 bg-[#0D0D0D] border border-[#2D2D2D] rounded text-[#737373] focus:outline-none mb-1">
+            className="w-full text-[11px] px-2 py-1.5 bg-surface-subtle border border-line rounded-lg text-muted focus:outline-none mb-1">
             <option value="">� Select project</option>
             {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
           {tasks.length > 0 && (
             <select value={selectedTask?.id ?? ""} onChange={e => { const t = tasks.find(t => t.id === e.target.value); setSelectedTask(t ?? null); }}
-              className="w-full text-[11px] px-2 py-1.5 bg-[#0D0D0D] border border-[#2D2D2D] rounded text-[#737373] focus:outline-none">
+              className="w-full text-[11px] px-2 py-1.5 bg-surface-subtle border border-line rounded-lg text-muted focus:outline-none">
               <option value="">� Select task</option>
               {tasks.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
             </select>
@@ -648,7 +648,7 @@ RULES:
         {/* File tree */}
         <div className="flex-1 overflow-y-auto py-1">
           {fileTree.length === 0 && !repoLoading && (
-            <p className="text-[10px] text-[#525252] px-3 py-6 text-center leading-relaxed">Enter a repo name above and press Enter</p>
+            <p className="text-[10px] text-faint px-3 py-6 text-center leading-relaxed">Enter a repo name above and press Enter</p>
           )}
           {fileTree.map(node => (
             <TreeNode key={node.path} node={node} depth={0}
@@ -659,26 +659,26 @@ RULES:
       </div>
 
       {/* -- Panel 3: Code viewer -------------------------------------------- */}
-      <div className="flex-1 flex flex-col border-r border-[#1E1E1E] bg-[#0D0D0D] min-w-0">
+      <div className="hidden min-w-0 flex-1 flex-col border-r border-line bg-canvas md:flex">
         {/* Tab bar */}
-        <div className="flex items-center border-b border-[#1E1E1E] bg-[#111111] shrink-0 h-[35px]">
+        <div className="flex items-center border-b border-line bg-surface shrink-0 h-[38px]">
           {selectedFile ? (
-            <div className="flex items-center gap-2 px-4 h-full border-r border-[#2D2D2D] bg-[#0D0D0D]">
-              <span className="text-[11px] text-[#B0ADA9] font-mono">{selectedFile.split("/").pop()}</span>
+            <div className="flex items-center gap-2 px-4 h-full border-r border-line bg-canvas">
+              <span className="text-[11px] text-ink font-mono">{selectedFile.split("/").pop()}</span>
               <button onClick={() => { setSelectedFile(null); setFileContent(""); }}
                 className="text-[#525252] hover:text-white transition-colors">
                 <X size={11} />
               </button>
             </div>
           ) : (
-            <span className="px-4 text-[11px] text-[#525252]">No file open</span>
+            <span className="px-4 text-[11px] text-faint">No file open</span>
           )}
           {selectedFile && (
-            <span className="ml-2 text-[10px] text-[#525252] font-mono truncate">{selectedFile}</span>
+            <span className="ml-2 text-[10px] text-faint font-mono truncate">{selectedFile}</span>
           )}
           {prResult && (
             <a href={prResult} target="_blank" rel="noopener noreferrer"
-              className="ml-auto mr-3 flex items-center gap-1.5 text-[10px] text-[#10B981] hover:text-[#34D399] transition-colors">
+              className="ml-auto mr-3 flex items-center gap-1.5 text-[10px] text-positive transition-colors">
               <ExternalLink size={10} /> View PR
             </a>
           )}
@@ -693,11 +693,11 @@ RULES:
           )}
           {!fileLoading && !selectedFile && (
             <div className="flex flex-col items-center justify-center h-full text-center px-8">
-              <div className="w-10 h-10 rounded-xl bg-[#1E1E1E] flex items-center justify-center mb-4">
-                <File size={18} className="text-[#525252]" />
+              <div className="w-10 h-10 rounded-xl bg-surface-subtle flex items-center justify-center mb-4">
+                <File size={18} className="text-faint" />
               </div>
-              <p className="text-[13px] text-[#525252] mb-2">No file selected</p>
-              <p className="text-[11px] text-[#525252] max-w-[260px] leading-relaxed">Click any file in the explorer to view its contents. The agent can read and modify open files.</p>
+              <p className="text-[13px] text-muted mb-2">No file selected</p>
+              <p className="text-[11px] text-faint max-w-[260px] leading-relaxed">Click any file in the explorer to view its contents. The agent can read and modify open files.</p>
               {recentCommits.length > 0 && (
                 <div className="mt-6 text-left w-full max-w-[360px]">
                   <p className="text-[10px] text-[#525252] uppercase tracking-widest mb-2">Recent commits</p>
@@ -726,19 +726,19 @@ RULES:
       </div>
 
       {/* -- Panel 4: Chat agent --------------------------------------------- */}
-      <div className="w-[380px] shrink-0 flex flex-col bg-[#111111] border-l border-[#1E1E1E]">
+      <div className="flex w-full shrink-0 flex-col bg-surface md:w-[360px] xl:w-[400px] border-l border-line">
         {/* Chat header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#1E1E1E] shrink-0">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-line shrink-0">
           <div className="flex items-center gap-2">
             <span className="text-[13px]">?</span>
-            <span className="text-[12px] font-bold text-[#B0ADA9]">Agent</span>
-            <span className="text-[10px] text-[#525252]">�</span>
-            <span className="text-[10px] text-[#525252]">{selectedModel}</span>
+            <span className="text-[12px] font-bold text-ink">Agent</span>
+            <span className="text-[10px] text-faint">·</span>
+            <span className="text-[10px] text-muted">{selectedModel}</span>
           </div>
           {selectedTask && (
             <div className="flex items-center gap-1.5 max-w-[160px]">
-              <div className="w-1.5 h-1.5 rounded-full bg-[#B5622A] shrink-0" />
-              <span className="text-[10px] text-[#737373] truncate">{selectedTask.title}</span>
+              <div className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
+              <span className="text-[10px] text-muted truncate">{selectedTask.title}</span>
               <button onClick={() => setSelectedTask(null)} className="text-[#525252] hover:text-[#737373] transition-colors shrink-0"><X size={9} /></button>
             </div>
           )}
@@ -748,7 +748,7 @@ RULES:
         <div className="flex-1 overflow-y-auto px-3 py-3 space-y-4">
           {messages.length === 0 && (
             <div className="pt-8 text-center">
-              <p className="text-[12px] text-[#525252] mb-6">Ask me about the codebase, request changes, or debug issues.</p>
+              <p className="text-[12px] text-muted mb-6">Ask about the codebase, request changes, or debug an issue.</p>
               <div className="space-y-2">
                 {[
                   "Explain what this file does",
@@ -757,7 +757,7 @@ RULES:
                   "Implement the selected task",
                 ].map(s => (
                   <button key={s} onClick={() => { setInput(s); setTimeout(() => textareaRef.current?.focus(), 0); }}
-                    className="w-full text-left text-[11px] text-[#525252] hover:text-[#B0ADA9] px-3 py-2 rounded bg-[#0D0D0D] hover:bg-[#161616] border border-[#1E1E1E] hover:border-[#2D2D2D] transition-all">
+                    className="w-full text-left text-[11px] text-muted hover:text-ink px-3 py-2 rounded-xl bg-surface-subtle border border-line hover:border-line-strong transition-all">
                     {s}
                   </button>
                 ))}
@@ -768,13 +768,13 @@ RULES:
           {messages.map((msg, i) => (
             <div key={i} className={`flex gap-2 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
               <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-[11px]
-                ${msg.role === "user" ? "bg-[#B5622A] text-white font-bold" : "bg-[#1E1E1E] text-white"}`}>
+                ${msg.role === "user" ? "bg-accent text-white font-bold" : "bg-surface-subtle text-ink"}`}>
                 {msg.role === "user" ? "S" : "?"}
               </div>
               <div className={`flex-1 rounded-xl px-3 py-2.5 text-[12px] leading-relaxed max-w-[300px]
-                ${msg.role === "user" ? "bg-[#B5622A15] border border-[#B5622A30] text-[#C8C5C0]" : "bg-[#161616] border border-[#1E1E1E]"}`}>
+                ${msg.role === "user" ? "bg-accent-soft border border-accent/20 text-ink" : "bg-surface-subtle border border-line"}`}>
                 {msg.role === "user"
-                  ? <p className="text-[13px] text-[#C8C5C0] whitespace-pre-wrap">{msg.content}</p>
+                  ? <p className="text-[13px] text-ink whitespace-pre-wrap">{msg.content}</p>
                   : <div>{renderMessage(msg.content)}</div>
                 }
               </div>
@@ -796,11 +796,11 @@ RULES:
 
         {/* File changes panel */}
         {fileChanges.length > 0 && (
-          <div className="mx-3 mb-2 rounded-lg border border-[#10B98140] bg-[#0D1A12] overflow-hidden">
-            <div className="flex items-center justify-between px-3 py-2 border-b border-[#10B98120]">
+          <div className="mx-3 mb-2 rounded-xl border border-positive/30 bg-surface-subtle overflow-hidden">
+            <div className="flex items-center justify-between px-3 py-2 border-b border-line">
               <div className="flex items-center gap-1.5">
-                <div className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
-                <span className="text-[11px] font-semibold text-[#10B981]">{fileChanges.length} file{fileChanges.length > 1 ? "s" : ""} to apply</span>
+                <div className="w-1.5 h-1.5 rounded-full bg-positive" />
+                <span className="text-[11px] font-semibold text-positive">{fileChanges.length} file{fileChanges.length > 1 ? "s" : ""} proposed</span>
               </div>
               <button onClick={() => { setFileChanges([]); setPendingPR(null); }}
                 className="text-[#525252] hover:text-white transition-colors"><X size={11} /></button>
@@ -808,18 +808,18 @@ RULES:
             <div className="px-3 py-2 space-y-0.5">
               {fileChanges.map((f, i) => (
                 <div key={i} className="flex items-center gap-1.5 text-[10px]">
-                  <span className="text-[#10B981] font-bold">M</span>
-                  <span className="text-[#737373] font-mono truncate">{f.path}</span>
+                  <span className="text-positive font-bold">M</span>
+                  <span className="text-muted font-mono truncate">{f.path}</span>
                 </div>
               ))}
-              <label className="mt-2 flex cursor-pointer items-start gap-2 rounded-md border border-[#10B98120] p-2 text-[10px] text-[#A8A5A0]">
+              <label className="mt-2 flex cursor-pointer items-start gap-2 rounded-lg border border-line p-2 text-[10px] text-muted">
                 <input type="checkbox" checked={reviewConfirmed} onChange={e => setReviewConfirmed(e.target.checked)} className="mt-0.5 accent-[#10B981]" />
                 <span>I reviewed every proposed file and understand that this creates a branch and pull request. Merge and deployment remain manual.</span>
               </label>
             </div>
-            <div className="px-3 py-2 border-t border-[#10B98120]">
+            <div className="px-3 py-2 border-t border-line">
               <button onClick={applyChanges} disabled={creatingPR || !selectedRepo || !reviewConfirmed}
-                className="w-full py-1.5 bg-[#10B981] text-white text-[11px] font-semibold rounded transition-colors hover:bg-[#059669] disabled:opacity-40">
+                className="w-full py-2 bg-positive text-white text-[11px] font-semibold rounded-lg transition-opacity hover:opacity-90 disabled:opacity-40">
                 {creatingPR ? "Creating PR..." : reviewConfirmed ? "Create review PR" : "Review files before creating PR"}
               </button>
             </div>
@@ -839,7 +839,7 @@ RULES:
               ))}
             </div>
           )}
-          <div className="bg-[#0D0D0D] border border-[#2D2D2D] rounded-xl focus-within:border-[#B5622A] transition-colors">
+          <div className="bg-surface-subtle border border-line rounded-xl focus-within:border-accent transition-colors">
             <textarea
               ref={textareaRef}
               value={input}
@@ -847,13 +847,13 @@ RULES:
               onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
               placeholder="Ask about code, request changes... (Enter to send)"
               rows={2}
-              className="w-full bg-transparent text-[13px] text-[#C8C5C0] placeholder:text-[#525252] resize-none focus:outline-none px-3 pt-3 leading-relaxed font-mono"
+              className="w-full bg-transparent text-[13px] text-ink placeholder:text-faint resize-none focus:outline-none px-3 pt-3 leading-relaxed font-mono"
               style={{ maxHeight: "160px", minHeight: "52px" }}
             />
             <div className="flex items-center justify-between px-3 pb-2">
-              <span className="text-[10px] text-[#525252]">?? new line</span>
+              <span className="text-[10px] text-faint">Shift + Enter for new line</span>
               <button onClick={send} disabled={loading || !input.trim()}
-                className="w-7 h-7 rounded-lg flex items-center justify-center transition-all disabled:opacity-30 bg-[#B5622A] hover:bg-[#9A4E20] text-white">
+                className="w-7 h-7 rounded-lg flex items-center justify-center transition-all disabled:opacity-30 bg-accent hover:opacity-90 text-white">
                 <Send size={12} />
               </button>
             </div>
