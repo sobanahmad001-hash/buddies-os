@@ -175,6 +175,7 @@ function Pill({
 
 export default function DashboardPage() {
   const router = useRouter();
+  const [command, setCommand] = useState("");
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -354,6 +355,12 @@ export default function DashboardPage() {
 
   const activeIntegrationCount = integrations.filter((i) => i.status === "active").length;
 
+  function openAssistant(event: React.FormEvent) {
+    event.preventDefault();
+    const value = command.trim();
+    router.push(value ? `/app/ai?prompt=${encodeURIComponent(value)}` : "/app/ai");
+  }
+
   return (
     <div className="flex-1 overflow-auto">
       <div className="p-4 md:p-8 max-w-[1100px]">
@@ -361,7 +368,7 @@ export default function DashboardPage() {
           <div>
             <h1 className="text-[18px] font-semibold text-[#C8C5C0]">Today</h1>
             <p className="text-[12px] text-[#737373] mt-0.5 hidden md:block">
-              System view across momentum, memory, execution, and recent operating patterns
+              Your priorities, blockers, commitments, and next safe actions
             </p>
           </div>
 
@@ -373,6 +380,36 @@ export default function DashboardPage() {
             {summaryLoading ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
             <span>Weekly Digest</span>
           </button>
+        </div>
+
+        <form onSubmit={openAssistant} className="mb-5 rounded-2xl border border-[#2D2D2D] bg-[#151515] p-2 flex items-center gap-2 focus-within:border-[#B5622A]/60 transition-colors">
+          <div className="w-9 h-9 rounded-xl bg-[#20170F] flex items-center justify-center shrink-0">
+            <Sparkles size={15} className="text-[#B5622A]" />
+          </div>
+          <input
+            value={command}
+            onChange={(event) => setCommand(event.target.value)}
+            placeholder="What do you want to move forward?"
+            aria-label="Ask Buddies OS"
+            className="min-w-0 flex-1 bg-transparent px-1 text-[13px] text-[#D4D1CC] placeholder:text-[#525252] outline-none"
+          />
+          <button type="submit" className="w-9 h-9 rounded-xl bg-[#B5622A] hover:bg-[#9A4E20] text-white flex items-center justify-center transition-colors" aria-label="Open assistant">
+            <ArrowRight size={15} />
+          </button>
+        </form>
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-5">
+          {[
+            { label: "Needs attention", value: alertsLoading ? "—" : alerts.length + blockers.length, tone: "text-[#E29B70]" },
+            { label: "Commitments", value: tasks.length, tone: "text-[#6BA3D6]" },
+            { label: "Active projects", value: projects.length, tone: "text-[#61A785]" },
+            { label: "Suggested actions", value: nextSteps.length, tone: "text-[#9A8BD6]" },
+          ].map((item) => (
+            <div key={item.label} className="rounded-xl border border-[#252525] bg-[#141414] px-3 py-3">
+              <p className={`text-[18px] font-semibold ${item.tone}`}>{item.value}</p>
+              <p className="text-[10px] text-[#737373] mt-1 uppercase tracking-wide">{item.label}</p>
+            </div>
+          ))}
         </div>
 
         {showSummary && (
@@ -404,6 +441,7 @@ export default function DashboardPage() {
 
         {(alertsLoading || alerts.length > 0) && (
           <div className="mb-5 space-y-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#737373] px-1 pb-1">Needs your attention</p>
             {alertsLoading ? (
               <div className="flex items-center gap-2 px-1">
                 <Loader2 size={11} className="animate-spin text-[#737373]" />
@@ -460,7 +498,7 @@ export default function DashboardPage() {
             <div className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl p-4">
               <div className="flex items-center gap-2 mb-3">
                 <CheckSquare size={13} className="text-[#2C5F8A]" />
-                <h2 className="text-[12px] font-semibold text-[#C8C5C0] uppercase tracking-wide">Open Work</h2>
+                <h2 className="text-[12px] font-semibold text-[#C8C5C0] uppercase tracking-wide">Today's Commitments</h2>
                 <span className="text-[10px] text-[#737373] ml-auto">{tasks.length} open</span>
               </div>
 

@@ -170,6 +170,13 @@ export default function AIPage() {
   const MAX_CHARS = 12000;
 
   useEffect(() => { loadSessions(); }, []);
+  useEffect(() => {
+    const prompt = new URLSearchParams(window.location.search).get("prompt");
+    if (prompt) {
+      setInput(prompt);
+      setTimeout(() => textareaRef.current?.focus(), 0);
+    }
+  }, []);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
   useEffect(() => {
     if (typeof window !== "undefined" && window.innerWidth < 768) setSidebarOpen(false);
