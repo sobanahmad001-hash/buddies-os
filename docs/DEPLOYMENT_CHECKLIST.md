@@ -2,6 +2,8 @@
 
 Do not deploy the redesign branch to production until every required item is checked.
 
+Trading policy: paper trading only. Broker authentication and live order execution are intentionally disabled.
+
 ## Required
 
 - [ ] Apply `supabase/migrations/20260824_project_operating_model.sql` to production Supabase.

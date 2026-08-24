@@ -6,6 +6,11 @@ import { provisionAndDeploy, getLiveAccountInfo, getAccountState, placeOrder } f
 export const maxDuration = 30;
 
 export async function POST(req: NextRequest) {
+  return NextResponse.json(
+    { error: "Broker connectivity is disabled. Buddies OS v2 supports paper trading only." },
+    { status: 410 },
+  );
+  /* Legacy broker implementation retained temporarily for migration reference.
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -189,4 +194,5 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
+  */
 }

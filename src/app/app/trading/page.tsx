@@ -206,16 +206,8 @@ function LogTradeModal({ ladder, positionSize, onClose, onSave }: any) {
               </div>
             </div>
             <div>
-              <label className="text-[10px] font-bold text-[#525252] uppercase tracking-wider">Account</label>
-              <div className="flex gap-2 mt-1">
-                {["demo","live"].map(a => (
-                  <button key={a} onClick={() => setForm(p => ({...p, account_type: a}))}
-                    className={`flex-1 py-2 rounded-lg text-[12px] font-semibold transition-colors capitalize
-                      ${form.account_type === a ? "bg-[#B5622A] text-white" : "bg-[#1E1E1E] text-[#737373] hover:bg-[#2D2D2D]"}`}>
-                    {a}
-                  </button>
-                ))}
-              </div>
+              <label className="text-[10px] font-bold text-[#525252] uppercase tracking-wider">Mode</label>
+              <div className="mt-1 rounded-lg border border-[#3B82F630] bg-[#3B82F615] py-2 text-center text-[12px] font-semibold text-[#3B82F6]">Paper trading</div>
             </div>
           </div>
 
@@ -802,16 +794,7 @@ export default function TradingPage() {
   }
 
   async function saveTrade(form: any) {
-    const tradeForm = { ...form, instrument: activeSymbol.replace("/", "") };
-    const connectedAccount = accounts.find(a => a.metaapi_account_id);
-    if (connectedAccount) {
-      // Show confirmation modal so user can choose to execute on broker or just journal
-      setShowLogTrade(false);
-      setPendingTrade(tradeForm);
-      setShowTradeConfirm(true);
-      return;
-    }
-    // No connected account — log to journal only
+    const tradeForm = { ...form, account_type: "demo", instrument: activeSymbol.replace("/", "") };
     await logTradeToJournal(tradeForm);
     setShowLogTrade(false);
     await loadAll();
@@ -1160,15 +1143,7 @@ export default function TradingPage() {
                     type="number"
                     className="w-full px-2 py-1.5 bg-[#0D0D0D] border border-[#2D2D2D] rounded text-[11px] text-[#C8C5C0] focus:outline-none focus:border-[#B5622A]"
                   />
-                  <div className="flex gap-1">
-                    {(["demo", "live"] as const).map(t => (
-                      <button key={t} onClick={() => setAccountForm(p => ({ ...p, account_type: t }))}
-                        className={`flex-1 py-1 rounded text-[10px] font-semibold transition-colors capitalize
-                          ${accountForm.account_type === t ? "bg-[#B5622A] text-white" : "bg-[#2D2D2D] text-[#737373]"}`}>
-                        {t}
-                      </button>
-                    ))}
-                  </div>
+                  <div className="rounded bg-[#3B82F615] py-1.5 text-center text-[10px] font-semibold text-[#3B82F6]">Paper account only</div>
                   <div className="flex gap-1">
                     <button onClick={addAccount}
                       className="flex-1 py-1.5 bg-[#B5622A] text-white text-[10px] font-bold rounded hover:bg-[#9A4E20] transition-colors">

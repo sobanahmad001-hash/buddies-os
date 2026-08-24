@@ -132,7 +132,7 @@ export async function POST(req: NextRequest) {
 
   if (action === "log_trade") {
     const { data, error } = await supabase.from("trading_entries").insert({
-      user_id: user.id, ...body.trade
+      user_id: user.id, ...body.trade, account_type: "demo"
     }).select().single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ entry: data });

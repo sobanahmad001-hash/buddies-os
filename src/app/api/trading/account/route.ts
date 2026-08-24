@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     const { action } = body;
 
     if (action === "add_account") {
-      const { account_number, account_type, server, currency, broker, balance } = body;
+      const { account_number, server, currency, balance } = body;
 
       if (!account_number) {
         return NextResponse.json({ error: "account_number is required" }, { status: 400 });
@@ -45,10 +45,10 @@ export async function POST(req: NextRequest) {
         .upsert(
           {
             user_id: user.id,
-            broker: broker ?? "exness",
+            broker: "paper",
             account_number,
-            account_type: account_type ?? "demo",
-            server: server ?? "Exness-Trial",
+            account_type: "demo",
+            server: server ?? "Buddies-Paper",
             currency: currency ?? "USD",
             balance: balance ?? 0,
             equity: balance ?? 0,
