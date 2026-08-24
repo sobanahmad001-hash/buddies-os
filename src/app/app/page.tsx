@@ -121,9 +121,9 @@ function timeAgo(d: string) {
 
 function AlertCard({ alert }: { alert: Alert }) {
   const cfg = {
-    alert: { icon: AlertCircle, cls: "border-[#EF444430] bg-[#1A0D0D]", iconCls: "text-[#EF4444]" },
-    warn: { icon: AlertTriangle, cls: "border-[#EAB30830] bg-[#1A1800]", iconCls: "text-[#EAB308]" },
-    info: { icon: Info, cls: "border-[#3B82F630] bg-[#0D1220]", iconCls: "text-[#2C5F8A]" },
+    alert: { icon: AlertCircle, cls: "border-risk/20 bg-surface", iconCls: "text-risk" },
+    warn: { icon: AlertTriangle, cls: "border-caution/20 bg-surface", iconCls: "text-caution" },
+    info: { icon: Info, cls: "border-line bg-surface", iconCls: "text-accent" },
   }[alert.severity];
 
   const Icon = cfg.icon;
@@ -131,7 +131,7 @@ function AlertCard({ alert }: { alert: Alert }) {
   return (
     <div className={`flex items-start gap-2.5 px-3 py-2.5 rounded-xl border ${cfg.cls}`}>
       <Icon size={13} className={`${cfg.iconCls} shrink-0 mt-0.5`} />
-      <p className="text-[12px] text-[#A8A5A0] leading-snug">{alert.message}</p>
+      <p className="text-[12px] text-muted leading-snug">{alert.message}</p>
     </div>
   );
 }
@@ -141,7 +141,7 @@ function MomentumBar({ value, max }: { value: number; max: number }) {
   const color = pct > 60 ? "#2D6A4F" : pct > 30 ? "#EAB308" : "#EF4444";
 
   return (
-    <div className="w-full bg-[#111111] rounded-full h-1.5">
+    <div className="w-full bg-surface-subtle rounded-full h-1.5">
       <div
         className="h-1.5 rounded-full transition-all"
         style={{ width: `${pct}%`, backgroundColor: color }}
@@ -159,12 +159,12 @@ function Pill({
 }) {
   const cls =
     tone === "good"
-      ? "bg-[#10B98120] text-[#10B981]"
+      ? "bg-surface-subtle text-positive"
       : tone === "warn"
-      ? "bg-[#EAB30820] text-[#EAB308]"
+      ? "bg-surface-subtle text-caution"
       : tone === "bad"
-      ? "bg-[#EF444420] text-[#EF4444]"
-      : "bg-[#1E1E1E] text-[#737373]";
+      ? "bg-surface-subtle text-risk"
+      : "bg-surface-subtle text-muted";
 
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${cls}`}>
@@ -362,12 +362,13 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="flex-1 overflow-auto">
-      <div className="p-4 md:p-8 max-w-[1100px]">
-        <div className="flex items-center justify-between mb-5">
+    <div className="flex-1 overflow-auto bg-canvas">
+      <div className="mx-auto max-w-[1120px] p-4 md:p-8">
+        <div className="flex items-start justify-between mb-6 gap-4">
           <div>
-            <h1 className="text-[18px] font-semibold text-[#C8C5C0]">Today</h1>
-            <p className="text-[12px] text-[#737373] mt-0.5 hidden md:block">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent">Personal command center</p>
+            <h1 className="mt-1 text-[24px] font-semibold text-ink">Today</h1>
+            <p className="text-[13px] text-muted mt-1 hidden md:block">
               Your priorities, blockers, commitments, and next safe actions
             </p>
           </div>
@@ -375,64 +376,64 @@ export default function DashboardPage() {
           <button
             onClick={generateSummary}
             disabled={summaryLoading}
-            className="flex items-center gap-2 px-3 py-1.5 border border-[#2D2D2D] text-[#737373] text-[12px] rounded-lg hover:border-[#CC785C] hover:text-[#CC785C] transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 rounded-xl border border-line bg-surface px-3 py-2 text-[12px] font-medium text-muted transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
           >
             {summaryLoading ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
             <span>Weekly Digest</span>
           </button>
         </div>
 
-        <form onSubmit={openAssistant} className="mb-5 rounded-2xl border border-[#2D2D2D] bg-[#151515] p-2 flex items-center gap-2 focus-within:border-[#B5622A]/60 transition-colors">
-          <div className="w-9 h-9 rounded-xl bg-[#20170F] flex items-center justify-center shrink-0">
-            <Sparkles size={15} className="text-[#B5622A]" />
+        <form onSubmit={openAssistant} className="mb-5 rounded-2xl border border-line bg-surface p-2 flex items-center gap-2 shadow-panel focus-within:border-accent transition-colors">
+          <div className="w-10 h-10 rounded-xl bg-accent-soft flex items-center justify-center shrink-0">
+            <Sparkles size={16} className="text-accent" />
           </div>
           <input
             value={command}
             onChange={(event) => setCommand(event.target.value)}
             placeholder="What do you want to move forward?"
             aria-label="Ask Buddies OS"
-            className="min-w-0 flex-1 bg-transparent px-1 text-[13px] text-[#D4D1CC] placeholder:text-[#525252] outline-none"
+            className="min-w-0 flex-1 bg-transparent px-1 text-[13px] text-ink placeholder:text-faint outline-none"
           />
-          <button type="submit" className="w-9 h-9 rounded-xl bg-[#B5622A] hover:bg-[#9A4E20] text-white flex items-center justify-center transition-colors" aria-label="Open assistant">
+          <button type="submit" className="w-10 h-10 rounded-xl bg-accent hover:opacity-90 text-white flex items-center justify-center transition-opacity" aria-label="Open assistant">
             <ArrowRight size={15} />
           </button>
         </form>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-5">
           {[
-            { label: "Needs attention", value: alertsLoading ? "—" : alerts.length + blockers.length, tone: "text-[#E29B70]" },
-            { label: "Commitments", value: tasks.length, tone: "text-[#6BA3D6]" },
-            { label: "Active projects", value: projects.length, tone: "text-[#61A785]" },
-            { label: "Suggested actions", value: nextSteps.length, tone: "text-[#9A8BD6]" },
+            { label: "Needs attention", value: alertsLoading ? "—" : alerts.length + blockers.length, tone: "text-caution" },
+            { label: "Commitments", value: tasks.length, tone: "text-accent" },
+            { label: "Active projects", value: projects.length, tone: "text-positive" },
+            { label: "Suggested actions", value: nextSteps.length, tone: "text-ink" },
           ].map((item) => (
-            <div key={item.label} className="rounded-xl border border-[#252525] bg-[#141414] px-3 py-3">
-              <p className={`text-[18px] font-semibold ${item.tone}`}>{item.value}</p>
-              <p className="text-[10px] text-[#737373] mt-1 uppercase tracking-wide">{item.label}</p>
+            <div key={item.label} className="rounded-2xl border border-line bg-surface px-4 py-4">
+              <p className={`text-[20px] font-semibold ${item.tone}`}>{item.value}</p>
+              <p className="text-[10px] text-muted mt-1 uppercase tracking-wide">{item.label}</p>
             </div>
           ))}
         </div>
 
         {showSummary && (
-          <div className="bg-[#1A1A1A] rounded-xl p-5 mb-5">
+          <div className="bg-surface border border-line rounded-2xl p-5 mb-5 shadow-panel">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <Sparkles size={12} className="text-[#CC785C]" />
-                <span className="text-[10px] font-semibold text-[#CC785C] uppercase tracking-wide">
+                <Sparkles size={12} className="text-accent" />
+                <span className="text-[10px] font-semibold text-accent uppercase tracking-wide">
                   Weekly Digest
                 </span>
               </div>
-              <button onClick={() => setShowSummary(false)} className="text-[11px] text-[#555] hover:text-[#999]">
+              <button onClick={() => setShowSummary(false)} className="text-[11px] text-muted hover:text-ink">
                 Close
               </button>
             </div>
 
             {summaryLoading ? (
               <div className="flex items-center gap-2">
-                <Loader2 size={12} className="animate-spin text-[#CC785C]" />
-                <span className="text-[12px] text-[#999]">Generating...</span>
+                <Loader2 size={12} className="animate-spin text-accent" />
+                <span className="text-[12px] text-muted">Generating...</span>
               </div>
             ) : (
-              <div className="text-[12px] text-[#CCC] leading-relaxed prose prose-sm prose-invert max-w-none">
+              <div className="text-[12px] text-ink leading-relaxed prose prose-sm max-w-none">
                 <ReactMarkdown>{summary}</ReactMarkdown>
               </div>
             )}
@@ -441,11 +442,11 @@ export default function DashboardPage() {
 
         {(alertsLoading || alerts.length > 0) && (
           <div className="mb-5 space-y-1.5">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#737373] px-1 pb-1">Needs your attention</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted px-1 pb-1">Needs your attention</p>
             {alertsLoading ? (
               <div className="flex items-center gap-2 px-1">
-                <Loader2 size={11} className="animate-spin text-[#737373]" />
-                <span className="text-[11px] text-[#737373]">Checking signals...</span>
+                <Loader2 size={11} className="animate-spin text-muted" />
+                <span className="text-[11px] text-muted">Checking signals...</span>
               </div>
             ) : (
               alerts.map((a, i) => <AlertCard key={i} alert={a} />)
@@ -455,15 +456,15 @@ export default function DashboardPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-[1.25fr_0.75fr] gap-4">
           <div className="space-y-4">
-            <div className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl p-4">
+            <div className="bg-surface border border-line rounded-2xl p-4">
               <div className="flex items-center gap-2 mb-3">
-                <TrendingUp size={13} className="text-[#CC785C]" />
-                <h2 className="text-[12px] font-semibold text-[#C8C5C0] uppercase tracking-wide">Projects in Motion</h2>
-                <span className="text-[10px] text-[#737373] ml-auto">7-day activity</span>
+                <TrendingUp size={13} className="text-accent" />
+                <h2 className="text-[12px] font-semibold text-ink uppercase tracking-wide">Projects in Motion</h2>
+                <span className="text-[10px] text-muted ml-auto">7-day activity</span>
               </div>
 
               {projects.length === 0 ? (
-                <p className="text-[12px] text-[#737373]">No active projects.</p>
+                <p className="text-[12px] text-muted">No active projects.</p>
               ) : (
                 <div className="space-y-3">
                   {projects.map((p) => (
@@ -473,12 +474,12 @@ export default function DashboardPage() {
                       className="cursor-pointer group"
                     >
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-[12px] text-[#A8A5A0] group-hover:text-[#CC785C] transition-colors">
+                        <span className="text-[12px] text-ink group-hover:text-accent transition-colors">
                           {p.name}
                         </span>
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-[#737373]">{p.updateCount ?? 0} updates</span>
-                          <span className="text-[10px] text-[#737373]">{timeAgo(p.updated_at)}</span>
+                          <span className="text-[10px] text-muted">{p.updateCount ?? 0} updates</span>
+                          <span className="text-[10px] text-muted">{timeAgo(p.updated_at)}</span>
                         </div>
                       </div>
                       <MomentumBar value={p.updateCount ?? 0} max={maxUpdates} />
@@ -489,36 +490,36 @@ export default function DashboardPage() {
 
               <button
                 onClick={() => router.push("/app/projects")}
-                className="mt-3 text-[11px] text-[#CC785C] hover:underline"
+                className="mt-3 text-[11px] text-accent hover:underline"
               >
                 All projects →
               </button>
             </div>
 
-            <div className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl p-4">
+            <div className="bg-surface border border-line rounded-2xl p-4">
               <div className="flex items-center gap-2 mb-3">
                 <CheckSquare size={13} className="text-[#2C5F8A]" />
-                <h2 className="text-[12px] font-semibold text-[#C8C5C0] uppercase tracking-wide">Today's Commitments</h2>
-                <span className="text-[10px] text-[#737373] ml-auto">{tasks.length} open</span>
+                <h2 className="text-[12px] font-semibold text-ink uppercase tracking-wide">Today's Commitments</h2>
+                <span className="text-[10px] text-muted ml-auto">{tasks.length} open</span>
               </div>
 
               {taskGroups.length === 0 ? (
-                <p className="text-[12px] text-[#737373]">No open tasks right now.</p>
+                <p className="text-[12px] text-muted">No open tasks right now.</p>
               ) : (
                 <div className="space-y-3">
                   {taskGroups.slice(0, 4).map((group) => (
-                    <div key={group.projectName} className="bg-[#111111] border border-[#2D2D2D] rounded-xl p-3">
+                    <div key={group.projectName} className="bg-surface-subtle border border-line rounded-xl p-3">
                       <div className="flex items-center justify-between mb-2">
-                        <p className="text-[12px] font-semibold text-[#C8C5C0]">{group.projectName}</p>
-                        <span className="text-[10px] text-[#737373]">{group.items.length} items</span>
+                        <p className="text-[12px] font-semibold text-ink">{group.projectName}</p>
+                        <span className="text-[10px] text-muted">{group.items.length} items</span>
                       </div>
                       <div className="space-y-2">
                         {group.items.slice(0, 3).map((task) => (
                           <div key={task.id} className="flex items-start gap-2">
-                            <div className="w-1.5 h-1.5 rounded-full bg-[#CC785C] mt-1.5 shrink-0" />
+                            <div className="w-1.5 h-1.5 rounded-full bg-accent mt-1.5 shrink-0" />
                             <div className="min-w-0 flex-1">
-                              <p className="text-[12px] text-[#A8A5A0] leading-relaxed">{task.title}</p>
-                              <p className="text-[10px] text-[#737373] mt-0.5">
+                              <p className="text-[12px] text-ink leading-relaxed">{task.title}</p>
+                              <p className="text-[10px] text-muted mt-0.5">
                                 priority {task.priority ?? 2}
                                 {task.due_date ? ` · due ${task.due_date}` : ""}
                               </p>

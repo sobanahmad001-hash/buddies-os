@@ -53,10 +53,10 @@ function timeAgo(d: string) {
 
 function TypeBadge({ type }: { type: string }) {
   const map: Record<string, string> = {
-    progress: "bg-[#DBEAFE] text-[#2C5F8A]",
-    decision: "bg-[#DCFCE7] text-[#2D6A4F]",
-    blocker: "bg-[#FEE2E2] text-[#EF4444]",
-    milestone: "bg-[#FEF9C3] text-[#92400E]",
+    progress: "bg-surface-subtle text-accent",
+    decision: "bg-surface-subtle text-positive",
+    blocker: "bg-surface-subtle text-risk",
+    milestone: "bg-surface-subtle text-caution",
   };
 
   return (
@@ -78,11 +78,11 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl p-4">
+    <div className="bg-surface border border-line rounded-2xl p-4">
       <div className="flex items-start justify-between mb-3 gap-3">
         <div>
-          <h2 className="text-[14px] font-semibold text-[#C8C5C0]">{title}</h2>
-          {subtitle && <p className="text-[12px] text-[#737373] mt-0.5">{subtitle}</p>}
+          <h2 className="text-[14px] font-semibold text-ink">{title}</h2>
+          {subtitle && <p className="text-[12px] text-muted mt-0.5">{subtitle}</p>}
         </div>
         {action}
       </div>
@@ -105,18 +105,18 @@ function LinkTile({
   return (
     <button
       onClick={onClick}
-      className="w-full text-left bg-[#111111] border border-[#2D2D2D] rounded-xl p-3 hover:border-[#CC785C]/40 hover:bg-[#1A1A1A] transition-colors"
+      className="w-full text-left bg-surface-subtle border border-line rounded-xl p-3 hover:border-accent/40 transition-colors"
     >
       <div className="flex items-start gap-3">
-        <div className="w-8 h-8 rounded-lg bg-[#1A1A1A] border border-[#2D2D2D] flex items-center justify-center shrink-0">
-          <Icon size={15} className="text-[#CC785C]" />
+        <div className="w-8 h-8 rounded-lg bg-surface border border-line flex items-center justify-center shrink-0">
+          <Icon size={15} className="text-accent" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-[13px] font-semibold text-[#C8C5C0]">{title}</p>
-            <ArrowRight size={13} className="text-[#525252] shrink-0" />
+            <p className="text-[13px] font-semibold text-ink">{title}</p>
+            <ArrowRight size={13} className="text-faint shrink-0" />
           </div>
-          <p className="text-[12px] text-[#737373] mt-1 leading-relaxed">{subtitle}</p>
+          <p className="text-[12px] text-muted mt-1 leading-relaxed">{subtitle}</p>
         </div>
       </div>
     </button>
@@ -204,14 +204,14 @@ function ProjectTimeline({ nodes }: { nodes: any[] }) {
   }, [nodes]);
 
   if (!nodes?.length) return (
-    <div className="text-center py-8 text-[#525252] text-sm">
+    <div className="text-center py-8 text-faint text-sm">
       No timeline events yet. Research, decisions, and task batches will appear here automatically.
     </div>
   );
 
   return (
     <div>
-      <div className="text-[11px] text-[#737373] mb-3 flex items-center gap-2">
+      <div className="text-[11px] text-muted mb-3 flex items-center gap-2">
         <span>{nodes.length} event{nodes.length !== 1 ? "s" : ""}</span>
         <span>·</span>
         <span className="capitalize">{nodes[nodes.length - 1]?.type}</span>
@@ -320,25 +320,25 @@ export default function ProjectOverviewPage() {
   const recentUpdates = updates.slice(0, 4);
 
   if (loading) {
-    return <div className="flex items-center justify-center h-40"><p className="text-[14px] text-[#737373]">Loading…</p></div>;
+    return <div className="flex items-center justify-center h-40"><p className="text-[14px] text-muted">Loading…</p></div>;
   }
 
   if (!project) {
-    return <div className="flex items-center justify-center h-40"><p className="text-[14px] text-[#737373]">Project not found.</p></div>;
+    return <div className="flex items-center justify-center h-40"><p className="text-[14px] text-muted">Project not found.</p></div>;
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-[980px]">
+    <div className="mx-auto max-w-[1040px] p-4 md:p-6">
       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-5">
         <div className="min-w-0">
           {project.description && (
-            <p className="text-[14px] text-[#737373] mt-1 max-w-[640px] leading-relaxed">
+            <p className="text-[14px] text-muted mt-1 max-w-[640px] leading-relaxed">
               {project.description}
             </p>
           )}
 
           {project.memory && (
-            <p className="text-[12px] text-[#737373] mt-2 italic">
+            <p className="text-[12px] text-muted mt-2 italic">
               {project.memory.split("\n").find((l) => l.startsWith("Current focus:"))?.replace("Current focus:", "→ ") ?? ""}
             </p>
           )}
@@ -348,7 +348,7 @@ export default function ProjectOverviewPage() {
               {project.tags.map((t) => (
                 <span
                   key={t}
-                  className="text-[11px] px-2 py-0.5 rounded-full bg-[#111111] text-[#737373] border border-[#2D2D2D]"
+                  className="text-[11px] px-2 py-0.5 rounded-full bg-surface-subtle text-muted border border-line"
                 >
                   {t}
                 </span>
@@ -360,14 +360,14 @@ export default function ProjectOverviewPage() {
         <div className="flex gap-2 shrink-0">
           <button
             onClick={() => router.push(assistantHref)}
-            className="flex items-center gap-2 px-4 py-2 bg-[#1A1A1A] text-white text-[13px] font-semibold rounded-lg hover:bg-[#333] transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-accent text-white text-[13px] font-semibold rounded-xl hover:opacity-90 transition-opacity"
           >
             <Plus size={14} /> Work with Assistant
           </button>
 
           <button
             onClick={handleArchive}
-            className="px-4 py-2 border border-[#2D2D2D] text-[#737373] text-[13px] rounded-lg hover:border-[#EF4444] hover:text-[#EF4444] transition-colors"
+            className="px-4 py-2 border border-line text-muted text-[13px] rounded-xl hover:border-risk hover:text-risk transition-colors"
           >
             Archive
           </button>
@@ -375,21 +375,21 @@ export default function ProjectOverviewPage() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-        <div className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl p-4">
-          <p className="text-[11px] text-[#737373] uppercase tracking-wide">Updates</p>
-          <p className="text-[20px] font-semibold text-[#C8C5C0] mt-1">{updates.length}</p>
+        <div className="bg-surface border border-line rounded-2xl p-4">
+          <p className="text-[11px] text-muted uppercase tracking-wide">Updates</p>
+          <p className="text-[20px] font-semibold text-ink mt-1">{updates.length}</p>
         </div>
-        <div className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl p-4">
-          <p className="text-[11px] text-[#737373] uppercase tracking-wide">Open Work</p>
-          <p className="text-[20px] font-semibold text-[#C8C5C0] mt-1">{openTasks.length}</p>
+        <div className="bg-surface border border-line rounded-2xl p-4">
+          <p className="text-[11px] text-muted uppercase tracking-wide">Open Work</p>
+          <p className="text-[20px] font-semibold text-caution mt-1">{openTasks.length}</p>
         </div>
-        <div className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl p-4">
-          <p className="text-[11px] text-[#737373] uppercase tracking-wide">Decisions</p>
-          <p className="text-[20px] font-semibold text-[#C8C5C0] mt-1">{decisions.length}</p>
+        <div className="bg-surface border border-line rounded-2xl p-4">
+          <p className="text-[11px] text-muted uppercase tracking-wide">Decisions</p>
+          <p className="text-[20px] font-semibold text-accent mt-1">{decisions.length}</p>
         </div>
-        <div className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl p-4">
-          <p className="text-[11px] text-[#737373] uppercase tracking-wide">Documents</p>
-          <p className="text-[20px] font-semibold text-[#C8C5C0] mt-1">{documents.length}</p>
+        <div className="bg-surface border border-line rounded-2xl p-4">
+          <p className="text-[11px] text-muted uppercase tracking-wide">Documents</p>
+          <p className="text-[20px] font-semibold text-positive mt-1">{documents.length}</p>
         </div>
       </div>
 
@@ -440,37 +440,37 @@ export default function ProjectOverviewPage() {
           </SectionCard>
 
           {/* Living Product Document card */}
-          <div className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl p-4">
+          <div className="bg-surface border border-line rounded-2xl p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <span className="text-sm">📄</span>
-                <h3 className="text-[12px] font-semibold text-[#C8C5C0] uppercase tracking-wide">Living Product Document</h3>
-                {livingDoc && <span className="text-[10px] text-[#10B981] bg-[#ECFDF5] px-2 py-0.5 rounded-full">Always current</span>}
+                <h3 className="text-[12px] font-semibold text-ink uppercase tracking-wide">Living Product Document</h3>
+                {livingDoc && <span className="text-[10px] text-positive bg-surface-subtle px-2 py-0.5 rounded-full">Always current</span>}
               </div>
               <button onClick={updateLivingDoc} disabled={updatingDoc}
-                className="text-[11px] px-3 py-1.5 bg-[#B5622A] text-white rounded-lg font-semibold hover:bg-[#9A4E20] disabled:opacity-40 transition-colors">
+                className="text-[11px] px-3 py-1.5 bg-accent text-white rounded-lg font-semibold hover:opacity-90 disabled:opacity-40 transition-opacity">
                 {updatingDoc ? "Updating…" : livingDoc ? "Refresh" : "Generate"}
               </button>
             </div>
             {livingDoc ? (
               <div>
-                <p className="text-[12px] text-[#A8A5A0] leading-relaxed line-clamp-4 whitespace-pre-wrap">{livingDoc.content.slice(0, 400)}…</p>
+                <p className="text-[12px] text-ink leading-relaxed line-clamp-4 whitespace-pre-wrap">{livingDoc.content.slice(0, 400)}…</p>
                 <div className="flex items-center gap-3 mt-2">
-                  <span className="text-[10px] text-[#737373]">Updated {livingDoc.auto_updated_at ? new Date(livingDoc.auto_updated_at).toLocaleDateString() : "—"}</span>
+                  <span className="text-[10px] text-muted">Updated {livingDoc.auto_updated_at ? new Date(livingDoc.auto_updated_at).toLocaleDateString() : "—"}</span>
                   <button onClick={() => router.push(`/app/projects/${id}/documents`)}
-                    className="text-[11px] text-[#B5622A] hover:underline">View full →</button>
+                    className="text-[11px] text-accent hover:underline">View full →</button>
                 </div>
               </div>
             ) : (
-              <p className="text-[12px] text-[#737373]">Click Generate to create your living product document from all project data.</p>
+              <p className="text-[12px] text-muted">Click Generate to create your living product document from all project data.</p>
             )}
           </div>
 
           {/* Project Timeline card */}
-          <div className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl p-4">
+          <div className="bg-surface border border-line rounded-2xl p-4">
             <div className="flex items-center gap-2 mb-3">
               <span className="text-sm">🗺️</span>
-              <h3 className="text-[12px] font-semibold text-[#C8C5C0] uppercase tracking-wide">Project Timeline</h3>
+              <h3 className="text-[12px] font-semibold text-ink uppercase tracking-wide">Project Timeline</h3>
             </div>
             <ProjectTimeline nodes={timeline} />
           </div>
@@ -481,36 +481,36 @@ export default function ProjectOverviewPage() {
             action={
               <button
                 onClick={() => router.push(assistantHref)}
-                className="text-[12px] text-[#CC785C] hover:underline"
+                className="text-[12px] text-accent hover:underline"
               >
                 Add update
               </button>
             }
           >
             {recentUpdates.length === 0 ? (
-              <p className="text-[13px] text-[#737373]">No updates yet. Use the project assistant to log progress naturally.</p>
+              <p className="text-[13px] text-muted">No updates yet. Use the project assistant to log progress naturally.</p>
             ) : (
               <div className="space-y-3">
                 {recentUpdates.map((u) => (
-                  <div key={u.id} className="bg-[#111111] border border-[#2D2D2D] rounded-xl p-4">
+                  <div key={u.id} className="bg-surface-subtle border border-line rounded-xl p-4">
                     <div className="flex items-center justify-between mb-2">
                       <TypeBadge type={u.update_type} />
-                      <span className="text-[12px] text-[#737373]">{timeAgo(u.created_at)}</span>
+                      <span className="text-[12px] text-muted">{timeAgo(u.created_at)}</span>
                     </div>
 
-                    <p className="text-[14px] text-[#A8A5A0] mb-2 leading-relaxed">{u.content}</p>
+                    <p className="text-[14px] text-ink mb-2 leading-relaxed">{u.content}</p>
 
                     {u.outcomes && (
                       <div className="mb-2">
-                        <span className="text-[11px] font-semibold text-[#737373] uppercase tracking-wide">Outcomes</span>
-                        <p className="text-[12px] text-[#737373] mt-1 pl-3 border-l-2 border-[#CC785C]">{u.outcomes}</p>
+                        <span className="text-[11px] font-semibold text-muted uppercase tracking-wide">Outcomes</span>
+                        <p className="text-[12px] text-muted mt-1 pl-3 border-l-2 border-accent">{u.outcomes}</p>
                       </div>
                     )}
 
                     {u.next_actions && (
                       <div>
-                        <span className="text-[11px] font-semibold text-[#737373] uppercase tracking-wide">Next Actions</span>
-                        <p className="text-[12px] text-[#737373] mt-1 pl-3 border-l-2 border-[#CC785C]">{u.next_actions}</p>
+                        <span className="text-[11px] font-semibold text-muted uppercase tracking-wide">Next Actions</span>
+                        <p className="text-[12px] text-muted mt-1 pl-3 border-l-2 border-accent">{u.next_actions}</p>
                       </div>
                     )}
                   </div>
@@ -523,57 +523,57 @@ export default function ProjectOverviewPage() {
         <div className="space-y-4">
           <SectionCard title="Work Snapshot" subtitle="Current execution state">
             <div className="space-y-3">
-              <div className="bg-[#111111] rounded-xl p-3">
-                <p className="text-[11px] text-[#737373] uppercase tracking-wide">Open Tasks</p>
+              <div className="bg-surface-subtle rounded-xl p-3">
+                <p className="text-[11px] text-muted uppercase tracking-wide">Open Tasks</p>
                 {openTasks.length === 0 ? (
-                  <p className="text-[13px] text-[#737373] mt-2">No open tasks.</p>
+                  <p className="text-[13px] text-muted mt-2">No open tasks.</p>
                 ) : (
                   <div className="space-y-2 mt-2">
                     {openTasks.slice(0, 4).map((t) => (
                       <div key={t.id} className="flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-[#CC785C] shrink-0" />
-                        <p className="text-[12px] text-[#A8A5A0] truncate">{t.title}</p>
+                        <div className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
+                        <p className="text-[12px] text-ink truncate">{t.title}</p>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
 
-              <div className="bg-[#111111] rounded-xl p-3">
-                <p className="text-[11px] text-[#737373] uppercase tracking-wide">Completed Tasks</p>
-                <p className="text-[18px] font-semibold text-[#C8C5C0] mt-1">{doneTasks.length}</p>
+              <div className="bg-surface-subtle rounded-xl p-3">
+                <p className="text-[11px] text-muted uppercase tracking-wide">Completed Tasks</p>
+                <p className="text-[18px] font-semibold text-positive mt-1">{doneTasks.length}</p>
               </div>
             </div>
           </SectionCard>
 
           <SectionCard title="Knowledge Snapshot" subtitle="Decision, rule, research, and document context">
             <div className="space-y-3">
-              <div className="bg-[#111111] rounded-xl p-3">
-                <p className="text-[11px] text-[#737373] uppercase tracking-wide">Recent Decisions</p>
+              <div className="bg-surface-subtle rounded-xl p-3">
+                <p className="text-[11px] text-muted uppercase tracking-wide">Recent Decisions</p>
                 {decisions.length === 0 ? (
-                  <p className="text-[13px] text-[#737373] mt-2">No decisions logged yet.</p>
+                  <p className="text-[13px] text-muted mt-2">No decisions logged yet.</p>
                 ) : (
                   <div className="space-y-2 mt-2">
                     {decisions.slice(0, 3).map((d) => (
                       <div key={d.id}>
-                        <p className="text-[12px] text-[#A8A5A0]">{d.title}</p>
-                        <p className="text-[10px] text-[#737373] mt-0.5">{d.verdict ?? "pending"} · {timeAgo(d.created_at)}</p>
+                        <p className="text-[12px] text-ink">{d.title}</p>
+                        <p className="text-[10px] text-muted mt-0.5">{d.verdict ?? "pending"} · {timeAgo(d.created_at)}</p>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
 
-              <div className="bg-[#111111] rounded-xl p-3">
-                <p className="text-[11px] text-[#737373] uppercase tracking-wide">Active Rules</p>
+              <div className="bg-surface-subtle rounded-xl p-3">
+                <p className="text-[11px] text-muted uppercase tracking-wide">Active Rules</p>
                 {activeRules.length === 0 ? (
-                  <p className="text-[13px] text-[#737373] mt-2">No active rules.</p>
+                  <p className="text-[13px] text-muted mt-2">No active rules.</p>
                 ) : (
                   <div className="space-y-2 mt-2">
                     {activeRules.slice(0, 3).map((r) => (
                       <div key={r.id} className="flex items-center justify-between gap-2">
-                        <p className="text-[12px] text-[#A8A5A0] line-clamp-2">{r.rule_text}</p>
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#111111] text-[#737373] shrink-0">
+                        <p className="text-[12px] text-ink line-clamp-2">{r.rule_text}</p>
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-surface text-muted shrink-0">
                           S{r.severity}
                         </span>
                       </div>
@@ -582,32 +582,32 @@ export default function ProjectOverviewPage() {
                 )}
               </div>
 
-              <div className="bg-[#111111] rounded-xl p-3">
-                <p className="text-[11px] text-[#737373] uppercase tracking-wide">Research Topics</p>
+              <div className="bg-surface-subtle rounded-xl p-3">
+                <p className="text-[11px] text-muted uppercase tracking-wide">Research Topics</p>
                 {research.length === 0 ? (
-                  <p className="text-[13px] text-[#737373] mt-2">No research notes yet.</p>
+                  <p className="text-[13px] text-muted mt-2">No research notes yet.</p>
                 ) : (
                   <div className="space-y-2 mt-2">
                     {research.slice(0, 3).map((r) => (
                       <div key={r.id}>
-                        <p className="text-[12px] text-[#A8A5A0]">{r.topic}</p>
-                        <p className="text-[10px] text-[#737373] mt-0.5">{timeAgo(r.created_at)}</p>
+                        <p className="text-[12px] text-ink">{r.topic}</p>
+                        <p className="text-[10px] text-muted mt-0.5">{timeAgo(r.created_at)}</p>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
 
-              <div className="bg-[#111111] rounded-xl p-3">
-                <p className="text-[11px] text-[#737373] uppercase tracking-wide">Recent Documents</p>
+              <div className="bg-surface-subtle rounded-xl p-3">
+                <p className="text-[11px] text-muted uppercase tracking-wide">Recent Documents</p>
                 {documents.length === 0 ? (
-                  <p className="text-[13px] text-[#737373] mt-2">No documents saved yet.</p>
+                  <p className="text-[13px] text-muted mt-2">No documents saved yet.</p>
                 ) : (
                   <div className="space-y-2 mt-2">
                     {documents.slice(0, 3).map((d) => (
                       <div key={d.id}>
-                        <p className="text-[12px] text-[#A8A5A0]">{d.title}</p>
-                        <p className="text-[10px] text-[#737373] mt-0.5">{timeAgo(d.created_at)}</p>
+                        <p className="text-[12px] text-ink">{d.title}</p>
+                        <p className="text-[10px] text-muted mt-0.5">{timeAgo(d.created_at)}</p>
                       </div>
                     ))}
                   </div>
@@ -620,12 +620,12 @@ export default function ProjectOverviewPage() {
             {/* Coding Agent toggle */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-[#1A1A1A] border border-[#2D2D2D] flex items-center justify-center shrink-0">
-                  <Code2 size={15} className="text-[#CC785C]" />
+                <div className="w-8 h-8 rounded-lg bg-surface border border-line flex items-center justify-center shrink-0">
+                  <Code2 size={15} className="text-accent" />
                 </div>
                 <div>
-                  <p className="text-[13px] font-semibold text-[#C8C5C0]">Coding Agent</p>
-                  <p className="text-[11px] text-[#737373] mt-0.5">
+                  <p className="text-[13px] font-semibold text-ink">Coding Agent</p>
+                  <p className="text-[11px] text-muted mt-0.5">
                     {project.coding_agent_enabled
                       ? 'Enabled — Code tab is visible in this project.'
                       : 'Disabled — only enable for software projects with a linked repo.'}
@@ -636,7 +636,7 @@ export default function ProjectOverviewPage() {
                 onClick={toggleCodingAgent}
                 disabled={togglingAgent}
                 className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-40
-                  ${project.coding_agent_enabled ? 'bg-[#B5622A]' : 'bg-[#2D2D2D]'}`}
+                  ${project.coding_agent_enabled ? 'bg-accent' : 'bg-line-strong'}`}
               >
                 <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform duration-200 ease-in-out
                   ${project.coding_agent_enabled ? 'translate-x-4' : 'translate-x-0'}`} />

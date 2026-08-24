@@ -8,7 +8,7 @@ import { supabase } from "@/lib/supabaseClient";
 type Project = { id: string; name: string; description: string | null; status: string; priority: string | null; tags: string[] | null; updated_at: string; };
 
 function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, string> = { active: "bg-[#DCFCE7] text-[#2D6A4F]", paused: "bg-[#FEF9C3] text-[#92400E]", archived: "bg-[#111111] text-[#737373]" };
+  const map: Record<string, string> = { active: "bg-surface-subtle text-positive", paused: "bg-surface-subtle text-caution", archived: "bg-surface-subtle text-muted" };
   return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold capitalize ${map[status] ?? map.archived}`}>{status}</span>;
 }
 
@@ -56,13 +56,13 @@ export default function ProjectsPage() {
   const pausedCount = projects.filter((project) => project.status === "paused").length;
 
   return (
-    <div className="flex-1 overflow-auto">
-      <div className="p-4 md:p-8 max-w-[1100px]">
+    <div className="flex-1 overflow-auto bg-canvas">
+      <div className="mx-auto p-4 md:p-8 max-w-[1100px]">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#CC785C]">Portfolio</p>
-            <h1 className="text-[24px] font-semibold text-[#C8C5C0] mt-1">Projects</h1>
-            <p className="text-[13px] text-[#737373] mt-1">Every outcome, commitment, decision, and project context in one place.</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent">Portfolio</p>
+            <h1 className="text-[24px] font-semibold text-ink mt-1">Projects</h1>
+            <p className="text-[13px] text-muted mt-1">Every outcome, commitment, decision, and project context in one place.</p>
           </div>
           <div className="flex gap-2"><button onClick={()=>router.push('/app/goals')} className="flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2 text-[13px] font-semibold text-ink hover:bg-surface-subtle"><Target size={14}/>Goals</button><button onClick={() => setShowForm(!showForm)}
             className="flex items-center gap-2 px-4 py-2 bg-accent text-white text-[13px] font-semibold rounded-lg hover:opacity-90 transition-colors">
@@ -71,39 +71,39 @@ export default function ProjectsPage() {
         </div>
 
         <div className="grid grid-cols-3 gap-3 mb-5">
-          <div className="rounded-xl border border-[#2D2D2D] bg-[#1A1A1A] p-4">
-            <p className="text-[11px] uppercase tracking-wide text-[#737373]">Total</p>
-            <p className="mt-1 text-[22px] font-semibold text-[#C8C5C0]">{projects.length}</p>
+          <div className="rounded-2xl border border-line bg-surface p-4">
+            <p className="text-[11px] uppercase tracking-wide text-muted">Total</p>
+            <p className="mt-1 text-[22px] font-semibold text-ink">{projects.length}</p>
           </div>
-          <div className="rounded-xl border border-[#2D2D2D] bg-[#1A1A1A] p-4">
-            <p className="text-[11px] uppercase tracking-wide text-[#737373]">Active</p>
-            <p className="mt-1 text-[22px] font-semibold text-[#86A789]">{activeCount}</p>
+          <div className="rounded-2xl border border-line bg-surface p-4">
+            <p className="text-[11px] uppercase tracking-wide text-muted">Active</p>
+            <p className="mt-1 text-[22px] font-semibold text-positive">{activeCount}</p>
           </div>
-          <div className="rounded-xl border border-[#2D2D2D] bg-[#1A1A1A] p-4">
-            <p className="text-[11px] uppercase tracking-wide text-[#737373]">Paused</p>
-            <p className="mt-1 text-[22px] font-semibold text-[#D6A85F]">{pausedCount}</p>
+          <div className="rounded-2xl border border-line bg-surface p-4">
+            <p className="text-[11px] uppercase tracking-wide text-muted">Paused</p>
+            <p className="mt-1 text-[22px] font-semibold text-caution">{pausedCount}</p>
           </div>
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
           <div className="relative flex-1 max-w-[460px]">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#737373]" />
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search projects"
-              className="w-full rounded-lg border border-[#2D2D2D] bg-[#111111] py-2 pl-9 pr-3 text-[13px] text-[#C8C5C0] outline-none focus:border-[#CC785C]" />
+              className="w-full rounded-xl border border-line bg-surface py-2.5 pl-9 pr-3 text-[13px] text-ink outline-none focus:border-accent" />
           </div>
-          <div className="flex gap-1 rounded-lg border border-[#2D2D2D] bg-[#111111] p-1 overflow-x-auto">
+          <div className="flex gap-1 rounded-xl border border-line bg-surface-subtle p-1 overflow-x-auto">
             {(["all", "active", "paused", "archived"] as const).map((value) => (
-              <button key={value} onClick={() => setFilter(value)} className={`rounded-md px-3 py-1.5 text-[11px] font-medium capitalize transition-colors ${filter === value ? "bg-[#2D2D2D] text-[#C8C5C0]" : "text-[#737373] hover:text-[#C8C5C0]"}`}>{value}</button>
+              <button key={value} onClick={() => setFilter(value)} className={`rounded-lg px-3 py-1.5 text-[11px] font-medium capitalize transition-colors ${filter === value ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink"}`}>{value}</button>
             ))}
           </div>
         </div>
 
         {showForm && (
-          <div className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl p-5 mb-4 space-y-3">
+          <div className="bg-surface border border-line rounded-2xl p-5 mb-4 space-y-3 shadow-panel">
             <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Project name..."
-              className="w-full border border-[#2D2D2D] rounded-lg px-4 py-2 text-[13px] outline-none focus:border-[#CC785C] placeholder:text-[#999]" />
+              className="w-full bg-surface-subtle border border-line rounded-xl px-4 py-2.5 text-[13px] text-ink outline-none focus:border-accent placeholder:text-faint" />
             <input value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder="Description (optional)..."
-              className="w-full border border-[#2D2D2D] rounded-lg px-4 py-2 text-[13px] outline-none focus:border-[#CC785C] placeholder:text-[#999]" />
+              className="w-full bg-surface-subtle border border-line rounded-xl px-4 py-2.5 text-[13px] text-ink outline-none focus:border-accent placeholder:text-faint" />
             <div className="flex gap-2">
               <button onClick={handleCreate} className="px-4 py-1.5 bg-[#1A1A1A] text-white text-[12px] font-semibold rounded-lg hover:bg-[#333] transition-colors">Create</button>
               <button onClick={() => setShowForm(false)} className="px-4 py-1.5 border border-[#2D2D2D] text-[#737373] text-[12px] rounded-lg hover:border-[#CC785C] hover:text-[#CC785C] transition-colors">Cancel</button>
@@ -120,9 +120,9 @@ export default function ProjectsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {visibleProjects.map(p => (
               <div key={p.id} onClick={() => router.push(`/app/projects/${p.id}`)}
-                className="group bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl p-5 cursor-pointer hover:border-[#CC785C]/50 transition-colors">
+                className="group bg-surface border border-line rounded-2xl p-5 cursor-pointer hover:border-accent/50 hover:shadow-panel transition-all">
                 <div className="flex items-start justify-between mb-2">
-                  <div className="flex items-center gap-2 min-w-0"><FolderKanban size={15} className="text-[#CC785C] shrink-0" /><h3 className="text-[14px] font-semibold text-[#C8C5C0] truncate">{p.name}</h3></div>
+                  <div className="flex items-center gap-2 min-w-0"><FolderKanban size={15} className="text-accent shrink-0" /><h3 className="text-[14px] font-semibold text-ink truncate">{p.name}</h3></div>
                   <div className="flex items-center gap-2">
                     <StatusBadge status={p.status} />
                     {p.status === "archived" && (
@@ -133,17 +133,17 @@ export default function ProjectsPage() {
                     )}
                   </div>
                 </div>
-                {p.description && <p className="text-[13px] text-[#737373] mb-3 leading-relaxed">{p.description}</p>}
+                {p.description && <p className="text-[13px] text-muted mb-3 leading-relaxed">{p.description}</p>}
                 {p.tags && p.tags.length > 0 && (
                   <div className="flex items-center gap-2 flex-wrap">
                     {p.tags.map(tag => (
-                      <span key={tag} className="text-[11px] px-2 py-0.5 rounded-full bg-[#111111] text-[#737373] border border-[#2D2D2D]">{tag}</span>
+                      <span key={tag} className="text-[11px] px-2 py-0.5 rounded-full bg-surface-subtle text-muted border border-line">{tag}</span>
                     ))}
                   </div>
                 )}
-                <div className="mt-4 flex items-center justify-between border-t border-[#2D2D2D] pt-3 text-[11px] text-[#737373]">
+                <div className="mt-4 flex items-center justify-between border-t border-line pt-3 text-[11px] text-muted">
                   <span className="flex items-center gap-1.5">{p.status === "paused" && <CirclePause size={12} />}Updated {new Date(p.updated_at).toLocaleDateString()}</span>
-                  <span className="flex items-center gap-1 text-[#CC785C] opacity-0 transition-opacity group-hover:opacity-100">Open workspace <ArrowRight size={12} /></span>
+                  <span className="flex items-center gap-1 text-accent opacity-0 transition-opacity group-hover:opacity-100">Open workspace <ArrowRight size={12} /></span>
                 </div>
               </div>
             ))}
