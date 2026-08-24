@@ -167,6 +167,7 @@ export default function CodingAgentPage() {
   const [pendingPR, setPendingPR] = useState<{title: string; branch: string; body: string} | null>(null);
   const [creatingPR, setCreatingPR] = useState(false);
   const [prResult, setPrResult] = useState<string | null>(null);
+  const [reviewConfirmed, setReviewConfirmed] = useState(false);
 
   // Model
   const [selectedModel, setSelectedModel] = useState<"gpt-4.1" | "claude-sonnet-4-5">("gpt-4.1");
@@ -499,7 +500,7 @@ RULES:
   }
 
   async function applyChanges() {
-    if (!fileChanges.length || !selectedRepo) return;
+    if (!fileChanges.length || !selectedRepo || !reviewConfirmed) return;
     setCreatingPR(true);
     const branch = pendingPR?.branch ?? `fix/buddies-${Date.now()}`;
     const title = pendingPR?.title ?? "Fix from Buddies Coding Agent";
@@ -524,6 +525,7 @@ RULES:
       setMessages(prev => [...prev, { role: "assistant", content: `? PR created � ${data.files_written?.length ?? 0} file(s) changed.\n\nView PR: ${data.pr_url}\n\nMerge to deploy via Vercel.` }]);
       setFileChanges([]);
       setPendingPR(null);
+      setReviewConfirmed(false);
     } else {
       setMessages(prev => [...prev, { role: "assistant", content: `? PR failed: ${data.error}` }]);
     }
@@ -810,11 +812,15 @@ RULES:
                   <span className="text-[#737373] font-mono truncate">{f.path}</span>
                 </div>
               ))}
+              <label className="mt-2 flex cursor-pointer items-start gap-2 rounded-md border border-[#10B98120] p-2 text-[10px] text-[#A8A5A0]">
+                <input type="checkbox" checked={reviewConfirmed} onChange={e => setReviewConfirmed(e.target.checked)} className="mt-0.5 accent-[#10B981]" />
+                <span>I reviewed every proposed file and understand that this creates a branch and pull request. Merge and deployment remain manual.</span>
+              </label>
             </div>
             <div className="px-3 py-2 border-t border-[#10B98120]">
-              <button onClick={applyChanges} disabled={creatingPR || !selectedRepo}
+              <button onClick={applyChanges} disabled={creatingPR || !selectedRepo || !reviewConfirmed}
                 className="w-full py-1.5 bg-[#10B981] text-white text-[11px] font-semibold rounded transition-colors hover:bg-[#059669] disabled:opacity-40">
-                {creatingPR ? "Creating PR..." : "Apply Changes & Create PR"}
+                {creatingPR ? "Creating PR..." : reviewConfirmed ? "Create review PR" : "Review files before creating PR"}
               </button>
             </div>
           </div>

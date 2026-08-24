@@ -1,15 +1,15 @@
 'use client';
 
-import { CalendarCheck2, FolderKanban, Code2, TrendingUp, Library } from 'lucide-react';
+import { CalendarCheck2, FolderKanban, Code2, TrendingUp, Inbox } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const links = [
   { href: '/app',          icon: CalendarCheck2,  label: 'Today' },
+  { href: '/app/inbox',    icon: Inbox,           label: 'Inbox' },
   { href: '/app/projects', icon: FolderKanban,    label: 'Projects' },
   { href: '/app/coding-agent', icon: Code2,       label: 'Code' },
   { href: '/app/trading',  icon: TrendingUp,      label: 'Trading' },
-  { href: '/app/knowledge',icon: Library,         label: 'Knowledge' },
 ];
 
 export default function BottomNav() {
@@ -17,7 +17,7 @@ export default function BottomNav() {
 
   return (
     <nav
-      className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0F0F0F] border-t border-[#1E1E1E]"
+      className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-surface border-t border-line"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       <div className="flex items-center justify-around px-1 py-1">
@@ -29,7 +29,7 @@ export default function BottomNav() {
               key={link.href}
               href={link.href}
               className={`flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl min-w-[60px] transition-colors ${
-                active ? 'text-[#B5622A]' : 'text-[#525252] hover:text-[#8A8A8A]'
+                active ? 'text-accent bg-accent-soft' : 'text-muted hover:text-ink'
               }`}
             >
               <Icon className="w-5 h-5" />

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, CirclePause, FolderKanban, Plus, Search, Trash2 } from "lucide-react";
+import { ArrowRight, CirclePause, FolderKanban, Plus, Search, Trash2, Target } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 
 type Project = { id: string; name: string; description: string | null; status: string; priority: string | null; tags: string[] | null; updated_at: string; };
@@ -64,10 +64,10 @@ export default function ProjectsPage() {
             <h1 className="text-[24px] font-semibold text-[#C8C5C0] mt-1">Projects</h1>
             <p className="text-[13px] text-[#737373] mt-1">Every outcome, commitment, decision, and project context in one place.</p>
           </div>
-          <button onClick={() => setShowForm(!showForm)}
-            className="flex items-center gap-2 px-4 py-2 bg-[#1A1A1A] text-white text-[13px] font-semibold rounded-lg hover:bg-[#333] transition-colors">
+          <div className="flex gap-2"><button onClick={()=>router.push('/app/goals')} className="flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2 text-[13px] font-semibold text-ink hover:bg-surface-subtle"><Target size={14}/>Goals</button><button onClick={() => setShowForm(!showForm)}
+            className="flex items-center gap-2 px-4 py-2 bg-accent text-white text-[13px] font-semibold rounded-lg hover:opacity-90 transition-colors">
             <Plus size={14} /> New Project
-          </button>
+          </button></div>
         </div>
 
         <div className="grid grid-cols-3 gap-3 mb-5">

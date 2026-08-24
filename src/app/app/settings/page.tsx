@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Upload, Check, Loader2, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const ACCENT_PRESETS = [
   { color: "#B5622A", label: "Burnt Orange" },
@@ -126,21 +127,27 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="flex-1 overflow-auto bg-[#0D0D0D] p-4 md:p-8">
+    <div className="flex-1 overflow-auto bg-canvas p-4 md:p-8">
       <div className="max-w-[600px] mx-auto">
         <div className="mb-8">
-          <h1 className="text-[20px] font-bold text-[#C8C5C0]">Settings</h1>
-          <p className="text-[13px] text-[#525252] mt-1">Workspace appearance and preferences</p>
+          <h1 className="text-[20px] font-bold text-ink">Settings</h1>
+          <p className="text-[13px] text-muted mt-1">Workspace appearance and preferences</p>
         </div>
 
+        <section className="bg-surface border border-line rounded-2xl p-6 mb-4 shadow-panel">
+          <h2 className="text-[14px] font-bold text-ink mb-1">Appearance</h2>
+          <p className="text-[12px] text-muted mb-4">Choose a theme or follow your device automatically.</p>
+          <ThemeToggle />
+        </section>
+
         {/* Logo */}
-        <div className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-2xl p-6 mb-4">
-          <h2 className="text-[14px] font-bold text-[#C8C5C0] mb-1">Workspace Logo</h2>
-          <p className="text-[12px] text-[#525252] mb-5">Shown in the nav sidebar. PNG, JPG, SVG or WebP under 5MB.</p>
+        <div className="bg-surface border border-line rounded-2xl p-6 mb-4">
+          <h2 className="text-[14px] font-bold text-ink mb-1">Workspace Logo</h2>
+          <p className="text-[12px] text-muted mb-5">Shown in the nav sidebar. PNG, JPG, SVG or WebP under 5MB.</p>
 
           <div className="flex items-center gap-6">
             {/* Current logo / placeholder */}
-            <div className="w-20 h-20 rounded-2xl bg-[#111111] border border-[#2D2D2D] flex items-center justify-center overflow-hidden shrink-0 relative group">
+            <div className="w-20 h-20 rounded-2xl bg-surface-subtle border border-line flex items-center justify-center overflow-hidden shrink-0 relative group">
               {logoUrl ? (
                 <>
                   <img src={logoUrl} alt="Logo" className="w-full h-full object-contain p-1" />
@@ -163,7 +170,7 @@ export default function SettingsPage() {
               onDrop={handleDrop}
               onClick={() => fileRef.current?.click()}
               className={`flex-1 border-2 border-dashed rounded-xl px-6 py-5 cursor-pointer transition-all text-center
-                ${dragOver ? "border-[#B5622A] bg-[#B5622A10]" : "border-[#2D2D2D] hover:border-[#525252] hover:bg-[#161616]"}`}
+                ${dragOver ? "border-accent bg-accent-soft" : "border-line hover:border-line-strong hover:bg-surface-subtle"}`}
             >
               <input
                 ref={fileRef}
@@ -189,21 +196,21 @@ export default function SettingsPage() {
         </div>
 
         {/* Workspace name */}
-        <div className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-2xl p-6 mb-4">
-          <h2 className="text-[14px] font-bold text-[#C8C5C0] mb-1">Workspace Name</h2>
-          <p className="text-[12px] text-[#525252] mb-4">Shown below the logo in the nav.</p>
+        <div className="bg-surface border border-line rounded-2xl p-6 mb-4">
+          <h2 className="text-[14px] font-bold text-ink mb-1">Workspace Name</h2>
+          <p className="text-[12px] text-muted mb-4">Shown below the logo in the nav.</p>
           <input
             value={workspaceName}
             onChange={e => setWorkspaceName(e.target.value)}
-            className="w-full px-4 py-3 bg-[#111111] border border-[#2D2D2D] rounded-xl text-[14px] text-[#C8C5C0] focus:outline-none focus:border-[#B5622A] transition-colors"
+            className="w-full px-4 py-3 bg-surface-subtle border border-line rounded-xl text-[14px] text-ink focus:outline-none focus:border-accent transition-colors"
             placeholder="Anka Sphere"
           />
         </div>
 
         {/* Accent color */}
-        <div className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-2xl p-6 mb-6">
-          <h2 className="text-[14px] font-bold text-[#C8C5C0] mb-1">Accent Color</h2>
-          <p className="text-[12px] text-[#525252] mb-4">Used for buttons, active states, and highlights.</p>
+        <div className="bg-surface border border-line rounded-2xl p-6 mb-6">
+          <h2 className="text-[14px] font-bold text-ink mb-1">Accent Color</h2>
+          <p className="text-[12px] text-muted mb-4">Used for buttons, active states, and highlights.</p>
 
           <div className="flex flex-wrap gap-3 mb-4">
             {ACCENT_PRESETS.map(preset => (

@@ -164,21 +164,21 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-[var(--overlay)] backdrop-blur-sm" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative w-full max-w-4xl bg-[#F7F5F2] rounded-xl shadow-2xl overflow-hidden">
+      <div className="relative w-full max-w-4xl bg-surface rounded-xl border border-line shadow-panel overflow-hidden text-ink">
 
         {/* Search Input */}
-        <div className="flex items-center gap-3 p-4 border-b border-[#E5E2DE] bg-white">
-          <Search className="w-5 h-5 text-[#B0ADA9] flex-shrink-0" />
+        <div className="flex items-center gap-3 p-4 border-b border-line bg-surface">
+          <Search className="w-5 h-5 text-muted flex-shrink-0" />
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
             placeholder={`Try "Show REL blockers" or "decisions I'm waiting on"`}
-            className="flex-1 bg-transparent text-[#0F0F0F] placeholder-[#B0ADA9] focus:outline-none text-[15px]"
+            className="flex-1 bg-transparent text-ink placeholder:text-faint focus:outline-none text-[15px]"
             autoFocus
           />
           {isSearching ? (
@@ -186,15 +186,15 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
           ) : (
             <button
               onClick={onClose}
-              className="p-1 hover:bg-[#F0EDE9] rounded-lg transition-colors flex-shrink-0"
+              className="p-1 hover:bg-surface-subtle rounded-lg transition-colors flex-shrink-0"
             >
-              <X className="w-4 h-4 text-[#B0ADA9]" />
+              <X className="w-4 h-4 text-muted" />
             </button>
           )}
         </div>
 
         {/* Type Filters */}
-        <div className="flex items-center gap-2 px-3 py-2 border-b border-[#E5E2DE] bg-[#F7F5F2] overflow-x-auto">
+        <div className="flex items-center gap-2 px-3 py-2 border-b border-line bg-surface-subtle overflow-x-auto">
           <div className="flex items-center gap-1.5 mr-1 flex-shrink-0">
             <Filter className="w-3.5 h-3.5 text-[#B0ADA9]" />
             <span className="text-[11px] font-medium text-[#B0ADA9] uppercase tracking-wide">Type</span>
@@ -206,7 +206,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
               className={`px-3 py-1 text-[11px] rounded-full transition-colors whitespace-nowrap font-medium ${
                 filterType === type
                   ? 'bg-[#B5622A] text-white'
-                  : 'bg-white text-[#5C5855] hover:bg-[#F0EDE9] border border-[#E5E2DE]'
+                  : 'bg-surface text-muted hover:text-ink border border-line'
               }`}
             >
               {type === 'all' ? 'All' : type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
@@ -215,7 +215,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
         </div>
 
         {/* Date Filters */}
-        <div className="flex items-center gap-2 px-3 py-2 border-b border-[#E5E2DE] bg-[#F7F5F2] overflow-x-auto">
+        <div className="flex items-center gap-2 px-3 py-2 border-b border-line bg-surface-subtle overflow-x-auto">
           <div className="flex items-center gap-1.5 mr-1 flex-shrink-0">
             <Calendar className="w-3.5 h-3.5 text-[#B0ADA9]" />
             <span className="text-[11px] font-medium text-[#B0ADA9] uppercase tracking-wide">Date</span>
@@ -227,7 +227,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
               className={`px-3 py-1 text-[11px] rounded-full transition-colors whitespace-nowrap font-medium ${
                 dateRange === range
                   ? 'bg-[#B5622A] text-white'
-                  : 'bg-white text-[#5C5855] hover:bg-[#F0EDE9] border border-[#E5E2DE]'
+                  : 'bg-surface text-muted hover:text-ink border border-line'
               }`}
             >
               {range === 'all' ? 'All Time' : range.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}

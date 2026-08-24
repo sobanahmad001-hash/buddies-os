@@ -26,10 +26,10 @@ const spaces = [
     tone: "text-[#8A7CC7] bg-[#1C1830]",
   },
   {
-    href: "/app/ai",
+    href: "/app/memory",
     icon: Brain,
     title: "AI Memory",
-    description: "Review context through the assistant while the dedicated memory control center is built.",
+    description: "Confirm, correct, expire, or forget the context Buddies uses across your work.",
     tone: "text-[#61A785] bg-[#12271D]",
   },
 ];
