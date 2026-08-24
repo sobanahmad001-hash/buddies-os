@@ -22,7 +22,7 @@ const BASE_TABS = [
   { label: 'Overview',    suffix: '',            icon: LayoutGrid  },
   { label: 'AI Workspace',suffix: '/assistant',  icon: Bot         },
   { label: 'Work',        suffix: '/tasks',      icon: CheckSquare },
-  { label: 'Plan',        suffix: '/plan',       icon: Layers      },
+  { label: 'Structure',   suffix: '/structure',  icon: Layers      },
   { label: 'Decisions',   suffix: '/decisions',  icon: Scale       },
   { label: 'Knowledge',   suffix: '/research',   icon: FlaskConical},
   { label: 'Deliverables',suffix: '/documents',  icon: FileText    },
