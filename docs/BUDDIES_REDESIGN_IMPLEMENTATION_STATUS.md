@@ -13,6 +13,8 @@
 - Schema support for milestones, task dependencies, automation runs, memory feedback, reviews, and Coding Agent verification evidence.
 - Full dual-theme redesign of Today, Projects, project overview, Coding Agent, Paper Trading, Knowledge, Research, Search, Documents, Inbox, Goals, Reviews, Automations, Memory, and Settings.
 - Responsive expert workspaces: agent-first Coding view on small screens and separate Ladder, Chart, and Analysis modes for mobile Trading.
+- Project task dependency editing, milestone visibility, and completion criteria.
+- Compatibility styling for remaining legacy secondary screens and dialogs in both themes.
 
 ## Existing capabilities retained
 
@@ -22,18 +24,20 @@
 - One Coding Agent with repository explorer, chat, proposed file changes, and GitHub PR creation.
 - Paper-only Trading Engine with Wyckoff analysis, numeric volume evidence, journal, watchlist, and review workflows.
 
-## Required before deployment
+## Release verification
 
 1. ✅ Applied `supabase/migrations/20260825_personal_management_system.sql` in Supabase (confirmed by user).
-2. Confirm Vercel still contains `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, AI provider keys, and GitHub integration variables.
-3. Deploy the branch.
-4. Smoke-test `/app/inbox`, `/app/goals`, `/app/reviews`, `/app/automations`, `/app/memory`, project milestones, theme switching, and `Ctrl/Cmd+K` search.
-5. Do not enable broker authentication or live trading.
+2. ✅ Existing redesign deployment confirmed working by user.
+3. Confirm Vercel retains `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, AI provider keys, and GitHub integration variables when promoting to `main`.
+4. Smoke-test `/app/inbox`, `/app/goals`, `/app/reviews`, `/app/automations`, `/app/memory`, project milestones, theme switching, and `Ctrl/Cmd+K` search after the final deployment.
+5. Keep broker authentication and live trading disabled; Trading remains paper-only.
 
-## Next refinement pass
+## Deliberately deferred runtime enhancements
 
-- Convert remaining secondary project subpages and legacy dialogs to semantic theme tokens.
-- Add dependency editing inside each project workspace.
-- Connect automation rule evaluation to scheduled execution after the rules are reviewed.
-- Record Coding Agent verification commands and output automatically for every execution.
-- Complete cross-browser and deployed-route smoke testing after the final branch is pushed.
+- Background scheduling/execution for personal automation rules. The rules, modes, and run-history data model are ready; autonomous execution should only be enabled after each rule is reviewed.
+- Automatic capture of every Coding Agent verification command and terminal output. The verification evidence schema and review workflow are ready.
+- Cross-browser and deployed-route smoke testing of the final commit after it is pushed.
+
+## Final redesign scope
+
+The agreed personal-OS redesign is complete: unified Inbox and approvals; goals, milestones, dependencies, and completion criteria; daily and weekly planning/reviews; universal knowledge search; memory and commitment workflows; Coding Agent review controls; personal automation management; analytics; a cohesive visual refresh; dual light/dark themes; and responsive mobile layouts.

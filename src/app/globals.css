@@ -72,6 +72,47 @@ body {
   outline-offset: 2px;
 }
 
+/* Compatibility bridge for secondary screens that still carry legacy palette utilities. */
+[data-theme="light"] [class*="bg-[#0D0D0D]"],
+[data-theme="light"] [class*="bg-[#0F0F0F]"],
+[data-theme="light"] [class*="bg-[#111111]"],
+[data-theme="light"] [class*="bg-[#111]"],
+[data-theme="light"] [class*="bg-[#141414]"],
+[data-theme="light"] [class*="bg-[#151515]"],
+[data-theme="light"] [class*="bg-[#161616]"],
+[data-theme="light"] [class*="bg-[#1A1A1A]"] { background-color: var(--surface) !important; }
+
+[data-theme="light"] [class*="bg-[#1E1E1E]"],
+[data-theme="light"] [class*="bg-[#2D2D2D]"] { background-color: var(--surface-subtle) !important; }
+
+[data-theme="light"] [class*="border-[#1E1E1E]"],
+[data-theme="light"] [class*="border-[#252525]"],
+[data-theme="light"] [class*="border-[#2D2D2D]"],
+[data-theme="light"] [class*="border-[#3D3D3D]"] { border-color: var(--border) !important; }
+
+[data-theme="light"] [class*="text-[#C8C5C0]"],
+[data-theme="light"] [class*="text-[#D4D1CC]"],
+[data-theme="light"] [class*="text-[#E4E1DC]"],
+[data-theme="light"] [class*="text-[#A8A5A0]"],
+[data-theme="light"] [class*="text-[#B0ADA9]"] { color: var(--text) !important; }
+
+[data-theme="light"] [class*="text-[#737373]"],
+[data-theme="light"] [class*="text-[#525252]"] { color: var(--text-muted) !important; }
+
+[data-theme="light"] [class*="bg-[#1A1A1A]"][class*="text-white"],
+[data-theme="light"] [class*="bg-[#1E1E1E]"][class*="text-white"] { color: var(--text) !important; }
+
+[data-theme="dark"] [class*="bg-white"],
+[data-theme="dark"] [class*="bg-[#F7F5F2]"],
+[data-theme="dark"] [class*="bg-[#F0EDE9]"] { background-color: var(--surface) !important; }
+
+[data-theme="dark"] [class*="border-[#E5E2DE]"],
+[data-theme="dark"] [class*="border-[#F0EDE9]"] { border-color: var(--border) !important; }
+
+[data-theme="dark"] [class*="text-[#1A1A1A]"],
+[data-theme="dark"] [class*="text-[#404040]"],
+[data-theme="dark"] [class*="text-[#525252]"] { color: var(--text) !important; }
+
 /* ── Mobile / PWA touch improvements ──────────────────────────────────── */
 
 /* Tap highlight removed for all interactive elements */
