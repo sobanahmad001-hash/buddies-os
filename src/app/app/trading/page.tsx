@@ -93,12 +93,12 @@ function ChecklistModal({ strategy, onClose, onConfirm, autoResults }: {
       ];
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#111111] border border-[#2D2D2D] rounded-2xl w-full max-w-[520px] overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#2D2D2D]">
+    <div className="fixed inset-0 bg-[var(--overlay)] flex items-center justify-center z-50 p-4">
+      <div className="bg-surface border border-line rounded-2xl w-full max-w-[520px] overflow-hidden shadow-panel">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-line">
           <div>
-            <h2 className="text-[15px] font-bold text-[#C8C5C0]">Pre-Trade Checklist</h2>
-            <p className="text-[11px] text-[#737373] mt-0.5">{strategy === "reversal" ? "⚡ Reversal (VSA Sniper)" : "🌊 Momentum Discipline"} — ALL must be YES</p>
+            <h2 className="text-[15px] font-bold text-ink">Paper Setup Checklist</h2>
+            <p className="text-[11px] text-muted mt-0.5">{strategy === "reversal" ? "⚡ Reversal (VSA Sniper)" : "🌊 Momentum Discipline"} — all conditions must be confirmed</p>
           </div>
           <button onClick={onClose} className="text-[#525252] hover:text-white transition-colors"><X size={16} /></button>
         </div>
@@ -140,7 +140,7 @@ function ChecklistModal({ strategy, onClose, onConfirm, autoResults }: {
           })}
         </div>
 
-        <div className="px-6 py-4 border-t border-[#2D2D2D]">
+        <div className="px-6 py-4 border-t border-line">
           {!allPassed && (
             <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-[#EF444415] border border-[#EF444430] rounded-lg">
               <AlertTriangle size={13} className="text-[#EF4444] shrink-0" />
@@ -155,11 +155,11 @@ function ChecklistModal({ strategy, onClose, onConfirm, autoResults }: {
           )}
           <div className="flex gap-3">
             <button onClick={() => onConfirm(allPassed, checks)} disabled={!allPassed}
-              className="flex-1 py-2.5 bg-[#B5622A] text-white text-[13px] font-bold rounded-xl hover:bg-[#9A4E20] disabled:opacity-30 transition-colors">
+              className="flex-1 py-2.5 bg-accent text-white text-[13px] font-bold rounded-xl hover:opacity-90 disabled:opacity-30 transition-opacity">
               {allPassed ? "✓ Proceed to Trade" : "Cannot Trade — Rules Not Met"}
             </button>
             <button onClick={onClose}
-              className="px-4 py-2.5 bg-[#1E1E1E] text-[#737373] text-[13px] rounded-xl hover:bg-[#2D2D2D] transition-colors">
+              className="px-4 py-2.5 bg-surface-subtle text-muted text-[13px] rounded-xl hover:text-ink transition-colors">
               Cancel
             </button>
           </div>
@@ -183,10 +183,10 @@ function LogTradeModal({ ladder, positionSize, onClose, onSave }: any) {
   });
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#111111] border border-[#2D2D2D] rounded-2xl w-full max-w-[440px] overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#2D2D2D]">
-          <h2 className="text-[14px] font-bold text-[#C8C5C0]">Log Trade</h2>
+    <div className="fixed inset-0 bg-[var(--overlay)] flex items-center justify-center z-50 p-4">
+      <div className="bg-surface border border-line rounded-2xl w-full max-w-[440px] overflow-hidden shadow-panel">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-line">
+          <h2 className="text-[14px] font-bold text-ink">Log Paper Trade</h2>
           <button onClick={onClose} className="text-[#525252] hover:text-white"><X size={15} /></button>
         </div>
         <div className="px-5 py-4 space-y-3">
@@ -223,7 +223,7 @@ function LogTradeModal({ ladder, positionSize, onClose, onSave }: any) {
                 value={(form as any)[f.key]}
                 onChange={e => setForm(p => ({...p, [f.key]: e.target.value}))}
                 placeholder={f.key === "lot_size" ? positionSize?.lotSize?.toString() ?? "0.01" : ""}
-                className="w-full mt-1 px-3 py-2 bg-[#0D0D0D] border border-[#2D2D2D] rounded-lg text-[13px] text-[#C8C5C0] focus:outline-none focus:border-[#B5622A] font-mono"
+                className="w-full mt-1 px-3 py-2 bg-surface-subtle border border-line rounded-lg text-[13px] text-ink focus:outline-none focus:border-accent font-mono"
               />
             </div>
           ))}
@@ -242,12 +242,12 @@ function LogTradeModal({ ladder, positionSize, onClose, onSave }: any) {
           <textarea value={form.notes} onChange={e => setForm(p => ({...p, notes: e.target.value}))}
             placeholder="Setup notes (optional)..."
             rows={2}
-            className="w-full px-3 py-2 bg-[#0D0D0D] border border-[#2D2D2D] rounded-lg text-[13px] text-[#C8C5C0] focus:outline-none focus:border-[#B5622A] resize-none"
+            className="w-full px-3 py-2 bg-surface-subtle border border-line rounded-lg text-[13px] text-ink focus:outline-none focus:border-accent resize-none"
           />
         </div>
         <div className="px-5 pb-4 flex gap-3">
           <button onClick={() => onSave(form)}
-            className="flex-1 py-2.5 bg-[#B5622A] text-white text-[13px] font-bold rounded-xl hover:bg-[#9A4E20] transition-colors">
+            className="flex-1 py-2.5 bg-accent text-white text-[13px] font-bold rounded-xl hover:opacity-90 transition-opacity">
             Log Trade
           </button>
           <button onClick={onClose}
@@ -788,10 +788,10 @@ export default function TradingPage() {
   const macdBull = signalData?.macd?.histogram > 0;
 
   return (
-    <div className="flex flex-col md:flex-row h-full bg-[#0D0D0D] text-white overflow-hidden">
+    <div className="flex flex-col md:flex-row h-full bg-canvas text-ink overflow-hidden">
 
       {/* Mobile panel switcher */}
-      <div className="md:hidden flex items-center bg-[#111111] border-b border-[#1E1E1E] shrink-0">
+      <div className="md:hidden flex items-center bg-surface border-b border-line shrink-0">
         {([
           { id: "ladder", label: "Ladder", icon: TrendingUp },
           { id: "chart",  label: "Chart",  icon: BarChart3 },
@@ -799,30 +799,30 @@ export default function TradingPage() {
         ] as const).map(t => (
           <button key={t.id} onClick={() => setMobilePanelTab(t.id)}
             className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[12px] font-semibold transition-colors
-              ${mobilePanelTab === t.id ? "text-[#B5622A] border-b-2 border-[#B5622A]" : "text-[#525252]"}`}>
+              ${mobilePanelTab === t.id ? "text-accent border-b-2 border-accent" : "text-muted"}`}>
             <t.icon size={13} />{t.label}
           </button>
         ))}
       </div>
 
       {/* ── Left: Ladder + Stats ────────────────────────────────────────────── */}
-      <div className={`${mobilePanelTab === "ladder" ? "flex" : "hidden"} md:flex w-full md:w-[220px] shrink-0 flex-col border-r border-[#1E1E1E] bg-[#111111]`}>
+      <div className={`${mobilePanelTab === "ladder" ? "flex" : "hidden"} md:flex w-full md:w-[230px] shrink-0 flex-col border-r border-line bg-surface`}>
         {/* Header */}
-        <div className="px-4 py-4 border-b border-[#1E1E1E]">
+        <div className="px-4 py-4 border-b border-line">
           <div className="flex items-center gap-2 mb-1">
-            <TrendingUp size={14} className="text-[#B5622A]" />
-            <span className="text-[13px] font-bold text-[#C8C5C0]">Gold Ladder</span>
+            <TrendingUp size={14} className="text-accent" />
+            <span className="text-[13px] font-bold text-ink">Paper Trading</span>
           </div>
           <div className="text-[22px] font-black text-white font-mono">
             {goldPrice ? `$${goldPrice.toLocaleString()}` : "—"}
           </div>
-          <p className="text-[10px] text-[#525252]">{activeSymbol} · 1H</p>
+          <p className="text-[10px] text-muted">{activeSymbol} · Multi-timeframe Wyckoff</p>
         </div>
 
         {/* Asset switcher / Watchlist */}
-        <div className="px-3 py-2 border-b border-[#1E1E1E]">
+        <div className="px-3 py-2 border-b border-line">
           <div className="flex items-center justify-between mb-1.5">
-            <p className="text-[9px] font-bold text-[#525252] uppercase tracking-widest">Watchlist</p>
+            <p className="text-[9px] font-bold text-muted uppercase tracking-widest">Watchlist</p>
             <div className="flex items-center gap-1.5">
               <button
                 onClick={() => setEditWatchlist(v => !v)}
@@ -881,7 +881,7 @@ export default function TradingPage() {
               ? (["XAU/USD", "XAG/USD", "ETH/USD", "BTC/USD"] as string[]).map(s => (
                 <button key={s} onClick={() => switchSymbol(s)}
                   className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-[11px] transition-colors
-                    ${activeSymbol === s ? "bg-[#B5622A20] text-[#B5622A] font-semibold border border-[#B5622A30]" : "text-[#737373] hover:bg-[#1A1A1A] hover:text-[#C8C5C0]"}`}>
+                    ${activeSymbol === s ? "bg-accent-soft text-accent font-semibold border border-accent/20" : "text-muted hover:bg-surface-subtle hover:text-ink"}`}>
                   <span>{s}</span>
                   {activeSymbol === s && signalData?.currentPrice && (
                     <span className="text-[10px] font-mono">${signalData.currentPrice.toLocaleString()}</span>
@@ -917,15 +917,15 @@ export default function TradingPage() {
         </div>
 
         {/* Stats strip */}
-        <div className="grid grid-cols-2 gap-1.5 p-3 border-b border-[#1E1E1E]">
+        <div className="grid grid-cols-2 gap-1.5 p-3 border-b border-line">
           {[
             { label: "Step", value: activeStep ? `${activeStep.step_number}/20` : "1/20" },
             { label: "Capital", value: activeStep ? `$${activeStep.target_amount}` : "$10" },
             { label: "P&L", value: `$${totalPnL.toFixed(2)}`, color: totalPnL >= 0 ? "#10B981" : "#EF4444" },
             { label: "Win Rate", value: `${winRate}%`, color: winRate >= 60 ? "#10B981" : winRate >= 40 ? "#EAB308" : "#EF4444" },
           ].map(s => (
-            <div key={s.label} className="bg-[#1A1A1A] rounded-lg px-2 py-1.5 text-center">
-              <p className="text-[9px] text-[#525252] uppercase tracking-wider">{s.label}</p>
+            <div key={s.label} className="bg-surface-subtle rounded-xl px-2 py-2 text-center">
+              <p className="text-[9px] text-muted uppercase tracking-wider">{s.label}</p>
               <p className="text-[12px] font-bold" style={{ color: s.color || "#C8C5C0" }}>{s.value}</p>
             </div>
           ))}
@@ -952,73 +952,73 @@ export default function TradingPage() {
         </div>
 
         {/* Action buttons */}
-        <div className="p-3 border-t border-[#1E1E1E] space-y-2">
+        <div className="p-3 border-t border-line space-y-2">
           <button onClick={() => setShowChecklist("reversal")}
-            className="w-full flex items-center gap-2 px-3 py-2 bg-[#B5622A] text-white text-[11px] font-bold rounded-lg hover:bg-[#9A4E20] transition-colors">
+            className="w-full flex items-center gap-2 px-3 py-2 bg-accent text-white text-[11px] font-bold rounded-xl hover:opacity-90 transition-opacity">
             <Zap size={11} /> ⚡ Reversal Setup
           </button>
           <button onClick={() => setShowChecklist("momentum")}
-            className="w-full flex items-center gap-2 px-3 py-2 bg-[#1E1E1E] text-[#C8C5C0] text-[11px] font-semibold rounded-lg hover:bg-[#2D2D2D] transition-colors">
+            className="w-full flex items-center gap-2 px-3 py-2 bg-surface-subtle text-ink text-[11px] font-semibold rounded-xl hover:bg-surface-raised transition-colors">
             <TrendingUp size={11} /> 🌊 Momentum Setup
           </button>
         </div>
 
         {/* Paper Account Panel */}
-        <div className="p-3 border-t border-[#1E1E1E] overflow-y-auto" style={{ maxHeight: 220 }}>
+        <div className="p-3 border-t border-line overflow-y-auto" style={{ maxHeight: 220 }}>
           <div className="flex items-center justify-between mb-2">
-            <p className="text-[9px] font-bold text-[#525252] uppercase tracking-widest">Accounts</p>
+            <p className="text-[9px] font-bold text-muted uppercase tracking-widest">Paper accounts</p>
             <button
               onClick={() => setShowAddAccount(v => !v)}
-              className="text-[9px] text-[#B5622A] hover:text-[#9A4E20] transition-colors font-semibold">+ Add</button>
+              className="text-[9px] text-accent hover:opacity-80 transition-opacity font-semibold">+ Add</button>
           </div>
 
           {accounts.length === 0 && !showAddAccount && (
             <button
               onClick={() => setShowAddAccount(true)}
-              className="w-full text-[10px] text-[#525252] hover:text-[#737373] text-center py-2 border border-dashed border-[#2D2D2D] rounded-lg transition-colors">
+              className="w-full text-[10px] text-muted hover:text-ink text-center py-2 border border-dashed border-line rounded-lg transition-colors">
               Create paper account
             </button>
           )}
 
           {accounts.map((acc: any) => (
-            <div key={acc.id} className="bg-[#1A1A1A] rounded-lg px-2 py-2 mb-1">
+            <div key={acc.id} className="bg-surface-subtle rounded-xl px-2 py-2 mb-1">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-semibold text-[#C8C5C0]">{acc.account_number}</span>
+                <span className="text-[10px] font-semibold text-ink">{acc.account_number}</span>
                 <div className="flex items-center gap-1">
-                  <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-[#3B82F620] text-[#3B82F6]">PAPER</span>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-accent-soft text-accent">PAPER</span>
                 </div>
               </div>
               <div className="flex items-center justify-between mt-1">
-                <span className="text-[10px] text-[#525252]">Balance</span>
-                <span className="text-[11px] font-mono font-bold text-[#C8C5C0]">${parseFloat(acc.balance || 0).toFixed(2)}</span>
+                <span className="text-[10px] text-muted">Balance</span>
+                <span className="text-[11px] font-mono font-bold text-ink">${parseFloat(acc.balance || 0).toFixed(2)}</span>
               </div>
             </div>
           ))}
 
           {showAddAccount && (
-            <div className="bg-[#1A1A1A] rounded-lg p-2 space-y-1.5 mt-1">
+            <div className="bg-surface-subtle rounded-xl p-2 space-y-1.5 mt-1">
               <>
                   <input
                     value={accountForm.account_number}
                     onChange={e => setAccountForm(p => ({ ...p, account_number: e.target.value }))}
                     placeholder="Account number"
-                    className="w-full px-2 py-1.5 bg-[#0D0D0D] border border-[#2D2D2D] rounded text-[11px] text-[#C8C5C0] focus:outline-none focus:border-[#B5622A]"
+                    className="w-full px-2 py-1.5 bg-surface border border-line rounded-lg text-[11px] text-ink focus:outline-none focus:border-accent"
                   />
                   <input
                     value={accountForm.balance}
                     onChange={e => setAccountForm(p => ({ ...p, balance: e.target.value }))}
                     placeholder="Balance (USD)"
                     type="number"
-                    className="w-full px-2 py-1.5 bg-[#0D0D0D] border border-[#2D2D2D] rounded text-[11px] text-[#C8C5C0] focus:outline-none focus:border-[#B5622A]"
+                    className="w-full px-2 py-1.5 bg-surface border border-line rounded-lg text-[11px] text-ink focus:outline-none focus:border-accent"
                   />
-                  <div className="rounded bg-[#3B82F615] py-1.5 text-center text-[10px] font-semibold text-[#3B82F6]">Paper account only</div>
+                  <div className="rounded bg-accent-soft py-1.5 text-center text-[10px] font-semibold text-accent">Simulation only · no broker connection</div>
                   <div className="flex gap-1">
                     <button onClick={addAccount}
-                      className="flex-1 py-1.5 bg-[#B5622A] text-white text-[10px] font-bold rounded hover:bg-[#9A4E20] transition-colors">
+                      className="flex-1 py-1.5 bg-accent text-white text-[10px] font-bold rounded-lg hover:opacity-90 transition-opacity">
                       Save
                     </button>
                     <button onClick={() => setShowAddAccount(false)}
-                      className="px-3 py-1.5 bg-[#2D2D2D] text-[#737373] text-[10px] rounded">
+                      className="px-3 py-1.5 bg-surface text-muted text-[10px] rounded-lg border border-line">
                       Cancel
                     </button>
                   </div>
@@ -1029,9 +1029,9 @@ export default function TradingPage() {
       </div>
 
       {/* ── Center: Chart + Indicators ─────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+      <div className={`${mobilePanelTab === "chart" ? "flex" : "hidden"} min-w-0 flex-1 flex-col overflow-hidden md:flex`}>
         {/* Tab bar */}
-        <div className="flex items-center gap-1 px-4 py-2 border-b border-[#1E1E1E] bg-[#111111] shrink-0">
+        <div className="flex items-center gap-1 px-4 py-2 border-b border-line bg-surface shrink-0">
           {[
             { id: "terminal", label: "Terminal", icon: BarChart3 },
             { id: "trades", label: `Trades ${openTrades.length > 0 ? `(${openTrades.length} open)` : ""}`, icon: TrendingUp },
@@ -1039,12 +1039,12 @@ export default function TradingPage() {
           ].map(t => (
             <button key={t.id} onClick={() => setActiveTab(t.id as any)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] transition-colors
-                ${activeTab === t.id ? "bg-[#1E1E1E] text-[#C8C5C0] font-semibold" : "text-[#525252] hover:text-[#737373]"}`}>
+                ${activeTab === t.id ? "bg-accent-soft text-accent font-semibold" : "text-muted hover:text-ink"}`}>
               <t.icon size={12} />{t.label}
             </button>
           ))}
           <button onClick={loadSignals} disabled={signalLoading}
-            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-[11px] text-[#525252] hover:text-[#737373] transition-colors">
+            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-[11px] text-muted hover:text-ink transition-colors">
             <RefreshCw size={11} className={signalLoading ? "animate-spin" : ""} />
             Refresh
           </button>
@@ -1053,10 +1053,10 @@ export default function TradingPage() {
         {activeTab === "terminal" && (
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {/* Chart */}
-            <div className="bg-[#111111] border border-[#1E1E1E] rounded-xl overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#1E1E1E]">
-                <span className="text-[11px] font-bold text-[#737373] uppercase tracking-wider">{activeSymbol} · 1H</span>
-                <div className="flex items-center gap-3 text-[10px] text-[#525252]">
+            <div className="bg-surface border border-line rounded-2xl overflow-hidden shadow-panel">
+              <div className="flex items-center justify-between px-4 py-2.5 border-b border-line">
+                <span className="text-[11px] font-bold text-ink uppercase tracking-wider">{activeSymbol} · 1H structure</span>
+                <div className="flex items-center gap-3 text-[10px] text-muted">
                   <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-[#10B981] inline-block rounded" /> Support</span>
                   <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-[#EF4444] inline-block rounded" /> Resistance</span>
                 </div>
@@ -1074,10 +1074,10 @@ export default function TradingPage() {
                 { label: "Volume", value: signalData?.vsa ? `${signalData.vsa.volumeRatio}x` : "—", color: (signalData?.vsa?.volumeRatio ?? 0) > 1.5 ? "#EAB308" : "#C8C5C0", sub: signalData?.vsa?.isVolumeSpike ? "⚡ Spike" : "Normal" },
                 { label: "VSA", value: signalData?.vsa?.isClimatic ? "Climactic" : signalData?.vsa?.noDemand ? "No Demand" : signalData?.vsa?.noSupply ? "No Supply" : "Neutral", color: signalData?.vsa?.isClimatic ? "#EAB308" : "#737373", sub: signalData?.vsa ? `Spread: ${signalData.vsa.spread}` : "" },
               ].map(ind => (
-                <div key={ind.label} className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl px-3 py-2.5">
-                  <p className="text-[9px] text-[#525252] uppercase tracking-wider mb-1">{ind.label}</p>
+                <div key={ind.label} className="bg-surface border border-line rounded-2xl px-3 py-2.5">
+                  <p className="text-[9px] text-muted uppercase tracking-wider mb-1">{ind.label}</p>
                   <p className="text-[14px] font-bold" style={{ color: ind.color }}>{ind.value}</p>
-                  <p className="text-[10px] text-[#525252] mt-0.5">{ind.sub}</p>
+                  <p className="text-[10px] text-muted mt-0.5">{ind.sub}</p>
                 </div>
               ))}
             </div>
@@ -1085,23 +1085,23 @@ export default function TradingPage() {
             {/* Key levels */}
             {signalData?.levels && (
               <div className="grid grid-cols-2 gap-3">
-                <div className="bg-[#0D1A12] border border-[#10B98130] rounded-xl p-3">
-                  <p className="text-[10px] font-bold text-[#10B981] uppercase tracking-wider mb-2">Support Levels</p>
-                  {signalData.levels.supports.length === 0 && <p className="text-[11px] text-[#525252]">None detected</p>}
+                <div className="bg-surface border border-positive/30 rounded-2xl p-3">
+                  <p className="text-[10px] font-bold text-positive uppercase tracking-wider mb-2">Support Levels</p>
+                  {signalData.levels.supports.length === 0 && <p className="text-[11px] text-muted">None detected</p>}
                   {signalData.levels.supports.map((s: number, i: number) => (
                     <div key={i} className="flex items-center justify-between">
-                      <span className="text-[11px] text-[#525252]">S{i+1}</span>
-                      <span className="text-[13px] font-mono text-[#10B981] font-bold">${s.toLocaleString()}</span>
+                      <span className="text-[11px] text-muted">S{i+1}</span>
+                      <span className="text-[13px] font-mono text-positive font-bold">${s.toLocaleString()}</span>
                     </div>
                   ))}
                 </div>
-                <div className="bg-[#1A0D0D] border border-[#EF444430] rounded-xl p-3">
-                  <p className="text-[10px] font-bold text-[#EF4444] uppercase tracking-wider mb-2">Resistance Levels</p>
-                  {signalData.levels.resistances.length === 0 && <p className="text-[11px] text-[#525252]">None detected</p>}
+                <div className="bg-surface border border-risk/30 rounded-2xl p-3">
+                  <p className="text-[10px] font-bold text-risk uppercase tracking-wider mb-2">Resistance Levels</p>
+                  {signalData.levels.resistances.length === 0 && <p className="text-[11px] text-muted">None detected</p>}
                   {signalData.levels.resistances.map((r: number, i: number) => (
                     <div key={i} className="flex items-center justify-between">
-                      <span className="text-[11px] text-[#525252]">R{i+1}</span>
-                      <span className="text-[13px] font-mono text-[#EF4444] font-bold">${r.toLocaleString()}</span>
+                      <span className="text-[11px] text-muted">R{i+1}</span>
+                      <span className="text-[13px] font-mono text-risk font-bold">${r.toLocaleString()}</span>
                     </div>
                   ))}
                 </div>
@@ -1112,21 +1112,21 @@ export default function TradingPage() {
             <SignalCard signal={signalData?.signal} positionSize={signalData?.positionSize} />
 
             {/* ── Place Trade ─────────────────────────────────────────────── */}
-            <div className="bg-[#111111] border border-[#2D2D2D] rounded-xl p-4">
-              <p className="text-[10px] font-bold text-[#525252] uppercase tracking-wider mb-3">Execute Trade</p>
+            <div className="bg-surface border border-line rounded-2xl p-4">
+              <p className="text-[10px] font-bold text-muted uppercase tracking-wider mb-3">Paper decision</p>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => setShowChecklist("reversal")}
-                  className="flex items-center justify-center gap-2 py-3 bg-[#B5622A] text-white text-[12px] font-bold rounded-xl hover:bg-[#9A4E20] transition-colors">
+                  className="flex items-center justify-center gap-2 py-3 bg-accent text-white text-[12px] font-bold rounded-xl hover:opacity-90 transition-opacity">
                   <Zap size={13} /> ⚡ Reversal
                 </button>
                 <button
                   onClick={() => setShowChecklist("momentum")}
-                  className="flex items-center justify-center gap-2 py-3 bg-[#1E1E1E] border border-[#3D3D3D] text-[#C8C5C0] text-[12px] font-semibold rounded-xl hover:bg-[#2D2D2D] transition-colors">
+                  className="flex items-center justify-center gap-2 py-3 bg-surface-subtle border border-line text-ink text-[12px] font-semibold rounded-xl hover:bg-surface-raised transition-colors">
                   <TrendingUp size={13} /> 🌊 Momentum
                 </button>
               </div>
-              <p className="text-[9px] text-[#525252] mt-2 text-center">Pre-trade checklist → position sizing → order placement</p>
+              <p className="text-[9px] text-muted mt-2 text-center">Qualification → position sizing → paper journal. No live execution.</p>
             </div>
           </div>
         )}
@@ -1331,7 +1331,7 @@ export default function TradingPage() {
       </div>
 
       {/* ── Right: Analysis + AI ───────────────────────────────────────────── */}
-      <div className="w-[360px] shrink-0 flex flex-col border-l border-[#1E1E1E] bg-[#111111]">
+      <div className={`${mobilePanelTab === "analysis" ? "flex" : "hidden"} w-full shrink-0 flex-col border-l border-line bg-surface md:flex md:w-[380px]`}>
         {/* Analysis tabs */}
         {(() => {
           const highImpactCount = newsItems.filter(n => n.impact === "HIGH").length;
@@ -1342,11 +1342,11 @@ export default function TradingPage() {
             { id: "chat", label: "AI Coach", badge: null },
           ];
           return (
-            <div className="flex items-center gap-0.5 px-3 py-2 border-b border-[#1E1E1E] shrink-0">
+            <div className="flex items-center gap-0.5 px-3 py-2 border-b border-line shrink-0">
               {tabs.map(t => (
                 <button key={t.id} onClick={() => setAnalysisTab(t.id as any)}
                   className={`flex-1 py-1.5 rounded-lg text-[10px] font-semibold transition-colors relative
-                    ${analysisTab === t.id ? "bg-[#1E1E1E] text-[#C8C5C0]" : "text-[#525252] hover:text-[#737373]"}`}>
+                    ${analysisTab === t.id ? "bg-accent-soft text-accent" : "text-muted hover:text-ink"}`}>
                   {t.label}
                   {t.badge != null && (
                     <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-[#EF4444] text-[7px] font-black text-white flex items-center justify-center">
@@ -1362,18 +1362,18 @@ export default function TradingPage() {
         {analysisTab === "signal" && (
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             <div>
-              <p className="text-[10px] font-bold text-[#737373] uppercase tracking-wider mb-3">Signal Summary</p>
+              <p className="text-[10px] font-bold text-muted uppercase tracking-wider mb-3">Qualification summary</p>
               <SignalCard signal={signalData?.signal} positionSize={signalData?.positionSize} />
             </div>
 
-            {signalData?.wyckoff && <div className="rounded-xl border border-[#2D2D2D] bg-[#1A1A1A] p-4">
-              <div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-wider text-[#737373]">Current Wyckoff position</p><p className="mt-1 text-[13px] font-semibold text-[#C8C5C0]">{signalData.wyckoff.phase}</p><p className="text-[11px] text-[#CC785C]">{signalData.wyckoff.event}</p></div><span className="rounded-full bg-[#B5622A20] px-2 py-1 text-[10px] font-bold text-[#CC785C]">{signalData.wyckoff.confidence}% provisional</span></div>
-              <div className="mt-3 grid grid-cols-4 gap-1">{Object.entries(signalData.timeframes ?? {}).map(([frame, data]: any) => <div key={frame} className="rounded-lg bg-[#0D0D0D] p-2 text-center"><p className="text-[9px] font-bold text-[#737373]">{frame}</p><p className="mt-1 truncate text-[9px] capitalize text-[#C8C5C0]">{data.wyckoff.bias}</p><p className="text-[9px] text-[#525252]">{data.vsa?.volumeRatio ?? "—"}× vol</p></div>)}</div>
-              <div className="mt-3 space-y-1">{signalData.wyckoff.evidence?.map((item: string) => <p key={item} className="text-[10px] text-[#737373]">• {item}</p>)}</div><p className="mt-2 text-[10px] text-[#EF9F76]">Invalidation: {signalData.wyckoff.invalidation}</p><p className="mt-2 text-[9px] font-semibold uppercase tracking-wide text-[#EAB308]">Manual chart confirmation required</p>
+            {signalData?.wyckoff && <div className="rounded-2xl border border-line bg-surface-subtle p-4">
+              <div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-wider text-muted">Current Wyckoff position</p><p className="mt-1 text-[13px] font-semibold text-ink">{signalData.wyckoff.phase}</p><p className="text-[11px] text-accent">{signalData.wyckoff.event}</p></div><span className="rounded-full bg-accent-soft px-2 py-1 text-[10px] font-bold text-accent">{signalData.wyckoff.confidence}% provisional</span></div>
+              <div className="mt-3 grid grid-cols-4 gap-1">{Object.entries(signalData.timeframes ?? {}).map(([frame, data]: any) => <div key={frame} className="rounded-lg bg-surface p-2 text-center"><p className="text-[9px] font-bold text-muted">{frame}</p><p className="mt-1 truncate text-[9px] capitalize text-ink">{data.wyckoff.bias}</p><p className="text-[9px] text-faint">{data.vsa?.volumeRatio ?? "—"}× vol</p></div>)}</div>
+              <div className="mt-3 space-y-1">{signalData.wyckoff.evidence?.map((item: string) => <p key={item} className="text-[10px] text-muted">• {item}</p>)}</div><p className="mt-2 text-[10px] text-risk">Invalidation: {signalData.wyckoff.invalidation}</p><p className="mt-2 text-[9px] font-semibold uppercase tracking-wide text-caution">Manual chart confirmation required</p>
             </div>}
 
-            {signalData?.vsa && <div className="grid grid-cols-2 gap-2 rounded-xl border border-[#2D2D2D] bg-[#111111] p-3">
-              {[['Volume', signalData.vsa.volume], ['Average volume', signalData.vsa.averageVolume], ['Volume ratio', `${signalData.vsa.volumeRatio}×`], ['Spread', signalData.vsa.spread], ['Average spread', signalData.vsa.avgSpread], ['Spread ratio', `${signalData.vsa.spreadRatio}×`], ['Close location', `${signalData.vsa.closeLocation}%`], ['Price change', signalData.vsa.priceChange]].map(([label, value]) => <div key={String(label)}><p className="text-[9px] uppercase text-[#525252]">{label}</p><p className="font-mono text-[11px] text-[#C8C5C0]">{value}</p></div>)}<div className="col-span-2 border-t border-[#2D2D2D] pt-2"><p className="text-[10px] text-[#CC785C]">{signalData.vsa.reading}</p><p className="mt-1 text-[9px] text-[#525252]">Source: {signalData.vsa.source}; verify whether the feed represents tick or exchange volume.</p></div>
+            {signalData?.vsa && <div className="grid grid-cols-2 gap-2 rounded-2xl border border-line bg-surface p-3">
+              {[['Volume', signalData.vsa.volume], ['Average volume', signalData.vsa.averageVolume], ['Volume ratio', `${signalData.vsa.volumeRatio}×`], ['Spread', signalData.vsa.spread], ['Average spread', signalData.vsa.avgSpread], ['Spread ratio', `${signalData.vsa.spreadRatio}×`], ['Close location', `${signalData.vsa.closeLocation}%`], ['Price change', signalData.vsa.priceChange]].map(([label, value]) => <div key={String(label)}><p className="text-[9px] uppercase text-muted">{label}</p><p className="font-mono text-[11px] text-ink">{value}</p></div>)}<div className="col-span-2 border-t border-line pt-2"><p className="text-[10px] text-accent">{signalData.vsa.reading}</p><p className="mt-1 text-[9px] text-muted">Source: {signalData.vsa.source}; verify whether the feed represents tick or exchange volume.</p></div>
             </div>}
 
             {/* VSA breakdown */}
