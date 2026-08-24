@@ -274,7 +274,7 @@ export default function ResearchPage() {
   const selectedProjects = projects.filter(p => selectedProjectIds.includes(p.id));
 
   return (
-    <div className="flex h-full bg-[#0D0D0D] overflow-hidden">
+    <div className="flex h-full bg-canvas text-ink overflow-hidden">
 
       {/* Mobile sidebar overlay */}
       {mobileSidebarOpen && (
@@ -286,22 +286,22 @@ export default function ResearchPage() {
         mobileSidebarOpen
           ? "fixed left-0 top-0 h-full z-40 flex"
           : "hidden md:flex"
-      } w-[220px] shrink-0 flex-col border-r border-[#2D2D2D] bg-[#1A1A1A]`}>
-        <div className="px-4 py-4 border-b border-[#2D2D2D]">
+      } w-[220px] shrink-0 flex-col border-r border-line bg-surface`}>
+        <div className="px-4 py-4 border-b border-line">
           <button onClick={startNew}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-[#B5622A] text-white text-[12px] font-semibold hover:bg-[#9A4E20] transition-colors">
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl bg-accent text-white text-[12px] font-semibold hover:opacity-90 transition-opacity">
             <Plus size={13} /> New Research
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto py-2">
-          <p className="text-[10px] font-bold text-[#525252] uppercase tracking-widest px-4 mb-2">History</p>
-          {sessions.length === 0 && <p className="text-[11px] text-[#525252] px-4 py-2">No sessions yet</p>}
+          <p className="text-[10px] font-bold text-muted uppercase tracking-widest px-4 mb-2">Research history</p>
+          {sessions.length === 0 && <p className="text-[11px] text-faint px-4 py-2">No sessions yet</p>}
           {sessions.map(s => (
             <div key={s.id} onClick={() => loadSession(s)}
               className={`group relative mx-2 mb-0.5 px-3 py-2.5 rounded-lg cursor-pointer transition-colors
-                ${activeSessionId === s.id ? "bg-[#B5622A10] border border-[#B5622A30]" : "hover:bg-[#111111]"}`}>
-              <p className="text-[11px] text-[#C8C5C0] font-medium truncate leading-snug">{s.topic}</p>
+                ${activeSessionId === s.id ? "bg-accent-soft border border-accent/20" : "hover:bg-surface-subtle"}`}>
+              <p className="text-[11px] text-ink font-medium truncate leading-snug">{s.topic}</p>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span className={`w-1.5 h-1.5 rounded-full ${s.status === "complete" ? "bg-[#10B981]" : "bg-[#737373]"}`} />
                 <span className="text-[10px] text-[#737373]">{new Date(s.created_at).toLocaleDateString()}</span>
@@ -319,7 +319,7 @@ export default function ResearchPage() {
       <div className="flex-1 flex flex-col overflow-hidden">
 
         {/* Header — project selector */}
-        <div className="px-3 md:px-6 py-2 md:py-3 bg-[#1A1A1A] border-b border-[#2D2D2D] shrink-0">
+        <div className="px-3 md:px-6 py-2 md:py-3 bg-surface border-b border-line shrink-0">
           <div className="flex items-center gap-2 max-w-[800px]">
             <button
               onClick={() => setMobileSidebarOpen(v => !v)}
@@ -327,9 +327,9 @@ export default function ResearchPage() {
               <Menu size={15} />
             </button>
             <div className="flex items-center gap-1.5 min-w-0">
-              <Globe size={13} className="text-[#B5622A] shrink-0" />
-              <span className="text-[13px] font-semibold text-[#C8C5C0]">Research</span>
-              <span className="hidden sm:inline text-[11px] text-[#737373] ml-1">· Live web search · Cited sources</span>
+              <Globe size={13} className="text-accent shrink-0" />
+              <span className="text-[13px] font-semibold text-ink">Research</span>
+              <span className="hidden sm:inline text-[11px] text-muted ml-1">· Web-backed · cited sources</span>
             </div>
 
             <div className="ml-auto flex items-center gap-1.5 shrink-0">
@@ -382,9 +382,9 @@ export default function ResearchPage() {
 
             {messages.length === 0 && (
               <div className="text-center pt-12">
-                <div className="w-14 h-14 rounded-2xl bg-[#B5622A] flex items-center justify-center text-2xl mx-auto mb-5">🔍</div>
-                <h2 className="text-[20px] font-bold text-[#C8C5C0] mb-2">Research</h2>
-                <p className="text-[14px] text-[#737373] mb-3 max-w-[460px] mx-auto leading-relaxed">
+                <div className="w-14 h-14 rounded-2xl bg-accent flex items-center justify-center text-2xl mx-auto mb-5 text-white">🔍</div>
+                <h2 className="text-[20px] font-bold text-ink mb-2">Source-aware research</h2>
+                <p className="text-[14px] text-muted mb-3 max-w-[460px] mx-auto leading-relaxed">
                   Real-time web search with citations. Link projects to get research tailored to your work — findings turn into tasks with one click.
                 </p>
                 {selectedProjectIds.length > 0 && (
@@ -399,7 +399,7 @@ export default function ResearchPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-[600px] mx-auto mt-6">
                   {STARTERS.map(s => (
                     <button key={s} onClick={() => { setInput(s); setTimeout(() => textareaRef.current?.focus(), 0); }}
-                      className="text-left text-[12px] text-[#737373] bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl px-4 py-3 hover:border-[#B5622A] hover:text-[#C8C5C0] hover:shadow-sm transition-all leading-relaxed">
+                      className="text-left text-[12px] text-muted bg-surface border border-line rounded-xl px-4 py-3 hover:border-accent hover:text-ink hover:shadow-panel transition-all leading-relaxed">
                       {s}
                     </button>
                   ))}
@@ -461,7 +461,7 @@ export default function ResearchPage() {
         </div>
 
         {/* Input */}
-        <div className="px-6 py-4 bg-[#1A1A1A] border-t border-[#2D2D2D] shrink-0">
+        <div className="px-3 md:px-6 py-4 bg-surface border-t border-line shrink-0">
           <div className="max-w-[800px] mx-auto">
             {selectedProjectIds.length > 0 && (
               <div className="flex items-center gap-1.5 mb-2 text-[11px] text-[#737373]">
@@ -472,7 +472,7 @@ export default function ResearchPage() {
                 ))}
               </div>
             )}
-            <div className="bg-[#111111] rounded-2xl px-4 py-3 border border-[#2D2D2D] focus-within:border-[#B5622A] transition-colors">
+            <div className="bg-surface-subtle rounded-2xl px-4 py-3 border border-line focus-within:border-accent transition-colors">
               <textarea
                 ref={textareaRef}
                 value={input}
@@ -484,7 +484,7 @@ export default function ResearchPage() {
                 onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
                 placeholder="Research any topic — market trends, competitors, gold prices, technical analysis..."
                 rows={2}
-                className="w-full bg-transparent text-[14px] text-[#C8C5C0] placeholder:text-[#525252] resize-none focus:outline-none leading-relaxed"
+                className="w-full bg-transparent text-[14px] text-ink placeholder:text-faint resize-none focus:outline-none leading-relaxed"
                 style={{ maxHeight: "160px", minHeight: "52px" }}
               />
               <div className="flex items-center justify-between mt-1">
@@ -496,7 +496,7 @@ export default function ResearchPage() {
                   )}
                 </div>
                 <button onClick={send} disabled={loading || !input.trim()}
-                  className="w-8 h-8 rounded-xl flex items-center justify-center bg-[#B5622A] text-white hover:bg-[#9A4E20] disabled:opacity-40 transition-colors">
+                  className="w-8 h-8 rounded-xl flex items-center justify-center bg-accent text-white hover:opacity-90 disabled:opacity-40 transition-opacity">
                   <Send size={13} />
                 </button>
               </div>

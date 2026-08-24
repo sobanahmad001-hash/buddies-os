@@ -44,37 +44,38 @@ export default function SearchPage() {
 
   return (
     <div className="flex-1 overflow-auto">
-      <div className="p-8 max-w-[800px]">
+      <div className="mx-auto p-4 md:p-8 max-w-[860px]">
         <div className="mb-6">
-          <h1 className="text-[20px] font-semibold text-[#C8C5C0] mb-4">Search</h1>
-          <div className="flex items-center gap-3 bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl px-4 py-3 focus-within:border-[#CC785C]/50 transition-colors">
-            <Search size={16} className="text-[#737373] shrink-0" />
-            <input className="flex-1 bg-transparent outline-none text-[14px] text-[#A8A5A0] placeholder:text-[#999]"
+          <p className="text-[10px] font-semibold uppercase tracking-[.18em] text-accent">Across Buddies</p>
+          <h1 className="mt-1 text-[24px] font-semibold text-ink mb-4">Universal search</h1>
+          <div className="flex items-center gap-3 bg-surface border border-line rounded-2xl px-4 py-3 shadow-panel focus-within:border-accent transition-colors">
+            <Search size={16} className="text-muted shrink-0" />
+            <input className="flex-1 bg-transparent outline-none text-[14px] text-ink placeholder:text-faint"
               placeholder="Search projects, updates, decisions, rules..."
               value={query} onChange={e => setQuery(e.target.value)} autoFocus />
-            {loading && <div className="w-4 h-4 border-2 border-[#CC785C] border-t-transparent rounded-full animate-spin shrink-0" />}
+            {loading && <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin shrink-0" />}
           </div>
         </div>
 
         {query.length >= 2 && !loading && total === 0 && (
-          <p className="text-[13px] text-[#737373]">No results for "{query}"</p>
+          <p className="text-[13px] text-muted">No results for "{query}"</p>
         )}
 
         {results.projects.length > 0 && (
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-3">
-              <FolderKanban size={13} className="text-[#737373]" />
-              <span className="text-[11px] font-semibold text-[#737373] uppercase tracking-wide">Projects</span>
+              <FolderKanban size={13} className="text-muted" />
+              <span className="text-[11px] font-semibold text-muted uppercase tracking-wide">Projects</span>
             </div>
             <div className="space-y-2">
               {results.projects.map(p => (
                 <div key={p.id} onClick={() => router.push(`/app/projects/${p.id}`)}
-                  className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl px-4 py-3 cursor-pointer hover:border-[#CC785C]/40 transition-colors">
+                  className="bg-surface border border-line rounded-2xl px-4 py-3 cursor-pointer hover:border-accent/40 transition-colors">
                   <div className="flex items-center justify-between">
-                    <span className="text-[13px] font-semibold text-[#C8C5C0]">{p.name}</span>
-                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#DCFCE7] text-[#2D6A4F] capitalize">{p.status}</span>
+                    <span className="text-[13px] font-semibold text-ink">{p.name}</span>
+                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-surface-subtle text-positive capitalize">{p.status}</span>
                   </div>
-                  {p.description && <p className="text-[12px] text-[#737373] mt-1">{p.description}</p>}
+                  {p.description && <p className="text-[12px] text-muted mt-1">{p.description}</p>}
                 </div>
               ))}
             </div>
@@ -84,18 +85,18 @@ export default function SearchPage() {
         {results.updates.length > 0 && (
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-3">
-              <FileText size={13} className="text-[#737373]" />
-              <span className="text-[11px] font-semibold text-[#737373] uppercase tracking-wide">Updates</span>
+              <FileText size={13} className="text-muted" />
+              <span className="text-[11px] font-semibold text-muted uppercase tracking-wide">Updates</span>
             </div>
             <div className="space-y-2">
               {results.updates.map(u => (
                 <div key={u.id} onClick={() => router.push(`/app/projects/${u.project_id}`)}
-                  className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl px-4 py-3 cursor-pointer hover:border-[#CC785C]/40 transition-colors">
+                  className="bg-surface border border-line rounded-2xl px-4 py-3 cursor-pointer hover:border-accent/40 transition-colors">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-[11px] text-[#CC785C] font-semibold">{projects[u.project_id] ?? "Unknown project"}</span>
-                    <span className="text-[11px] text-[#737373]">{timeAgo(u.created_at)}</span>
+                    <span className="text-[11px] text-accent font-semibold">{projects[u.project_id] ?? "Unknown project"}</span>
+                    <span className="text-[11px] text-muted">{timeAgo(u.created_at)}</span>
                   </div>
-                  <p className="text-[13px] text-[#A8A5A0] line-clamp-2">{u.content}</p>
+                  <p className="text-[13px] text-ink line-clamp-2">{u.content}</p>
                 </div>
               ))}
             </div>
@@ -105,20 +106,20 @@ export default function SearchPage() {
         {results.decisions.length > 0 && (
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-3">
-              <Scale size={13} className="text-[#737373]" />
-              <span className="text-[11px] font-semibold text-[#737373] uppercase tracking-wide">Decisions</span>
+              <Scale size={13} className="text-muted" />
+              <span className="text-[11px] font-semibold text-muted uppercase tracking-wide">Decisions</span>
             </div>
             <div className="space-y-2">
               {results.decisions.map(d => (
                 <div key={d.id} onClick={() => router.push("/app/search")}
-                  className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl px-4 py-3 cursor-pointer hover:border-[#CC785C]/40 transition-colors">
+                  className="bg-surface border border-line rounded-2xl px-4 py-3 cursor-pointer hover:border-accent/40 transition-colors">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${d.verdict === "enter" ? "bg-[#DCFCE7] text-[#2D6A4F]" : d.verdict === "wait" ? "bg-[#FEF9C3] text-[#92400E]" : "bg-[#FEE2E2] text-[#EF4444]"}`}>
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full bg-surface-subtle ${d.verdict === "enter" ? "text-positive" : d.verdict === "wait" ? "text-caution" : "text-risk"}`}>
                       {d.verdict ?? "—"}
                     </span>
-                    <span className="text-[11px] text-[#737373]">{timeAgo(d.created_at)}</span>
+                    <span className="text-[11px] text-muted">{timeAgo(d.created_at)}</span>
                   </div>
-                  <p className="text-[13px] text-[#A8A5A0] line-clamp-2">{d.context}</p>
+                  <p className="text-[13px] text-ink line-clamp-2">{d.context}</p>
                 </div>
               ))}
             </div>
@@ -128,15 +129,15 @@ export default function SearchPage() {
         {results.rules.length > 0 && (
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-3">
-              <ShieldCheck size={13} className="text-[#737373]" />
-              <span className="text-[11px] font-semibold text-[#737373] uppercase tracking-wide">Rules</span>
+              <ShieldCheck size={13} className="text-muted" />
+              <span className="text-[11px] font-semibold text-muted uppercase tracking-wide">Rules</span>
             </div>
             <div className="space-y-2">
               {results.rules.map(r => (
                 <div key={r.id} onClick={() => router.push("/app/search")}
-                  className="bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl px-4 py-3 cursor-pointer hover:border-[#CC785C]/40 transition-colors flex items-center gap-3">
-                  <p className="text-[13px] text-[#A8A5A0] flex-1">{r.rule_text}</p>
-                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${r.severity === 3 ? "bg-[#FEE2E2] text-[#EF4444]" : r.severity === 2 ? "bg-[#FEF9C3] text-[#92400E]" : "bg-[#111111] text-[#737373]"}`}>
+                  className="bg-surface border border-line rounded-2xl px-4 py-3 cursor-pointer hover:border-accent/40 transition-colors flex items-center gap-3">
+                  <p className="text-[13px] text-ink flex-1">{r.rule_text}</p>
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 bg-surface-subtle ${r.severity === 3 ? "text-risk" : r.severity === 2 ? "text-caution" : "text-muted"}`}>
                     {r.severity === 3 ? "High" : r.severity === 2 ? "Medium" : "Low"}
                   </span>
                 </div>

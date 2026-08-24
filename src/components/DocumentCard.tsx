@@ -63,27 +63,27 @@ export default function DocumentCard({ title, content }: DocumentCardProps) {
   const hasMore = content.length > 320;
 
   return (
-    <div className="mt-3 border border-[#E5E2DE] rounded-2xl overflow-hidden bg-white shadow-sm">
+    <div className="mt-3 border border-line rounded-2xl overflow-hidden bg-surface shadow-panel">
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 bg-[#F7F5F2] border-b border-[#E5E2DE]">
-        <div className="w-7 h-7 rounded-lg bg-[#B5622A]/10 flex items-center justify-center shrink-0">
-          <FileText className="w-3.5 h-3.5 text-[#B5622A]" />
+      <div className="flex items-center gap-3 px-4 py-3 bg-surface-subtle border-b border-line">
+        <div className="w-7 h-7 rounded-lg bg-accent-soft flex items-center justify-center shrink-0">
+          <FileText className="w-3.5 h-3.5 text-accent" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-[13px] font-semibold text-[#1A1A1A] truncate">{title}</p>
-          <p className="text-[10px] text-[#B0ADA9]">Generated document · not saved</p>
+          <p className="text-[13px] font-semibold text-ink truncate">{title}</p>
+          <p className="text-[10px] text-muted">Generated document · not saved</p>
         </div>
       </div>
 
       {/* Content preview */}
       <div className="px-4 py-3">
-        <pre className={`text-[12px] text-[#525252] whitespace-pre-wrap leading-relaxed font-sans ${expanded ? "" : "line-clamp-6"}`}>
+        <pre className={`text-[12px] text-muted whitespace-pre-wrap leading-relaxed font-sans ${expanded ? "" : "line-clamp-6"}`}>
           {preview}{!expanded && hasMore ? "…" : expanded ? content.slice(320) : ""}
         </pre>
         {hasMore && (
           <button
             onClick={() => setExpanded(v => !v)}
-            className="mt-1 flex items-center gap-1 text-[11px] text-[#B0ADA9] hover:text-[#B5622A] transition-colors"
+            className="mt-1 flex items-center gap-1 text-[11px] text-muted hover:text-accent transition-colors"
           >
             <ChevronDown className={`w-3 h-3 transition-transform ${expanded ? "rotate-180" : ""}`} />
             {expanded ? "Show less" : "Show full document"}
@@ -92,7 +92,7 @@ export default function DocumentCard({ title, content }: DocumentCardProps) {
       </div>
 
       {/* Actions */}
-      <div className="px-4 py-3 border-t border-[#F0EDE9] flex items-center gap-2 flex-wrap">
+      <div className="px-4 py-3 border-t border-line flex items-center gap-2 flex-wrap">
         {savedProjectName ? (
           <div className="flex items-center gap-1.5 text-[12px] text-[#10B981] font-medium">
             <Check className="w-3.5 h-3.5" />
@@ -105,16 +105,16 @@ export default function DocumentCard({ title, content }: DocumentCardProps) {
               <button
                 onClick={openProjectPicker}
                 disabled={saving}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#B5622A] hover:bg-[#9A4E20] disabled:opacity-50 text-white text-[12px] font-semibold rounded-lg transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-accent hover:opacity-90 disabled:opacity-50 text-white text-[12px] font-semibold rounded-lg transition-opacity"
               >
                 {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FolderKanban className="w-3.5 h-3.5" />}
                 {saving ? "Saving…" : "Add to Project"}
               </button>
 
               {pickerOpen && (
-                <div className="absolute left-0 bottom-full mb-2 w-64 bg-white border border-[#E5E2DE] rounded-xl shadow-xl z-50 overflow-hidden">
-                  <div className="flex items-center justify-between px-3 py-2 border-b border-[#F0EDE9]">
-                    <span className="text-[11px] font-semibold text-[#525252] uppercase tracking-wide">Choose project</span>
+                <div className="absolute left-0 bottom-full mb-2 w-64 bg-surface border border-line rounded-xl shadow-panel z-50 overflow-hidden">
+                  <div className="flex items-center justify-between px-3 py-2 border-b border-line">
+                    <span className="text-[11px] font-semibold text-muted uppercase tracking-wide">Choose project</span>
                     <button onClick={() => setPickerOpen(false)} className="text-[#B0ADA9] hover:text-[#525252]">
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -131,7 +131,7 @@ export default function DocumentCard({ title, content }: DocumentCardProps) {
                         <button
                           key={p.id}
                           onClick={() => saveToProject(p)}
-                          className="w-full text-left px-4 py-2.5 text-[13px] text-[#1A1A1A] hover:bg-[#F7F5F2] transition-colors"
+                          className="w-full text-left px-4 py-2.5 text-[13px] text-ink hover:bg-surface-subtle transition-colors"
                         >
                           {p.name}
                         </button>
@@ -145,7 +145,7 @@ export default function DocumentCard({ title, content }: DocumentCardProps) {
             {/* Download */}
             <button
               onClick={download}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#F0EDE9] hover:bg-[#E5E2DE] text-[#1A1A1A] text-[12px] font-semibold rounded-lg transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-subtle hover:bg-surface-raised text-ink text-[12px] font-semibold rounded-lg transition-colors"
             >
               <Download className="w-3.5 h-3.5" />
               Download .md
