@@ -58,13 +58,13 @@ export default function ProjectDecisionsPage() {
   return (
     <div className="p-6 max-w-[860px]">
       <div className="flex items-center justify-between mb-5">
-        <h2 className="text-[16px] font-semibold text-[#1A1A1A]">
+        <h2 className="text-[16px] font-semibold text-ink">
           Decisions
-          <span className="text-[13px] font-normal text-[#737373] ml-2">{decisions.length} logged</span>
+          <span className="text-[13px] font-normal text-muted ml-2">{decisions.length} logged</span>
         </h2>
         <button
           onClick={() => setShowForm(v => !v)}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1A1A1A] text-white text-[12px] font-semibold rounded-lg hover:bg-[#333] transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white text-[12px] font-semibold rounded-lg hover:opacity-90 transition-opacity"
         >
           <Plus size={13} /> Log Decision
         </button>
@@ -72,13 +72,13 @@ export default function ProjectDecisionsPage() {
 
       {/* Form */}
       {showForm && (
-        <form onSubmit={submit} className="bg-white border border-[#E5E2DE] rounded-xl p-5 mb-6 space-y-3">
+        <form onSubmit={submit} className="bg-surface border border-line rounded-2xl p-5 mb-6 space-y-3">
           <input
             value={form.title}
             onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
             placeholder="Decision title"
             required
-            className="w-full text-[14px] px-3 py-2 border border-[#E5E2DE] rounded-lg focus:outline-none focus:border-[#B5622A]"
+            className="w-full bg-surface-subtle text-ink text-[14px] px-3 py-2 border border-line rounded-lg focus:outline-none focus:border-accent"
           />
           <textarea
             value={form.context}
@@ -86,13 +86,13 @@ export default function ProjectDecisionsPage() {
             placeholder="What is the context? What options were considered?"
             required
             rows={3}
-            className="w-full text-[14px] px-3 py-2 border border-[#E5E2DE] rounded-lg focus:outline-none focus:border-[#B5622A] resize-none"
+            className="w-full bg-surface-subtle text-ink text-[14px] px-3 py-2 border border-line rounded-lg focus:outline-none focus:border-accent resize-none"
           />
           <input
             value={form.verdict}
             onChange={e => setForm(f => ({ ...f, verdict: e.target.value }))}
             placeholder="Verdict / decision made (optional)"
-            className="w-full text-[14px] px-3 py-2 border border-[#E5E2DE] rounded-lg focus:outline-none focus:border-[#B5622A]"
+            className="w-full bg-surface-subtle text-ink text-[14px] px-3 py-2 border border-line rounded-lg focus:outline-none focus:border-accent"
           />
           <div className="flex gap-2 justify-end">
             <button type="button" onClick={() => setShowForm(false)}
@@ -119,14 +119,14 @@ export default function ProjectDecisionsPage() {
 
       <div className="space-y-3">
         {decisions.map(d => (
-          <div key={d.id} className="bg-white border border-[#E5E2DE] rounded-xl overflow-hidden">
+          <div key={d.id} className="bg-surface border border-line rounded-2xl overflow-hidden">
             <button
               onClick={() => setExpanded(expanded === d.id ? null : d.id)}
               className="w-full flex items-start justify-between p-4 text-left"
             >
               <div className="flex-1 min-w-0">
-                <p className="text-[14px] font-semibold text-[#1A1A1A] truncate">{d.title}</p>
-                <p className="text-[12px] text-[#737373] mt-0.5">{timeAgo(d.created_at)}</p>
+                <p className="text-[14px] font-semibold text-ink truncate">{d.title}</p>
+                <p className="text-[12px] text-muted mt-0.5">{timeAgo(d.created_at)}</p>
               </div>
               <div className="flex items-center gap-2 ml-3 shrink-0">
                 {d.verdict && (
@@ -138,10 +138,10 @@ export default function ProjectDecisionsPage() {
               </div>
             </button>
             {expanded === d.id && (
-              <div className="px-4 pb-4 border-t border-[#F7F5F2] pt-3 space-y-2">
+              <div className="px-4 pb-4 border-t border-line pt-3 space-y-2">
                 <div>
-                  <span className="text-[11px] font-semibold text-[#737373] uppercase tracking-wide">Context</span>
-                  <p className="text-[13px] text-[#404040] mt-1 leading-relaxed whitespace-pre-wrap">{d.context}</p>
+                  <span className="text-[11px] font-semibold text-muted uppercase tracking-wide">Context</span>
+                  <p className="text-[13px] text-ink mt-1 leading-relaxed whitespace-pre-wrap">{d.context}</p>
                 </div>
                 {d.verdict && (
                   <div>
