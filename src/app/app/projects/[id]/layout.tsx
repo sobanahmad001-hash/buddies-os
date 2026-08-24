@@ -12,18 +12,20 @@ import {
   FileText,
   Terminal,
   Layers,
+  Scale,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 
 type Project = { id: string; name: string; status: string; coding_agent_enabled?: boolean };
 
 const BASE_TABS = [
-  { label: 'Overview',  suffix: '',            icon: LayoutGrid  },
-  { label: 'Assistant', suffix: '/assistant',  icon: Bot         },
-  { label: 'Work',      suffix: '/tasks',      icon: CheckSquare },
-  { label: 'Plan',      suffix: '/plan',       icon: Layers      },
-  { label: 'Research',  suffix: '/research',   icon: FlaskConical},
-  { label: 'Documents', suffix: '/documents',  icon: FileText    },
+  { label: 'Overview',    suffix: '',            icon: LayoutGrid  },
+  { label: 'AI Workspace',suffix: '/assistant',  icon: Bot         },
+  { label: 'Work',        suffix: '/tasks',      icon: CheckSquare },
+  { label: 'Plan',        suffix: '/plan',       icon: Layers      },
+  { label: 'Decisions',   suffix: '/decisions',  icon: Scale       },
+  { label: 'Knowledge',   suffix: '/research',   icon: FlaskConical},
+  { label: 'Deliverables',suffix: '/documents',  icon: FileText    },
 ];
 
 const CODE_TAB = { label: 'Code', suffix: '/code', icon: Terminal };
