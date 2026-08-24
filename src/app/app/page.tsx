@@ -359,7 +359,7 @@ export default function DashboardPage() {
       <div className="p-4 md:p-8 max-w-[1100px]">
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h1 className="text-[18px] font-semibold text-[#C8C5C0]">Dashboard</h1>
+            <h1 className="text-[18px] font-semibold text-[#C8C5C0]">Today</h1>
             <p className="text-[12px] text-[#737373] mt-0.5 hidden md:block">
               System view across momentum, memory, execution, and recent operating patterns
             </p>

@@ -1,15 +1,15 @@
 'use client';
 
-import { LayoutDashboard, Bot, FolderKanban, Search, BookOpen } from 'lucide-react';
+import { CalendarCheck2, FolderKanban, Code2, TrendingUp, Library } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const links = [
-  { href: '/app',          icon: LayoutDashboard, label: 'Home' },
-  { href: '/app/ai',       icon: Bot,             label: 'AI' },
+  { href: '/app',          icon: CalendarCheck2,  label: 'Today' },
   { href: '/app/projects', icon: FolderKanban,    label: 'Projects' },
-  { href: '/app/search',   icon: Search,          label: 'Search' },
-  { href: '/app/research', icon: BookOpen,        label: 'Research' },
+  { href: '/app/coding-agent', icon: Code2,       label: 'Code' },
+  { href: '/app/trading',  icon: TrendingUp,      label: 'Trading' },
+  { href: '/app/knowledge',icon: Library,         label: 'Knowledge' },
 ];
 
 export default function BottomNav() {

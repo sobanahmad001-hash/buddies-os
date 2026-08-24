@@ -6,27 +6,25 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import {
-  LayoutDashboard,
-  Bot,
+  CalendarCheck2,
   FolderKanban,
-  Search,
+  Code2,
   LogOut,
   X,
-  BookOpen,
-  Plug,
+  Library,
+  Workflow,
   TrendingUp,
   Settings2,
 } from "lucide-react";
 import BottomNav from "@/components/BottomNav";
 
 const NAV_ITEMS = [
-  { to: "/app",              icon: LayoutDashboard, label: "Dashboard" },
-  { to: "/app/ai",           icon: Bot,             label: "AI Assistant" },
+  { to: "/app",              icon: CalendarCheck2,   label: "Today" },
   { to: "/app/projects",     icon: FolderKanban,    label: "Projects" },
-  { to: "/app/research",     icon: BookOpen,        label: "Research" },
-  { to: "/app/integrations", icon: Plug,            label: "Integrations" },
-  { to: "/app/trading",       icon: TrendingUp,      label: "Trading" },
-  { to: "/app/search",       icon: Search,          label: "Search" },
+  { to: "/app/coding-agent", icon: Code2,           label: "Coding Agent" },
+  { to: "/app/trading",      icon: TrendingUp,      label: "Trading Engine" },
+  { to: "/app/knowledge",    icon: Library,         label: "Knowledge" },
+  { to: "/app/agents",       icon: Workflow,        label: "Agents" },
   { to: "/app/settings",     icon: Settings2,       label: "Settings" },
 ];
 
@@ -101,10 +99,13 @@ function NavContent({
         {!collapsed && (
           workspaceLogo
             ? <img src={workspaceLogo} alt="Logo" className="h-7 w-auto max-w-[120px] object-contain" />
-            : <span className="text-[14px] font-bold tracking-tight">
-                <span className="text-white">BUDDIES</span>
-                <span className="text-[#B5622A]"> OS</span>
-              </span>
+            : <div>
+                <span className="text-[14px] font-bold tracking-tight">
+                  <span className="text-white">BUDDIES</span>
+                  <span className="text-[#B5622A]"> OS</span>
+                </span>
+                <p className="text-[9px] text-[#525252] mt-0.5 truncate max-w-[135px]">{workspaceName}</p>
+              </div>
         )}
         <button
           onClick={() => setCollapsed(!collapsed)}
