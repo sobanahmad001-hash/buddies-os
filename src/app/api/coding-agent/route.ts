@@ -23,6 +23,19 @@ async function getGithubHeaders(supabase: any, userId: string, repoName: string)
   };
 }
 
+export async function GET() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { data } = await supabase.from("integrations").select("id,name,config").eq("user_id", user.id).eq("type", "github").eq("status", "active");
+  const repositories = (data ?? []).map((item: any) => ({
+    id: item.id,
+    name: item.name,
+    repo: item.config?.repo_url?.replace(/^https?:\/\/github\.com\//, "").replace(/\.git$/, "").replace(/\/$/, "") ?? null,
+  })).filter((item: any) => item.repo);
+  return NextResponse.json({ repositories });
+}
+
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createClient();
@@ -157,3 +170,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
+    if (action === "get_tree") {
+      const [treeRes, commitsRes] = await Promise.all([
+        fetch(`https://api.github.com/repos/${repo}/git/trees/HEAD?recursive=1`, { headers, signal: AbortSignal.timeout(8000) }),
+        fetch(`https://api.github.com/repos/${repo}/commits?per_page=5`, { headers, signal: AbortSignal.timeout(5000) }),
+      ]);
+      if (!treeRes.ok) return NextResponse.json({ error: "Could not load repository" }, { status: treeRes.status });
+      const treeData = await treeRes.json();
+      const commitsData = commitsRes.ok ? await commitsRes.json() : [];
+      const paths = (treeData.tree ?? []).filter((file: any) => file.type === "blob" && !file.path.includes("node_modules") && !file.path.includes(".next") && !file.path.startsWith(".git")).map((file: any) => file.path);
+      const commits = (commitsData ?? []).map((commit: any) => commit.commit?.message?.split("\n")[0] ?? "").filter(Boolean);
+      return NextResponse.json({ paths, commits });
+    }

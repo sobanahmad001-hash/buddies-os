@@ -9,7 +9,7 @@ import { supabase } from "@/lib/supabaseClient";
 
 // -- Types ---------------------------------------------------------------------
 type Project = { id: string; name: string; status: string };
-type Integration = { id: string; type: string; name: string; config: any };
+type Integration = { id: string; name: string; repo: string };
 type Task = { id: string; title: string; description?: string; status: string; priority: number };
 type Message = { role: "user" | "assistant"; content: string; ts?: string };
 type Session = { id: string; title: string; created_at: string };
@@ -199,10 +199,11 @@ export default function CodingAgentPage() {
   async function init() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    const [{ data: proj }, { data: integ }] = await Promise.all([
+    const [{ data: proj }, repoResponse] = await Promise.all([
       supabase.from("projects").select("id, name, status").eq("user_id", user.id).eq("status", "active"),
-      supabase.from("integrations").select("*").eq("user_id", user.id).eq("status", "active").eq("type", "github"),
+      fetch("/api/coding-agent").then((response) => response.json()),
     ]);
+    const integ = repoResponse.repositories ?? [];
     setProjects(proj ?? []);
     setIntegrations(integ ?? []);
     const query = new URLSearchParams(window.location.search);
@@ -217,10 +218,7 @@ export default function CodingAgentPage() {
       if (requestedTask) setSelectedTask(requestedTask);
     }
     // Auto-load first repo
-    const firstRepo = integ?.[0]?.config?.repo_url
-      ?.replace(/^https?:\/\/github\.com\//, "")
-      .replace(/\.git$/, "")
-      .replace(/\/$/, "") ?? "";
+    const firstRepo = integ?.[0]?.repo ?? "";
     if (firstRepo) { setRepoInput(firstRepo); setSelectedRepo(firstRepo); loadRepo(firstRepo, integ?.[0]); }
   }
 
@@ -265,41 +263,20 @@ export default function CodingAgentPage() {
     setTasks(data ?? []);
   }
 
-  function getGhHeaders(integration: Integration) {
-    return {
-      Authorization: `token ${integration.config.access_token}`,
-      Accept: "application/vnd.github.v3+json",
-    };
-  }
-
   async function loadRepo(repo: string, integration?: Integration) {
-    const integ = integration ?? integrations[0];
-    if (!integ?.config?.access_token || !repo) return;
+    if (!repo) return;
     setRepoLoading(true);
     setRepoError("");
     setFileTree([]);
     setSelectedFile(null);
     setFileContent("");
 
-    const headers = getGhHeaders(integ);
     try {
-      const [treeRes, commitsRes] = await Promise.all([
-        fetch(`https://api.github.com/repos/${repo}/git/trees/HEAD?recursive=1`, { headers, signal: AbortSignal.timeout(8000) }),
-        fetch(`https://api.github.com/repos/${repo}/commits?per_page=5`, { headers, signal: AbortSignal.timeout(5000) }),
-      ]);
-
-      if (!treeRes.ok) { setRepoError("Could not load repo � check name and permissions."); setRepoLoading(false); return; }
-
-      const [treeData, commitsData] = await Promise.all([
-        treeRes.json(), commitsRes.ok ? commitsRes.json() : null,
-      ]);
-
-      const paths = (treeData?.tree ?? [])
-        .filter((f: any) => !f.path.includes("node_modules") && !f.path.includes(".next") && !f.path.startsWith(".git"))
-        .map((f: any) => f.path);
-
-      setFileTree(buildTree(paths));
-      setRecentCommits(Array.isArray(commitsData) ? commitsData.map((c: any) => c.commit?.message?.split("\n")[0] ?? "").filter(Boolean) : []);
+      const response = await fetch("/api/coding-agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "get_tree", repo }) });
+      const data = await response.json();
+      if (!response.ok) { setRepoError(data.error ?? "Could not load repository"); setRepoLoading(false); return; }
+      setFileTree(buildTree(data.paths ?? []));
+      setRecentCommits(data.commits ?? []);
     } catch {
       setRepoError("Request timed out. Check repo name.");
     }
@@ -318,17 +295,11 @@ export default function CodingAgentPage() {
     setSelectedFile(path);
     setFileLoading(true);
     setFileContent("");
-    const integ = integrations[0];
-    if (!integ?.config?.access_token) { setFileLoading(false); return; }
-
-    const headers = getGhHeaders(integ);
     try {
-      const res = await fetch(`https://api.github.com/repos/${selectedRepo}/contents/${path}`, { headers, signal: AbortSignal.timeout(5000) });
+      const res = await fetch("/api/coding-agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "get_file", repo: selectedRepo, path }) });
       if (res.ok) {
         const data = await res.json();
-        if (data.encoding === "base64") {
-          setFileContent(atob(data.content.replace(/\n/g, "")));
-        }
+        setFileContent(data.content ?? "");
       }
     } catch {}
     setFileLoading(false);

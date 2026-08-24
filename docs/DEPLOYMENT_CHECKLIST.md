@@ -11,7 +11,8 @@ Trading policy: paper trading only. Broker authentication and live order executi
 - [ ] Confirm all repository migrations are applied in timestamp order.
 - [ ] Configure production Supabase URL and anonymous key.
 - [ ] Configure server-only AI provider keys used by enabled features.
-- [ ] Move GitHub credentials fully server-side and rotate any token previously exposed to a browser.
+- [x] Move Coding Agent repository access and GitHub credentials server-side.
+- [ ] Rotate any GitHub token that the earlier browser-based implementation accessed.
 - [ ] Provision an isolated Coding Agent workspace, set `CODING_AGENT_WORKSPACE_ROOT`, and explicitly set `CODING_AGENT_EXECUTION_ENABLED=true` only after review.
 - [ ] Verify authentication and row-level security using a non-admin test account.
 - [ ] Run tests and a production build against the deployment environment.
