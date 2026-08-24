@@ -15,9 +15,10 @@ async function getGithubHeaders(supabase: any, userId: string, repoName: string)
     i.config?.org_or_user === repoName.split("/")[0]
   ) ?? integrations?.[0];
 
-  if (!integration?.config?.access_token) return null;
+  const token = process.env.GITHUB_TOKEN || integration?.config?.access_token;
+  if (!token) return null;
   return {
-    Authorization: `token ${integration.config.access_token}`,
+    Authorization: `Bearer ${token}`,
     Accept: "application/vnd.github.v3+json",
     "Content-Type": "application/json",
   };

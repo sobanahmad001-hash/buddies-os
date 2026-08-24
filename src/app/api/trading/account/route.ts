@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-// Exness account management — manual entry + MetaAPI live sync (via /api/trading/metaapi).
-// metaapi_token is never selected here — use /api/trading/metaapi for MetaAPI operations.
+// Paper account management. Broker connectivity is intentionally unsupported.
 
 export async function GET(req: NextRequest) {
   try {
@@ -12,8 +11,7 @@ export async function GET(req: NextRequest) {
 
     const { data: accounts } = await supabase
       .from("trading_accounts")
-      // Explicitly exclude metaapi_token — sensitive credential, never sent to client
-      .select("id, broker, account_number, account_type, server, currency, balance, equity, margin, is_active, last_synced_at, created_at, metaapi_account_id, mt_login, mt_server")
+      .select("id, broker, account_number, account_type, server, currency, balance, equity, margin, is_active, created_at")
       .eq("user_id", user.id)
       .eq("is_active", true)
       .order("created_at");

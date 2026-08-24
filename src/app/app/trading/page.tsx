@@ -548,7 +548,7 @@ export default function TradingPage() {
   const [accounts, setAccounts] = useState<any[]>([]);
   const [watchlist, setWatchlist] = useState<any[]>([]);
   const [showAddAccount, setShowAddAccount] = useState(false);
-  const [accountForm, setAccountForm] = useState({ account_number: "", account_type: "demo", server: "Exness-Trial", balance: "", currency: "USD" });
+  const [accountForm, setAccountForm] = useState({ account_number: "", account_type: "demo", server: "Buddies-Paper", balance: "", currency: "USD" });
   const [activeTab, setActiveTab] = useState<"terminal" | "trades" | "journal">("terminal");
   const [analysisTab, setAnalysisTab] = useState<"signal" | "fundamental" | "technical" | "chat">("signal");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -558,18 +558,11 @@ export default function TradingPage() {
   const [showLogTrade, setShowLogTrade] = useState(false);
   const [analysisContent, setAnalysisContent] = useState<Record<string, string>>({});
   const [analysisLoading, setAnalysisLoading] = useState<Record<string, boolean>>({});
-  const [metaApiForm, setMetaApiForm] = useState({ token: "", login: "", password: "", server: "Exness-MT5Trial4" });
-  const [showMetaApiForm, setShowMetaApiForm] = useState(false);
-  const [syncingAccount, setSyncingAccount] = useState<string | null>(null);
-  const [syncErrors, setSyncErrors] = useState<Record<string, string>>({});
-  const [connectError, setConnectError] = useState("");
   const [showSymbolSearch, setShowSymbolSearch] = useState(false);
   const [symbolQuery, setSymbolQuery] = useState("");
   const [symbolResults, setSymbolResults] = useState<any[]>([]);
   const [symbolSearching, setSymbolSearching] = useState(false);
   const [editWatchlist, setEditWatchlist] = useState(false);
-  const [showTradeConfirm, setShowTradeConfirm] = useState(false);
-  const [pendingTrade, setPendingTrade] = useState<any>(null);
   const [serverStats, setServerStats] = useState<any>(null);
   const [summaries, setSummaries] = useState<Summary[]>([]);
   const [summaryLoading, setSummaryLoading] = useState(false);
@@ -696,53 +689,14 @@ export default function TradingPage() {
         server: accountForm.server,
         balance: parseFloat(accountForm.balance) || 0,
         currency: accountForm.currency,
-        broker: "exness",
+        broker: "paper",
       }),
     });
     setShowAddAccount(false);
-    setAccountForm({ account_number: "", account_type: "demo", server: "Exness-Trial", balance: "", currency: "USD" });
+    setAccountForm({ account_number: "", account_type: "demo", server: "Buddies-Paper", balance: "", currency: "USD" });
     await loadAccounts();
   }
 
-  async function connectMetaApi() {
-    setConnectError("");
-    try {
-      const res = await fetch("/api/trading/metaapi", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "connect", ...metaApiForm }),
-      });
-      const data = await res.json();
-      if (data.error) { setConnectError(data.error); return; }
-      setShowAddAccount(false);
-      setShowMetaApiForm(false);
-      setMetaApiForm({ token: "", login: "", password: "", server: "Exness-MT5Trial4" });
-      await loadAccounts();
-    } catch (e: any) {
-      setConnectError(e.message ?? "Connection failed");
-    }
-  }
-
-  async function syncMetaApi(accountId: string) {
-    setSyncingAccount(accountId);
-    setSyncErrors(p => ({ ...p, [accountId]: "" }));
-    try {
-      const res = await fetch("/api/trading/metaapi", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "sync", account_id: accountId }),
-      });
-      const data = await res.json();
-      if (data.error) {
-        setSyncErrors(p => ({ ...p, [accountId]: data.error }));
-      } else {
-        await loadAccounts();
-      }
-    } catch (e: any) {
-      setSyncErrors(p => ({ ...p, [accountId]: e.message ?? "Network error" }));
-    }
-    setSyncingAccount(null);
-  }
 
   async function loadSignals() {
     setSignalLoading(true);
@@ -822,45 +776,6 @@ export default function TradingPage() {
     });
   }
 
-  async function executeOnExness(mt5Symbol: string): Promise<string | undefined> {
-    const connectedAccount = accounts.find(a => a.metaapi_account_id);
-    if (!connectedAccount || !pendingTrade) return "No connected account found";
-    try {
-      const res = await fetch("/api/trading/metaapi", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "place_order",
-          account_id: connectedAccount.id,
-          direction: pendingTrade.direction,
-          symbol: mt5Symbol,
-          volume: parseFloat(pendingTrade.lot_size),
-          stop_loss: parseFloat(pendingTrade.stop_loss),
-          take_profit: parseFloat(pendingTrade.take_profit),
-          entry_price: parseFloat(pendingTrade.entry_price) || null,
-          ladder_step: pendingTrade.ladder_step,
-          notes: pendingTrade.notes,
-        }),
-      });
-      const data = await res.json();
-      if (data.error) return data.error as string;
-      setShowTradeConfirm(false);
-      setPendingTrade(null);
-      await loadAll();
-      await loadAccounts();
-      return undefined;
-    } catch (e: any) {
-      return e.message ?? "Network error";
-    }
-  }
-
-  async function handleLogOnly() {
-    if (!pendingTrade) return;
-    await logTradeToJournal(pendingTrade);
-    setShowTradeConfirm(false);
-    setPendingTrade(null);
-    await loadAll();
-  }
 
   const activeStep = ladder.find(s => s.status === "active");
   const openTrades = entries.filter(e => e.status === "open");
@@ -1048,20 +963,20 @@ export default function TradingPage() {
           </button>
         </div>
 
-        {/* Exness Account Panel */}
+        {/* Paper Account Panel */}
         <div className="p-3 border-t border-[#1E1E1E] overflow-y-auto" style={{ maxHeight: 220 }}>
           <div className="flex items-center justify-between mb-2">
             <p className="text-[9px] font-bold text-[#525252] uppercase tracking-widest">Accounts</p>
             <button
-              onClick={() => { setShowAddAccount(v => !v); setShowMetaApiForm(true); setConnectError(""); }}
+              onClick={() => setShowAddAccount(v => !v)}
               className="text-[9px] text-[#B5622A] hover:text-[#9A4E20] transition-colors font-semibold">+ Add</button>
           </div>
 
           {accounts.length === 0 && !showAddAccount && (
             <button
-              onClick={() => { setShowAddAccount(true); setShowMetaApiForm(true); }}
+              onClick={() => setShowAddAccount(true)}
               className="w-full text-[10px] text-[#525252] hover:text-[#737373] text-center py-2 border border-dashed border-[#2D2D2D] rounded-lg transition-colors">
-              Connect Exness demo
+              Create paper account
             </button>
           )}
 
@@ -1070,66 +985,19 @@ export default function TradingPage() {
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-semibold text-[#C8C5C0]">{acc.account_number}</span>
                 <div className="flex items-center gap-1">
-                  {acc.metaapi_account_id && (
-                    <span className="text-[8px] px-1 py-0.5 rounded bg-[#10B98120] text-[#10B981] font-bold">LIVE</span>
-                  )}
-                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
-                    acc.account_type === "demo" ? "bg-[#3B82F620] text-[#3B82F6]" : "bg-[#10B98120] text-[#10B981]"
-                  }`}>{acc.account_type.toUpperCase()}</span>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-[#3B82F620] text-[#3B82F6]">PAPER</span>
                 </div>
               </div>
               <div className="flex items-center justify-between mt-1">
                 <span className="text-[10px] text-[#525252]">Balance</span>
                 <span className="text-[11px] font-mono font-bold text-[#C8C5C0]">${parseFloat(acc.balance || 0).toFixed(2)}</span>
               </div>
-              {acc.metaapi_account_id && (
-                <div className="flex items-center justify-between mt-0.5">
-                  <span className="text-[10px] text-[#525252]">Equity</span>
-                  <span className="text-[11px] font-mono font-bold text-[#C8C5C0]">${parseFloat(acc.equity || 0).toFixed(2)}</span>
-                </div>
-              )}
-              {acc.metaapi_account_id && (
-                <button
-                  onClick={() => syncMetaApi(acc.id)}
-                  disabled={syncingAccount === acc.id}
-                  className="mt-1.5 w-full flex items-center justify-center gap-1 py-1 bg-[#111111] hover:bg-[#2D2D2D] rounded text-[9px] text-[#525252] hover:text-[#737373] transition-colors disabled:opacity-50">
-                  <RefreshCw size={8} className={syncingAccount === acc.id ? "animate-spin" : ""} />
-                  {syncingAccount === acc.id ? "Syncing..." : "Sync Live"}
-                </button>
-              )}
-              {syncErrors[acc.id] && (
-                <p className="text-[8px] text-red-400 bg-red-400/10 rounded px-1.5 py-1 mt-1 break-all">
-                  {syncErrors[acc.id]}
-                </p>
-              )}
-              {acc.last_synced_at && acc.metaapi_account_id && !syncErrors[acc.id] && (
-                <p className="text-[8px] text-[#525252] mt-0.5 text-center">
-                  {new Date(acc.last_synced_at).toLocaleTimeString()}
-                </p>
-              )}
             </div>
           ))}
 
           {showAddAccount && (
             <div className="bg-[#1A1A1A] rounded-lg p-2 space-y-1.5 mt-1">
-              {/* Mode tabs */}
-              <div className="flex gap-1 mb-1">
-                <button
-                  onClick={() => setShowMetaApiForm(false)}
-                  className={`flex-1 py-0.5 rounded text-[10px] font-semibold transition-colors ${
-                    !showMetaApiForm ? "bg-[#B5622A] text-white" : "bg-[#2D2D2D] text-[#737373]"
-                  }`}>Manual</button>
-                <button
-                  onClick={() => setShowMetaApiForm(true)}
-                  className={`flex-1 py-0.5 rounded text-[10px] font-semibold transition-colors flex items-center justify-center gap-1 ${
-                    showMetaApiForm ? "bg-[#B5622A] text-white" : "bg-[#2D2D2D] text-[#737373]"
-                  }`}>
-                  <Zap size={9} /> MetaAPI
-                </button>
-              </div>
-
-              {!showMetaApiForm ? (
-                <>
+              <>
                   <input
                     value={accountForm.account_number}
                     onChange={e => setAccountForm(p => ({ ...p, account_number: e.target.value }))}
@@ -1154,53 +1022,7 @@ export default function TradingPage() {
                       Cancel
                     </button>
                   </div>
-                </>
-              ) : (
-                <>
-                  <input
-                    value={metaApiForm.token}
-                    onChange={e => setMetaApiForm(p => ({ ...p, token: e.target.value }))}
-                    placeholder="MetaAPI token"
-                    type="password"
-                    autoComplete="off"
-                    className="w-full px-2 py-1.5 bg-[#0D0D0D] border border-[#2D2D2D] rounded text-[11px] text-[#C8C5C0] focus:outline-none focus:border-[#B5622A]"
-                  />
-                  <input
-                    value={metaApiForm.login}
-                    onChange={e => setMetaApiForm(p => ({ ...p, login: e.target.value }))}
-                    placeholder="MT5 login (account number)"
-                    className="w-full px-2 py-1.5 bg-[#0D0D0D] border border-[#2D2D2D] rounded text-[11px] text-[#C8C5C0] focus:outline-none focus:border-[#B5622A]"
-                  />
-                  <input
-                    value={metaApiForm.password}
-                    onChange={e => setMetaApiForm(p => ({ ...p, password: e.target.value }))}
-                    placeholder="MT5 password (provisioning only)"
-                    type="password"
-                    autoComplete="new-password"
-                    className="w-full px-2 py-1.5 bg-[#0D0D0D] border border-[#2D2D2D] rounded text-[11px] text-[#C8C5C0] focus:outline-none focus:border-[#B5622A]"
-                  />
-                  <input
-                    value={metaApiForm.server}
-                    onChange={e => setMetaApiForm(p => ({ ...p, server: e.target.value }))}
-                    placeholder="Server (e.g. Exness-MT5Trial4)"
-                    className="w-full px-2 py-1.5 bg-[#0D0D0D] border border-[#2D2D2D] rounded text-[11px] text-[#C8C5C0] focus:outline-none focus:border-[#B5622A]"
-                  />
-                  {connectError && (
-                    <p className="text-[9px] text-red-400 bg-red-400/10 rounded px-2 py-1">{connectError}</p>
-                  )}
-                  <div className="flex gap-1">
-                    <button onClick={connectMetaApi}
-                      className="flex-1 py-1.5 bg-[#B5622A] text-white text-[10px] font-bold rounded hover:bg-[#9A4E20] transition-colors">
-                      Connect
-                    </button>
-                    <button onClick={() => { setShowAddAccount(false); setConnectError(""); }}
-                      className="px-3 py-1.5 bg-[#2D2D2D] text-[#737373] text-[10px] rounded">
-                      Cancel
-                    </button>
-                  </div>
-                  <p className="text-[8px] text-[#525252] text-center">Password is sent to MetaAPI once and never stored here</p>
-                </>
-              )}
+              </>
             </div>
           )}
         </div>
@@ -1834,15 +1656,6 @@ export default function TradingPage() {
         />
       )}
 
-      {showTradeConfirm && pendingTrade && (
-        <TradeConfirmModal
-          form={pendingTrade}
-          connectedAccount={accounts.find(a => a.metaapi_account_id) ?? null}
-          onExecute={executeOnExness}
-          onLogOnly={handleLogOnly}
-          onClose={() => { setShowTradeConfirm(false); setPendingTrade(null); }}
-        />
-      )}
     </div>
   );
 }
