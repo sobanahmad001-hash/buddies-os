@@ -3,7 +3,8 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import {
   Send, Check, Copy, X, Plus, Trash2, MessageSquare,
   ChevronRight, ChevronDown, File, Folder, FolderOpen,
-  GitBranch, RefreshCw, ExternalLink, AlertCircle, Loader2, ShieldCheck, Play, Terminal
+  GitBranch, RefreshCw, ExternalLink, AlertCircle, Loader2, ShieldCheck, Play, Terminal,
+  Github, Database, Cloud, Plug
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -19,6 +20,11 @@ type CodingJob = {
   changed_files?: Array<{ path: string; status: string; content: string | null }>;
   verification_results?: Array<{ name: string; status: string; command?: string; output?: string }>;
   stdout?: string; stderr?: string; diff?: string; error?: string; created_at: string;
+};
+type ConnectedTools = {
+  github: { configured: boolean; reachable: boolean; repositories: Array<{ id: string; name: string; repository: string }> };
+  supabase: { configured: boolean; reachable: boolean; host: string | null };
+  vercel: { configured: boolean; reachable: boolean; projectId: string | null; deployment: null | { id: string; url: string | null; state: string; createdAt: number | null } };
 };
 
 // -- File tree builder ---------------------------------------------------------
@@ -180,6 +186,9 @@ export default function CodingAgentPage() {
   const [lastUserRequest, setLastUserRequest] = useState("");
   const [queueingJob, setQueueingJob] = useState(false);
   const [runnerError, setRunnerError] = useState("");
+  const [connectedTools, setConnectedTools] = useState<ConnectedTools | null>(null);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const [toolsLoading, setToolsLoading] = useState(false);
 
   // Model
   const [selectedModel, setSelectedModel] = useState<"gpt-5.6-sol" | "claude-sonnet-4-5">("gpt-5.6-sol");
@@ -190,7 +199,7 @@ export default function CodingAgentPage() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  useEffect(() => { init(); loadSessions(); loadJobs(); }, []);
+  useEffect(() => { init(); loadSessions(); loadJobs(); loadConnectedTools(); }, []);
   useEffect(() => {
     const active = jobs.some(job => ["queued", "claimed", "running"].includes(job.status));
     if (!active) return;
@@ -255,6 +264,16 @@ export default function CodingAgentPage() {
       const data = await res.json();
       setJobs(data.jobs ?? []);
     } catch {}
+  }
+
+  async function loadConnectedTools() {
+    setToolsLoading(true);
+    try {
+      const res = await fetch("/api/coding-agent/integrations", { cache: "no-store" });
+      const data = await res.json();
+      if (res.ok) setConnectedTools(data.tools);
+    } catch {}
+    finally { setToolsLoading(false); }
   }
 
   async function queueLocalJob() {
@@ -451,6 +470,7 @@ export default function CodingAgentPage() {
       contextParts.push(`File selected: ${selectedFile} (loading content...)`);
     }
     if (recentCommits.length > 0) contextParts.push(`Recent commits:\n${recentCommits.slice(0, 3).join("\n")}`);
+    if (connectedTools) contextParts.push(`Connected engineering tools: GitHub ${connectedTools.github.reachable ? "connected" : "unavailable"}; Supabase ${connectedTools.supabase.reachable ? "connected" : "unavailable"}; Vercel ${connectedTools.vercel.reachable ? `connected (${connectedTools.vercel.deployment?.state ?? "unknown"})` : "unavailable"}. Never request or expose their credentials.`);
 
     const systemPrompt = `You are a senior software engineer and coding agent for Buddies OS.
 
@@ -601,7 +621,7 @@ RULES:
   ];
 
   return (
-    <div className="flex h-full flex-col bg-canvas text-ink overflow-hidden">
+    <div className="relative flex h-full flex-col bg-canvas text-ink overflow-hidden">
       <div className="shrink-0 border-b border-line bg-surface px-4 py-3">
         <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex items-center gap-2">
@@ -611,9 +631,45 @@ RULES:
           <div className="flex items-center gap-1 overflow-x-auto">
             {["Plan", "Review", "Approve", "Execute", "Verify"].map((step, index) => <div key={step} className="flex items-center gap-1"><span className={`rounded-lg border px-2 py-1 text-[9px] font-semibold uppercase tracking-wide ${index === 0 ? "border-accent bg-accent-soft text-accent" : "border-line text-muted"}`}>{index + 1}. {step}</span>{index < 4 && <ChevronRight size={10} className="text-faint" />}</div>)}
           </div>
-          <div className="flex items-center gap-1.5 text-[10px] text-positive"><ShieldCheck size={12} /> Changes require approval</div>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setToolsOpen(true)} className="flex items-center gap-1.5 rounded-lg border border-line bg-surface-subtle px-2.5 py-1.5 text-[10px] font-semibold text-ink hover:border-line-strong">
+              <Plug size={11} className="text-accent" /> Connected tools
+              {connectedTools && <span className="text-positive">{[connectedTools.github, connectedTools.supabase, connectedTools.vercel].filter(tool => tool.reachable).length}/3</span>}
+            </button>
+            <div className="flex items-center gap-1.5 text-[10px] text-positive"><ShieldCheck size={12} /> Changes require approval</div>
+          </div>
         </div>
       </div>
+      {toolsOpen && (
+        <div className="absolute inset-0 z-50 flex items-start justify-end bg-black/40 p-3 md:p-6" onClick={() => setToolsOpen(false)}>
+          <div className="flex h-full w-full max-w-[430px] flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl" onClick={event => event.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-line px-4 py-3">
+              <div><p className="text-[13px] font-semibold text-ink">Coding Agent tools</p><p className="text-[10px] text-muted">Server-side connections; secrets are never sent to the browser.</p></div>
+              <button onClick={() => setToolsOpen(false)} className="rounded-lg p-1 text-muted hover:bg-surface-subtle hover:text-ink"><X size={14} /></button>
+            </div>
+            <div className="flex-1 space-y-3 overflow-y-auto p-4">
+              {toolsLoading && <div className="flex items-center gap-2 text-[11px] text-muted"><Loader2 size={12} className="animate-spin" /> Checking tools…</div>}
+              {connectedTools && ([
+                { key: "github", label: "GitHub", icon: Github, tool: connectedTools.github, detail: connectedTools.github.repositories.length ? connectedTools.github.repositories.map(repo => repo.repository).join(", ") : "Repository access and pull requests" },
+                { key: "supabase", label: "Supabase", icon: Database, tool: connectedTools.supabase, detail: connectedTools.supabase.host ?? "Database, auth, and migrations" },
+                { key: "vercel", label: "Vercel", icon: Cloud, tool: connectedTools.vercel, detail: connectedTools.vercel.deployment ? `${connectedTools.vercel.deployment.state} · ${connectedTools.vercel.deployment.url ?? connectedTools.vercel.projectId}` : "Deployments and runtime logs" },
+              ] as const).map(item => {
+                const Icon = item.icon; const healthy = item.tool.reachable;
+                return <div key={item.key} className="rounded-xl border border-line bg-surface-subtle p-3">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface"><Icon size={15} className="text-ink" /></div>
+                    <div className="min-w-0 flex-1"><div className="flex items-center gap-2"><p className="text-[12px] font-semibold text-ink">{item.label}</p><span className={`rounded-full px-1.5 py-0.5 text-[9px] ${healthy ? "bg-positive/10 text-positive" : item.tool.configured ? "bg-red-500/10 text-red-400" : "bg-surface text-muted"}`}>{healthy ? "Connected" : item.tool.configured ? "Needs attention" : "Not configured"}</span></div><p className="mt-1 truncate text-[10px] text-muted">{item.detail}</p></div>
+                  </div>
+                </div>;
+              })}
+            </div>
+            <div className="flex items-center justify-between border-t border-line p-3">
+              <a href="/app/integrations" className="text-[10px] font-semibold text-accent hover:underline">Manage integration records</a>
+              <button onClick={loadConnectedTools} disabled={toolsLoading} className="flex items-center gap-1 rounded-lg border border-line px-2.5 py-1.5 text-[10px] text-ink hover:bg-surface-subtle disabled:opacity-50"><RefreshCw size={10} className={toolsLoading ? "animate-spin" : ""} /> Refresh</button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="flex min-h-0 flex-1 overflow-hidden">
 
       {/* -- Panel 1: Session history ---------------------------------------- */}

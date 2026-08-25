@@ -104,12 +104,12 @@ export default function IntegrationsPage() {
               </div>
             </div>
             <div className="mb-3">
-              <label className="text-[10px] font-bold text-[#737373] uppercase tracking-wider block mb-1">Config (JSON or key=value)</label>
+              <label className="text-[10px] font-bold text-[#737373] uppercase tracking-wider block mb-1">Connection metadata (JSON)</label>
               <textarea value={form.config} onChange={e => setForm({ ...form, config: e.target.value })}
                 rows={3} placeholder='{"org_or_user":"myorg","repo_url":"https://github.com/org/repo"}'
                 className="w-full text-sm px-3 py-2 bg-[#0D0D0D] border border-[#2D2D2D] rounded-lg font-mono text-xs text-[#C8C5C0] placeholder:text-[#525252] resize-none focus:outline-none focus:border-[#B5622A]" />
             </div>
-            {form.type === "github" && <p className="mb-3 text-[11px] text-[#737373]">Configure the token as the server-only <code className="text-[#CC785C]">GITHUB_TOKEN</code> environment variable in Vercel. Do not paste tokens here.</p>}
+            <p className="mb-3 text-[11px] text-[#737373]">Store only identifiers and public URLs here. Keep GitHub, Supabase, and Vercel secrets in server-only Vercel environment variables—never paste credentials into this form.</p>
             <div className="flex gap-2">
               <button onClick={handleAdd} disabled={saving}
                 className="px-4 py-2 bg-[#B5622A] text-white text-xs font-semibold rounded-lg hover:bg-[#9A4E20] disabled:opacity-50">
