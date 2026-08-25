@@ -1,6 +1,6 @@
 import { ParsedCommand } from "./parsers";
-
-const AI_PROVIDER = process.env.AI_PROVIDER ?? "openai";
+import { callAIProvider } from "@/lib/ai/providers";
+import { resolveAISelection } from "@/lib/ai/config";
 
 const SYSTEM_PROMPT = `You are a command parser for a personal OS. Extract structured data from natural language.
 Return ONLY valid JSON (no markdown, no explanation):
@@ -18,25 +18,14 @@ Return ONLY valid JSON (no markdown, no explanation):
 
 export async function parseWithAI(rawInput: string): Promise<ParsedCommand | null> {
   try {
-    let text = "";
-
-    if (AI_PROVIDER === "anthropic") {
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-api-key": process.env.ANTHROPIC_API_KEY!, "anthropic-version": "2023-06-01" },
-        body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 500, system: SYSTEM_PROMPT, messages: [{ role: "user", content: rawInput }] }),
-      });
-      const data = await response.json();
-      text = data.content?.[0]?.text ?? "";
-    } else {
-      const { default: OpenAI } = await import("openai");
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini", max_tokens: 500,
-        messages: [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: rawInput }],
-      });
-      text = response.choices[0]?.message?.content ?? "";
-    }
+    const selection = resolveAISelection({ provider: process.env.AI_PROVIDER, workload: "chat" });
+    const result = await callAIProvider({
+      ...selection,
+      system: SYSTEM_PROMPT,
+      messages: [{ role: "user", content: rawInput }],
+      maxTokens: 500,
+    });
+    const text = result.text;
 
     const clean = text.replace(/```json|```/g, "").trim();
     return JSON.parse(clean) as ParsedCommand;

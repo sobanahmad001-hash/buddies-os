@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { callAIProvider, getDefaultModelForProvider, normalizeProvider, type AIProvider } from '@/lib/ai/providers';
+import { callAIProvider } from '@/lib/ai/providers';
+import { resolveAISelection } from '@/lib/ai/config';
 import { buildCompressedContext } from '@/lib/ai/session-compress';
 import { checkRateLimit } from '@/lib/rate-limit';
 
@@ -10,6 +11,9 @@ const MODEL_COSTS = {
   'claude-opus-4-1': { input: 15, output: 75 },
   'gpt-4o-mini': { input: 0.15, output: 0.6 },
   'gpt-4o': { input: 2.5, output: 10 },
+  'gpt-5.6-luna': { input: 0.2, output: 1.2 },
+  'gpt-5.6-terra': { input: 2, output: 12 },
+  'gpt-5.6-sol': { input: 4, output: 20 },
   'grok-3-mini': { input: 0, output: 0 },
   'grok-3': { input: 0, output: 0 },
 } as const;
@@ -391,13 +395,12 @@ export async function POST(request: NextRequest) {
 
     const effectiveMessage = message || 'Please analyze the attached image(s).';
 
-    // Default to OpenAI (gpt-4.1 family) with Claude as fallback
-    const rawProvider = body.provider;
-    const provider: AIProvider = rawProvider ? normalizeProvider(rawProvider) : "openai";
-    const requestedModel = body.model;
-
     const messageType = detectMessageType(effectiveMessage);
-    const model = requestedModel || getDefaultModelForProvider(provider, messageType);
+    const { provider, model } = resolveAISelection({
+      provider: body.provider,
+      model: body.model,
+      workload: messageType,
+    });
 
     const { summary: sessionSummaryCompressed, recentMessages: recentConversation } =
       await buildCompressedContext(history, sessionId, supabase);

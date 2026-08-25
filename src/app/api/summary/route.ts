@@ -1,28 +1,18 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-
-const AI_PROVIDER = process.env.AI_PROVIDER ?? "openai";
+import { callAIProvider } from "@/lib/ai/providers";
+import { resolveAISelection } from "@/lib/ai/config";
 
 async function callAI(prompt: string) {
-  if (AI_PROVIDER === "anthropic") {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": process.env.ANTHROPIC_API_KEY!, "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 1024, messages: [{ role: "user", content: prompt }] }),
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error?.message ?? "Anthropic error");
-    return data.content?.[0]?.text ?? "No response.";
-  } else {
-    const { default: OpenAI } = await import("openai");
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini", max_tokens: 1024,
-      messages: [{ role: "user", content: prompt }],
-    });
-    return response.choices[0]?.message?.content ?? "No response.";
-  }
+  const selection = resolveAISelection({ provider: process.env.AI_PROVIDER, workload: "analysis" });
+  const result = await callAIProvider({
+    ...selection,
+    system: "Create a concise operational weekly digest using only the supplied data.",
+    messages: [{ role: "user", content: prompt }],
+    maxTokens: 1024,
+  });
+  return result.text;
 }
 
 export async function POST(req: NextRequest) {
