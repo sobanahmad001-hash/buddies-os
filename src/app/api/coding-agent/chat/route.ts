@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { callAIProvider } from "@/lib/ai/providers";
+import { resolveAISelection } from "@/lib/ai/config";
 import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
@@ -31,8 +32,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "message required" }, { status: 400 });
     }
 
-    const effectiveProvider = provider === "anthropic" ? "anthropic" : "openai";
-    const effectiveModel = model ?? (effectiveProvider === "anthropic" ? "claude-sonnet-4-5" : process.env.OPENAI_MODEL_CODING ?? "gpt-5.6-sol");
+    const { provider: effectiveProvider, model: effectiveModel } = resolveAISelection({
+      provider,
+      model,
+      workload: "coding",
+    });
 
     // Build user content — support images
     let userContent: any = message || "Please analyze the attached image(s).";
@@ -70,6 +74,8 @@ export async function POST(req: NextRequest) {
     });
   } catch (err: any) {
     console.error("[coding-agent/chat] error:", err);
-    return NextResponse.json({ error: err?.message ?? "Internal server error" }, { status: 500 });
+    const message = err?.message ?? "Internal server error";
+    const status = /not configured|api key/i.test(message) ? 503 : 500;
+    return NextResponse.json({ error: message }, { status });
   }
 }

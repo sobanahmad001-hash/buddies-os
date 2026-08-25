@@ -8,6 +8,13 @@ coverage/
 .env.production.local
 tsconfig.tsbuildinfo
 
+# Local verification output and one-off patch helpers
+*.log
+build*.txt
+cleanup_build*.txt
+final_cleanup_build*.txt
+patch_*.py
+
 # PWA / generated files
 public/sw.js
 public/workbox-*.js

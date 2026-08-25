@@ -515,6 +515,9 @@ RULES:
       });
 
       const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error ?? `Coding Agent request failed (${res.status})`);
+      }
       const reply = data.response ?? "No response.";
 
       // Parse FILE_CHANGE blocks
@@ -570,8 +573,9 @@ RULES:
       } catch (sessionErr) {
         console.error("[coding-agent] session save failed:", sessionErr);
       }
-    } catch {
-      setMessages(prev => [...prev, { role: "assistant", content: "Connection error. Try again." }]);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Connection error. Try again.";
+      setMessages(prev => [...prev, { role: "assistant", content: `Coding Agent error: ${message}` }]);
     }
     setLoading(false);
   }

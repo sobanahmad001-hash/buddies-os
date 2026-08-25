@@ -30,9 +30,19 @@ export default function LoginPage() {
         if (error) throw error;
         router.replace("/app");
       } else {
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/confirm?next=/app`,
+          },
+        });
         if (error) throw error;
-        router.replace("/app");
+        if (data.session) {
+          router.replace("/app");
+        } else {
+          setMsg("Check your email to confirm your account, then sign in.");
+        }
       }
     } catch (err: any) {
       setMsg(err?.message ?? "Login failed.");

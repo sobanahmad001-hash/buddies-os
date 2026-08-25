@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { buildProjectMemory } from "@/lib/ai/project-memory";
 import { callAIProvider } from "@/lib/ai/providers";
+import { resolveAISelection } from "@/lib/ai/config";
 
 async function getSupabase() {
   const c = await cookies();
@@ -88,9 +89,13 @@ ${fullTask.description ? `Description: ${fullTask.description}` : ""}
 
 Break it down into ordered, actionable steps.`;
 
+  const selection = resolveAISelection({
+    provider: process.env.AI_PROVIDER,
+    model: process.env.AI_MODEL,
+    workload: "analysis",
+  });
   const result = await callAIProvider({
-    provider: (process.env.AI_PROVIDER as any) ?? "anthropic",
-    model: process.env.AI_MODEL ?? "claude-haiku-4-5-20251001",
+    ...selection,
     system: systemPrompt,
     messages: [{ role: "user", content: userMessage }],
     maxTokens: 2000,

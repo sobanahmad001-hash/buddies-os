@@ -1,7 +1,12 @@
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
+import {
+  getDefaultModel,
+  normalizeProvider,
+  type AIProvider,
+} from "@/lib/ai/config";
 
-export type AIProvider = "anthropic" | "openai" | "xai";
+export type { AIProvider } from "@/lib/ai/config";
 
 export type ProviderMessage = {
   role: "user" | "assistant";
@@ -25,21 +30,30 @@ export type ProviderCallOutput = {
 };
 
 function getOpenAIClient() {
+  const apiKey = process.env.OPENAI_API_KEY?.trim();
+  if (!apiKey) throw new Error("OpenAI is not configured. Add OPENAI_API_KEY to the server environment.");
   return new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
+    apiKey,
+    timeout: 90_000,
   });
 }
 
 function getAnthropicClient() {
+  const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
+  if (!apiKey) throw new Error("Anthropic is not configured. Add ANTHROPIC_API_KEY to the server environment.");
   return new Anthropic({
-    apiKey: process.env.ANTHROPIC_API_KEY,
+    apiKey,
+    timeout: 90_000,
   });
 }
 
 function getXAIClient() {
+  const apiKey = process.env.XAI_API_KEY?.trim();
+  if (!apiKey) throw new Error("xAI is not configured. Add XAI_API_KEY to the server environment.");
   return new OpenAI({
-    apiKey: process.env.XAI_API_KEY,
+    apiKey,
     baseURL: "https://api.x.ai/v1",
+    timeout: 90_000,
   });
 }
 
@@ -70,6 +84,7 @@ export async function callAIProvider(input: ProviderCallInput): Promise<Provider
       .map((block: any) => block.text)
       .join("\n")
       .trim();
+    if (!text) throw new Error(`Anthropic returned an empty response from ${model}.`);
 
     return {
       text,
@@ -80,9 +95,7 @@ export async function callAIProvider(input: ProviderCallInput): Promise<Provider
     };
   }
 
-  const client = provider === "xai" ? getXAIClient() : getOpenAIClient();
-
-  // Convert Anthropic-style messages to OpenAI format
+  // Convert provider-neutral messages to OpenAI content blocks.
   const openaiMessages = messages.map((msg) => {
     const baseMsg: any = { role: msg.role };
     
@@ -93,18 +106,16 @@ export async function callAIProvider(input: ProviderCallInput): Promise<Provider
       const contentArray: any[] = [];
       for (const block of msg.content) {
         if (block.type === "text" && block.text) {
-          contentArray.push({ type: "text", text: block.text });
+          contentArray.push({ type: "input_text", text: block.text });
         } else if (block.type === "image" && block.source?.url) {
           contentArray.push({
-            type: "image_url",
-            image_url: { url: block.source.url },
+            type: "input_image",
+            image_url: block.source.url,
           });
         } else if (block.type === "image" && block.source?.data) {
           contentArray.push({
-            type: "image_url",
-            image_url: {
-              url: `data:${block.source.media_type || "image/jpeg"};base64,${block.source.data}`,
-            },
+            type: "input_image",
+            image_url: `data:${block.source.media_type || "image/jpeg"};base64,${block.source.data}`,
           });
         }
       }
@@ -114,20 +125,45 @@ export async function callAIProvider(input: ProviderCallInput): Promise<Provider
     return baseMsg;
   });
 
-  const isModernReasoningModel = provider === "openai" && model.startsWith("gpt-5");
-  const response = await client.chat.completions.create({
+  if (provider === "openai") {
+    const response = await getOpenAIClient().responses.create({
+      model,
+      instructions: system,
+      input: openaiMessages as any,
+      max_output_tokens: maxTokens,
+      store: false,
+      ...(model.startsWith("gpt-5") ? { reasoning: { effort: "medium" as const } } : {}),
+    });
+    const text = response.output_text?.trim() || "";
+    if (!text) throw new Error(`OpenAI returned an empty response from ${model}.`);
+    return {
+      text,
+      inputTokens: response.usage?.input_tokens || 0,
+      outputTokens: response.usage?.output_tokens || 0,
+      provider,
+      model,
+    };
+  }
+
+  const xaiMessages = openaiMessages.map((message) => ({
+    ...message,
+    content: Array.isArray(message.content)
+      ? message.content.map((block: any) =>
+          block.type === "input_image"
+            ? { type: "image_url", image_url: { url: block.image_url } }
+            : { type: "text", text: block.text }
+        )
+      : message.content,
+  }));
+
+  const response = await getXAIClient().chat.completions.create({
     model,
-    messages: [
-      { role: "system", content: system },
-      ...openaiMessages,
-    ],
-    ...(isModernReasoningModel
-      ? { max_completion_tokens: maxTokens, reasoning_effort: "medium" as const }
-      : { max_tokens: maxTokens, temperature: 0.4 }),
-  } as any);
-
+    messages: [{ role: "system", content: system }, ...xaiMessages] as any,
+    max_tokens: maxTokens,
+    temperature: 0.4,
+  });
   const text = response.choices?.[0]?.message?.content?.trim() || "";
-
+  if (!text) throw new Error(`xAI returned an empty response from ${model}.`);
   return {
     text,
     inputTokens: response.usage?.prompt_tokens || 0,
@@ -138,22 +174,7 @@ export async function callAIProvider(input: ProviderCallInput): Promise<Provider
 }
 
 export function getDefaultModelForProvider(provider: AIProvider, messageType: "chat" | "analysis" | "decision") {
-  if (provider === "anthropic") {
-    if (messageType === "chat") return "claude-haiku-4-5-20251001";
-    return "claude-sonnet-4-5";
-  }
-
-  if (provider === "openai") {
-    if (messageType === "chat") return process.env.OPENAI_MODEL_FAST ?? "gpt-5.6-luna";
-    return process.env.OPENAI_MODEL_DEFAULT ?? "gpt-5.6-terra";
-  }
-
-  if (messageType === "chat") return "grok-3-mini";
-  return "grok-3";
+  return getDefaultModel(provider, messageType);
 }
 
-export function normalizeProvider(raw: unknown): AIProvider {
-  if (raw === "openai") return "openai";
-  if (raw === "xai") return "xai";
-  return "anthropic";
-}
+export { normalizeProvider };
