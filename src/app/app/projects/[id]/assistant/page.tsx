@@ -397,7 +397,7 @@ export default function ProjectAssistantPage() {
   const { error: toastError } = useToast();
 
   const getDefaultModelForProvider = (p: 'anthropic' | 'openai' | 'xai') =>
-    p === 'anthropic' ? 'claude-sonnet-4-5' : p === 'openai' ? 'gpt-4.1' : 'grok-3';
+    p === 'anthropic' ? 'claude-sonnet-4-5' : p === 'openai' ? 'gpt-5.6-terra' : 'grok-3';
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [sessions, setSessions] = useState<ProjectSession[]>([]);
@@ -408,7 +408,7 @@ export default function ProjectAssistantPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [provider, setProvider] = useState<'anthropic' | 'openai' | 'xai'>('openai');
-  const [model, setModel] = useState('gpt-4.1');
+  const [model, setModel] = useState('gpt-5.6-terra');
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -418,8 +418,9 @@ export default function ProjectAssistantPage() {
       { label: 'Claude Haiku', value: 'claude-haiku-4-5-20251001' },
     ],
     openai: [
-      { label: 'GPT-4.1',      value: 'gpt-4.1' },
-      { label: 'GPT-4.1 Mini', value: 'gpt-4.1-mini' },
+      { label: 'GPT-5.6 Terra', value: 'gpt-5.6-terra' },
+      { label: 'GPT-5.6 Luna',  value: 'gpt-5.6-luna' },
+      { label: 'GPT-5.6 Sol',   value: 'gpt-5.6-sol' },
     ],
     xai: [
       { label: 'Grok 3', value: 'grok-3' },

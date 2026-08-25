@@ -158,7 +158,7 @@ export default function AIPage() {
   const [editText, setEditText] = useState("");
   const [modelOpen, setModelOpen] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<"anthropic" | "openai" | "xai">("openai");
-  const [selectedModel, setSelectedModel] = useState("gpt-4.1");
+  const [selectedModel, setSelectedModel] = useState("gpt-5.6-terra");
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [sessionSummary, setSessionSummary] = useState("");
   const [projects, setProjects] = useState<Array<{ id: string; name: string }>>([]);
@@ -515,7 +515,7 @@ export default function AIPage() {
                       <button key={p.id} onClick={() => {
                         setSelectedProvider(p.id as any);
                         localStorage.setItem("buddies-ai-provider", p.id);
-                        const next = p.id === "anthropic" ? "claude-sonnet-4-5" : p.id === "openai" ? "gpt-4.1" : "grok-3";
+                        const next = p.id === "anthropic" ? "claude-sonnet-4-5" : p.id === "openai" ? "gpt-5.6-terra" : "grok-3";
                         setSelectedModel(next);
                         localStorage.setItem("buddies-ai-model", next);
                       }} className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors
@@ -530,9 +530,9 @@ export default function AIPage() {
                     ? [{ value: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5" }, { value: "claude-sonnet-4-5", label: "Claude Sonnet 4.5" }]
                     : selectedProvider === "openai"
                     ? [
-                        { value: "gpt-4.1-mini", label: "GPT-4.1 Mini" },
-                        { value: "gpt-4.1", label: "GPT-4.1" },
-                        { value: "gpt-4.1-nano", label: "GPT-4.1 Nano" },
+                        { value: "gpt-5.6-luna", label: "GPT-5.6 Luna · Fast" },
+                        { value: "gpt-5.6-terra", label: "GPT-5.6 Terra · Balanced" },
+                        { value: "gpt-5.6-sol", label: "GPT-5.6 Sol · Deep" },
                       ]
                     : [{ value: "grok-3-mini", label: "Grok 3 Mini" }, { value: "grok-3", label: "Grok 3" }]
                   ).map(m => (

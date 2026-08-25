@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     }
 
     const effectiveProvider = provider === "anthropic" ? "anthropic" : "openai";
-    const effectiveModel = model ?? (effectiveProvider === "anthropic" ? "claude-sonnet-4-5" : "gpt-4.1");
+    const effectiveModel = model ?? (effectiveProvider === "anthropic" ? "claude-sonnet-4-5" : process.env.OPENAI_MODEL_CODING ?? "gpt-5.6-sol");
 
     // Build user content — support images
     let userContent: any = message || "Please analyze the attached image(s).";

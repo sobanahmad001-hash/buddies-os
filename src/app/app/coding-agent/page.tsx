@@ -182,7 +182,7 @@ export default function CodingAgentPage() {
   const [runnerError, setRunnerError] = useState("");
 
   // Model
-  const [selectedModel, setSelectedModel] = useState<"gpt-4.1" | "claude-sonnet-4-5">("gpt-4.1");
+  const [selectedModel, setSelectedModel] = useState<"gpt-5.6-sol" | "claude-sonnet-4-5">("gpt-5.6-sol");
 
   // Images
   const [attachedImages, setAttachedImages] = useState<File[]>([]);
@@ -596,7 +596,7 @@ RULES:
   }
 
   const CODING_MODELS = [
-    { model: "gpt-4.1" as const,          label: "GPT-4.1",    provider: "openai"    },
+    { model: "gpt-5.6-sol" as const,      label: "GPT-5.6 Sol", provider: "openai"    },
     { model: "claude-sonnet-4-5" as const, label: "Sonnet 4.5", provider: "anthropic" },
   ];
 

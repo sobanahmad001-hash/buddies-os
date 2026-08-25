@@ -26,6 +26,7 @@ try {
 $env:BUDDIES_APP_URL = $config.appUrl
 $env:BUDDIES_RUNNER_ID = $config.runnerId
 $env:BUDDIES_RUNNER_WORKSPACE = $config.workspace
+$env:CODEX_MODEL = if ($config.codexModel) { $config.codexModel } else { "gpt-5.6-sol" }
 
 Set-Location $repositoryRoot
 & node "scripts/buddies-runner.mjs"

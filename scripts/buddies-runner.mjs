@@ -9,6 +9,7 @@ const token = process.env.CODING_AGENT_RUNNER_TOKEN ?? "";
 const root = path.resolve(process.env.BUDDIES_RUNNER_WORKSPACE ?? path.join(process.cwd(), ".buddies-runner"));
 const runnerId = process.env.BUDDIES_RUNNER_ID ?? `runner-${process.env.COMPUTERNAME ?? "personal"}`;
 const codex = process.env.CODEX_BIN ?? "codex";
+const codexModel = process.env.CODEX_MODEL ?? "gpt-5.6-sol";
 const pollMs = Math.max(2_000, Number(process.env.BUDDIES_RUNNER_POLL_MS ?? 5_000));
 const maxOutput = 500_000;
 
@@ -64,7 +65,7 @@ async function execute(job) {
       "",
       `USER REQUEST:\n${job.prompt}`,
     ].join("\n");
-    const agent = await run(codex, ["exec", "--json", "--sandbox", "workspace-write", "--skip-git-repo-check", "-C", worktreeDir, prompt], worktreeDir, 60 * 60_000);
+    const agent = await run(codex, ["exec", "--json", "--model", codexModel, "--sandbox", "workspace-write", "--skip-git-repo-check", "-C", worktreeDir, prompt], worktreeDir, 60 * 60_000);
     stdout = trim(stdout + agent.stdout); stderr = trim(stderr + agent.stderr);
 
     const diffResult = await run("git", ["-C", worktreeDir, "diff", "--no-ext-diff", "--binary", "HEAD"], root, 60_000);

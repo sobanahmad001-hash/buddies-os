@@ -114,15 +114,17 @@ export async function callAIProvider(input: ProviderCallInput): Promise<Provider
     return baseMsg;
   });
 
+  const isModernReasoningModel = provider === "openai" && model.startsWith("gpt-5");
   const response = await client.chat.completions.create({
     model,
     messages: [
       { role: "system", content: system },
       ...openaiMessages,
     ],
-    max_tokens: maxTokens,
-    temperature: 0.4,
-  });
+    ...(isModernReasoningModel
+      ? { max_completion_tokens: maxTokens, reasoning_effort: "medium" as const }
+      : { max_tokens: maxTokens, temperature: 0.4 }),
+  } as any);
 
   const text = response.choices?.[0]?.message?.content?.trim() || "";
 
@@ -142,9 +144,8 @@ export function getDefaultModelForProvider(provider: AIProvider, messageType: "c
   }
 
   if (provider === "openai") {
-    // GPT-4.1 family — 1M context, best instruction following (March 2026)
-    if (messageType === "chat") return "gpt-4.1-mini";
-    return "gpt-4.1";
+    if (messageType === "chat") return process.env.OPENAI_MODEL_FAST ?? "gpt-5.6-luna";
+    return process.env.OPENAI_MODEL_DEFAULT ?? "gpt-5.6-terra";
   }
 
   if (messageType === "chat") return "grok-3-mini";

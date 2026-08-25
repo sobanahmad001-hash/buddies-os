@@ -2,7 +2,8 @@ param(
   [switch]$Generate,
   [string]$AppUrl = "https://buddies-os.vercel.app",
   [string]$RunnerId = "soban-personal-pc",
-  [string]$Workspace = "$env:USERPROFILE\BuddiesRunner"
+  [string]$Workspace = "$env:USERPROFILE\BuddiesRunner",
+  [string]$CodexModel = "gpt-5.6-sol"
 )
 
 $ErrorActionPreference = "Stop"
@@ -34,6 +35,7 @@ $secureToken | ConvertFrom-SecureString | Set-Content -LiteralPath $tokenPath -E
   appUrl = $AppUrl.TrimEnd("/")
   runnerId = $RunnerId
   workspace = $Workspace
+  codexModel = $CodexModel
 } | ConvertTo-Json | Set-Content -LiteralPath $configPath -Encoding UTF8
 
 Write-Host "Saved runner settings for this Windows account using Windows DPAPI." -ForegroundColor Green

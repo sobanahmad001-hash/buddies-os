@@ -757,13 +757,13 @@ ${referentialNote}`;
 
       const providerAllowedModels: Record<ProviderKey, string[]> = {
         anthropic: ["claude-haiku-4-5-20251001", "claude-sonnet-4-5"],
-        openai: ["gpt-4.1-mini", "gpt-4.1", "gpt-4.1-nano"],
+        openai: ["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"],
         xai: ["grok-3-mini", "grok-3"],
       };
 
       const providerDefaultModel: Record<ProviderKey, string> = {
         anthropic: "claude-haiku-4-5-20251001",
-        openai: "gpt-4.1",          // GPT-4.1: 1M context, best instruction following
+        openai: process.env.OPENAI_MODEL_DEFAULT ?? "gpt-5.6-terra",
         xai: "grok-3-mini",
       };
 
