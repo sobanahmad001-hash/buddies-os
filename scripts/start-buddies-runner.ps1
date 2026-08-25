@@ -15,7 +15,8 @@ foreach ($command in @("node", "git", "codex")) {
 }
 
 $config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
-$secureToken = Get-Content -LiteralPath $tokenPath -Raw | ConvertTo-SecureString
+$encryptedToken = (Get-Content -LiteralPath $tokenPath -Raw).Trim().TrimStart([char]0xFEFF)
+$secureToken = ConvertTo-SecureString $encryptedToken
 $pointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secureToken)
 try {
   $env:CODING_AGENT_RUNNER_TOKEN = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer)
@@ -29,4 +30,3 @@ $env:BUDDIES_RUNNER_WORKSPACE = $config.workspace
 Set-Location $repositoryRoot
 & node "scripts/buddies-runner.mjs"
 exit $LASTEXITCODE
-

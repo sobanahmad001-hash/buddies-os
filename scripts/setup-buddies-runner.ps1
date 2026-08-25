@@ -29,7 +29,7 @@ if ($Generate) {
 
 New-Item -ItemType Directory -Force -Path $configDirectory | Out-Null
 $secureToken = ConvertTo-SecureString $token -AsPlainText -Force
-$secureToken | ConvertFrom-SecureString | Set-Content -LiteralPath $tokenPath -Encoding UTF8
+$secureToken | ConvertFrom-SecureString | Set-Content -LiteralPath $tokenPath -Encoding ASCII
 @{
   appUrl = $AppUrl.TrimEnd("/")
   runnerId = $RunnerId
@@ -58,4 +58,3 @@ if (-not $Generate) {
 }
 
 Remove-Variable token -ErrorAction SilentlyContinue
-
