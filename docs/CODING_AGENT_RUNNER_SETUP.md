@@ -18,19 +18,25 @@ The Buddies web app coordinates work; the personal runner performs it on your Wi
 5. Redeploy Buddies.
 6. Install and sign in to GitHub CLI and Codex CLI on the PC that will execute jobs. Confirm `git`, `gh`, `node`, and `codex` are available in a new PowerShell window.
 
-## Start the runner
+## Recommended Windows setup
 
-Open PowerShell in the repository directory. Set these only in that terminal—the token must never be committed:
+The setup stores the token encrypted with Windows DPAPI for the current Windows account. It is not written to the repository and cannot be decrypted by another Windows account.
 
 ```powershell
-$env:BUDDIES_APP_URL="https://your-production-domain.vercel.app"
-$env:CODING_AGENT_RUNNER_TOKEN="paste-the-same-random-token"
-$env:BUDDIES_RUNNER_WORKSPACE="C:\BuddiesRunner"
-$env:BUDDIES_RUNNER_ID="soban-personal-pc"
-pnpm runner
+Set-Location "$env:USERPROFILE\buddies-os-runner"
+.\setup-runner.cmd
 ```
 
-Keep the terminal running. It will display `Buddies Runner ... is online` and wait for approved jobs.
+Before running setup, copy the exact `CODING_AGENT_RUNNER_TOKEN` value that is deployed in Vercel. Setup validates the token against the deployed API and clears the clipboard after success. If the original value is unavailable, run `.\setup-runner.cmd -Generate`, paste the generated value into Vercel, redeploy, then run `.\setup-runner.cmd` once more.
+
+Start the runner at any time with:
+
+```powershell
+Set-Location "$env:USERPROFILE\buddies-os-runner"
+.\start-runner.cmd
+```
+
+Keep the window running. It will display `Buddies Runner ... is online` and wait for jobs.
 
 ## Use it
 
@@ -49,4 +55,3 @@ Keep the terminal running. It will display `Buddies Runner ... is online` and wa
 - Buddies stores capped logs/diffs; do not print secrets in commands or source files.
 - Stop the runner immediately and rotate `CODING_AGENT_RUNNER_TOKEN` in Vercel if the token is exposed.
 - Delete old job folders under `C:\BuddiesRunner\jobs` manually after their PRs are complete. Never delete the whole runner directory while a job is active.
-

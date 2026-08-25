@@ -10,7 +10,9 @@
     "lint": "next lint",
     "test": "jest --runInBand",
     "test:watch": "jest --watch",
-    "runner": "node scripts/buddies-runner.mjs"
+    "runner": "node scripts/buddies-runner.mjs",
+    "runner:setup": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/setup-buddies-runner.ps1",
+    "runner:start": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/start-buddies-runner.ps1"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",

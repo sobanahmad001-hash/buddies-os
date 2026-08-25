@@ -25,7 +25,9 @@ while (true) {
     const response = await api(`/api/coding-agent/runner?runnerId=${encodeURIComponent(runnerId)}`);
     if (response.job) await execute(response.job);
   } catch (error) {
-    console.error(`[runner] ${error instanceof Error ? error.message : String(error)}`);
+    const message = error instanceof Error ? error.message : String(error);
+    const cause = error instanceof Error && error.cause instanceof Error ? ` (${error.cause.message})` : "";
+    console.error(`[runner] ${message}${cause}`);
   }
   await new Promise((resolve) => setTimeout(resolve, pollMs));
 }
@@ -148,4 +150,3 @@ async function gitOk(args) { return (await run("git", args, root, 30_000)).exitC
 async function fileExists(file) { try { await readFile(file); return true; } catch { return false; } }
 async function jsonFile(file) { try { return JSON.parse(await readFile(file, "utf8")); } catch { return null; } }
 function trim(value, limit = maxOutput) { return String(value ?? "").slice(-limit); }
-
