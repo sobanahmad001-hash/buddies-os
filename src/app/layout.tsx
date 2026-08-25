@@ -23,8 +23,11 @@ export const metadata: Metadata = {
     title: "Buddies OS",
   },
   icons: {
-    icon: "/icons/icon-192x192.png",
-    apple: "/apple-touch-icon.png",
+    icon: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: "/icon-192.png",
   },
   other: {
     "mobile-web-app-capable": "yes",
@@ -37,7 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#B5622A" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <link rel="apple-touch-icon" href="/icon-192.png" />
       </head>
       <body>
         <ThemeProvider>
