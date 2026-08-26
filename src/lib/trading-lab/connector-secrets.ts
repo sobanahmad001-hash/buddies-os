@@ -35,7 +35,7 @@ export async function deleteConnectorSecret(connectorId: string, userId: string)
   if (error) throw error;
 }
 
-const envFallbacks: Record<string, string> = { twelve_data: "TWELVE_DATA_API_KEY", fred: "FRED_API_KEY", databento: "DATABENTO_API_KEY", openai: "OPENAI_API_KEY" };
+const envFallbacks: Record<string, string> = { twelve_data: "TWELVE_DATA_API_KEY", fred: "FRED_API_KEY", databento: "DATABENTO_API_KEY" };
 
 export async function resolveConnectorSecret(userId: string, provider: string) {
   try { const personal = await getUserConnectorSecret(userId, provider); if (personal) return personal; } catch { /* shared environment fallback during migration */ }
