@@ -14,6 +14,7 @@ import {
   Library,
   Workflow,
   TrendingUp,
+  FlaskConical,
   Settings2,
   Inbox,
   ChartNoAxesCombined,
@@ -29,6 +30,7 @@ const NAV_ITEMS = [
   { to: "/app/projects",     icon: FolderKanban,    label: "Projects" },
   { to: "/app/coding-agent", icon: Code2,           label: "Coding Agent" },
   { to: "/app/trading",      icon: TrendingUp,      label: "Trading Engine" },
+  { to: "/app/trading-lab",  icon: FlaskConical,    label: "Trading Lab" },
   { to: "/app/knowledge",    icon: Library,         label: "Knowledge" },
   { to: "/app/reviews",      icon: ChartNoAxesCombined, label: "Reviews" },
   { to: "/app/automations",  icon: Workflow,        label: "Automations" },
@@ -41,7 +43,7 @@ function NavLink({ to, icon: Icon, label, collapsed, onClick }: {
   const pathname = usePathname();
   const active = to === "/app"
     ? pathname === "/app"
-    : pathname.startsWith(to);
+    : pathname === to || pathname.startsWith(`${to}/`);
 
   return (
     <Link
