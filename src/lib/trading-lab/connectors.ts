@@ -9,13 +9,12 @@ export type ConnectorCapability =
   | "positioning"
   | "economic_calendar"
   | "news"
-  | "chart_alerts"
-  | "ai";
+  | "chart_alerts";
 
 export type ConnectorDefinition = {
   id: string;
   name: string;
-  category: "market_data" | "macro" | "research" | "charting" | "ai";
+  category: "market_data" | "macro" | "research" | "charting";
   auth: "api_key" | "webhook_secret" | "none";
   capabilities: ConnectorCapability[];
   phase: number;
@@ -71,16 +70,6 @@ export const CONNECTOR_CATALOG: readonly ConnectorDefinition[] = [
     capabilities: ["chart_alerts"],
     phase: 8,
     note: "Receives authenticated and deduplicated TradingView alert events.",
-  },
-  {
-    id: "openai",
-    name: "OpenAI",
-    category: "ai",
-    auth: "api_key",
-    capabilities: ["ai"],
-    phase: 5,
-    recommended: true,
-    note: "Strategy drafting and evidence-grounded explanations; never the backtest executor.",
   },
 ] as const;
 

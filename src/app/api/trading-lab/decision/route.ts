@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getLabSnapshot } from "@/lib/trading-lab/market-data";
-import { getDefaultModel, resolveAISelection } from "@/lib/ai/config";
+import { resolveAISelection } from "@/lib/ai/config";
 import { callAIProvider } from "@/lib/ai/providers";
-import { getUserConnectorSecret } from "@/lib/trading-lab/connector-secrets";
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,9 +12,8 @@ export async function POST(req: NextRequest) {
     let narrative = `${snapshot.decision.state}. ${snapshot.decision.trigger}. Invalidation: ${snapshot.decision.invalidation}.`;
     let provider = null, model = null, aiWarning = null;
     try {
-      const personalKey = await getUserConnectorSecret(user.id, "openai").catch(() => null);
-      const selection = personalKey ? { provider: "openai" as const, model: typeof body.model === "string" && body.model.startsWith("gpt-") ? body.model : getDefaultModel("openai", "decision") } : resolveAISelection({ provider: body.provider, model: body.model, workload: "decision" });
-      const ai = await callAIProvider({ ...selection, apiKey: personalKey ?? undefined, maxTokens: 650,
+      const selection = resolveAISelection({ provider: body.provider, model: body.model, workload: "decision" });
+      const ai = await callAIProvider({ ...selection, maxTokens: 650,
         system: "You explain a deterministic trading-research decision. Preserve the supplied state exactly. Use only supplied evidence. Clearly separate facts, missing data, trigger and invalidation. Never tell the user to execute a trade and never invent prices, events, volume or citations.",
         messages: [{ role: "user", content: `Explain this server snapshot concisely:\n${JSON.stringify({ symbol: snapshot.symbol, asOf: snapshot.asOf, dataQuality: snapshot.dataQuality, fundamental: snapshot.fundamental, technical: snapshot.technical, volumeWyckoff: snapshot.volume, decision: snapshot.decision })}` }],
       }); narrative = ai.text; provider = ai.provider; model = ai.model;
