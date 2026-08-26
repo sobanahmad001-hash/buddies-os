@@ -19,6 +19,7 @@ export type ProviderCallInput = {
   system: string;
   messages: ProviderMessage[];
   maxTokens?: number;
+  apiKey?: string;
 };
 
 export type ProviderCallOutput = {
@@ -29,8 +30,8 @@ export type ProviderCallOutput = {
   model: string;
 };
 
-function getOpenAIClient() {
-  const apiKey = process.env.OPENAI_API_KEY?.trim();
+function getOpenAIClient(personalApiKey?: string) {
+  const apiKey = personalApiKey?.trim() || process.env.OPENAI_API_KEY?.trim();
   if (!apiKey) throw new Error("OpenAI is not configured. Add OPENAI_API_KEY to the server environment.");
   return new OpenAI({
     apiKey,
@@ -58,7 +59,7 @@ function getXAIClient() {
 }
 
 export async function callAIProvider(input: ProviderCallInput): Promise<ProviderCallOutput> {
-  const { provider, model, system, messages, maxTokens = 4096 } = input;
+  const { provider, model, system, messages, maxTokens = 4096, apiKey } = input;
 
   if (provider === "anthropic") {
     const anthropic = getAnthropicClient();
@@ -126,7 +127,7 @@ export async function callAIProvider(input: ProviderCallInput): Promise<Provider
   });
 
   if (provider === "openai") {
-    const response = await getOpenAIClient().responses.create({
+    const response = await getOpenAIClient(apiKey).responses.create({
       model,
       instructions: system,
       input: openaiMessages as any,

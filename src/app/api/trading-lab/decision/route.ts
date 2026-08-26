@@ -1,0 +1,30 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import { getLabSnapshot } from "@/lib/trading-lab/market-data";
+import { getDefaultModel, resolveAISelection } from "@/lib/ai/config";
+import { callAIProvider } from "@/lib/ai/providers";
+import { getUserConnectorSecret } from "@/lib/trading-lab/connector-secrets";
+
+export async function POST(req: NextRequest) {
+  try {
+    const supabase = await createClient(); const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const body = await req.json(); const snapshot = await getLabSnapshot(user.id, body.symbol ?? "XAU/USD", true);
+    let narrative = `${snapshot.decision.state}. ${snapshot.decision.trigger}. Invalidation: ${snapshot.decision.invalidation}.`;
+    let provider = null, model = null, aiWarning = null;
+    try {
+      const personalKey = await getUserConnectorSecret(user.id, "openai").catch(() => null);
+      const selection = personalKey ? { provider: "openai" as const, model: typeof body.model === "string" && body.model.startsWith("gpt-") ? body.model : getDefaultModel("openai", "decision") } : resolveAISelection({ provider: body.provider, model: body.model, workload: "decision" });
+      const ai = await callAIProvider({ ...selection, apiKey: personalKey ?? undefined, maxTokens: 650,
+        system: "You explain a deterministic trading-research decision. Preserve the supplied state exactly. Use only supplied evidence. Clearly separate facts, missing data, trigger and invalidation. Never tell the user to execute a trade and never invent prices, events, volume or citations.",
+        messages: [{ role: "user", content: `Explain this server snapshot concisely:\n${JSON.stringify({ symbol: snapshot.symbol, asOf: snapshot.asOf, dataQuality: snapshot.dataQuality, fundamental: snapshot.fundamental, technical: snapshot.technical, volumeWyckoff: snapshot.volume, decision: snapshot.decision })}` }],
+      }); narrative = ai.text; provider = ai.provider; model = ai.model;
+    } catch (error) { aiWarning = error instanceof Error ? error.message : "AI explanation unavailable"; }
+    let decisionId = null;
+    if (!snapshot.demo) {
+      const saved = await supabase.from("trading_decisions").insert({ user_id: user.id, instrument: snapshot.symbol, decision_state: snapshot.decision.state, bias: snapshot.decision.bias, confidence: snapshot.decision.confidence, data_quality: snapshot.dataQuality, fundamental: snapshot.fundamental, technical: snapshot.technical, volume_wyckoff: snapshot.volume, market_snapshot: { currentPrice: snapshot.currentPrice, source: snapshot.source }, trigger_text: snapshot.decision.trigger, invalidation_text: snapshot.decision.invalidation, blockers: snapshot.decision.blockers, sources: [{ name: snapshot.source }], narrative, provider, model, as_of: new Date(snapshot.asOf).toISOString() }).select("id").single();
+      if (!saved.error) decisionId = saved.data.id;
+    }
+    return NextResponse.json({ snapshot, narrative, decisionId, ai: { operational: !aiWarning, provider, model, warning: aiWarning } });
+  } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Decision failed" }, { status: 500 }); }
+}
