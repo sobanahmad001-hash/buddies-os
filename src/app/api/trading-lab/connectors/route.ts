@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CONNECTOR_CATALOG } from "@/lib/trading-lab/connectors";
-import { encryptConnectorSecret, getUserConnectorSecret } from "@/lib/trading-lab/connector-secrets";
+import { deleteConnectorSecret, getUserConnectorSecret, storeConnectorSecret } from "@/lib/trading-lab/connector-secrets";
 import { testConnector } from "@/lib/trading-lab/connector-test";
 
 async function authenticatedUser() {
@@ -11,13 +11,16 @@ async function authenticatedUser() {
   return { supabase, user };
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const { supabase, user } = await authenticatedUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { data, error } = await supabase.from("trading_connector_profiles").select("id,provider,label,masked_secret,capabilities,status,is_primary,last_checked_at,last_success_at,last_error,updated_at").eq("user_id", user.id);
   if (error && !error.message.includes("trading_connector_profiles")) return NextResponse.json({ error: error.message }, { status: 500 });
   const profiles = data ?? [];
-  return NextResponse.json({ connectors: CONNECTOR_CATALOG.map(definition => ({ ...definition, profile: profiles.find(item => item.provider === definition.id) ?? null })) });
+  return NextResponse.json({ connectors: CONNECTOR_CATALOG.map(definition => {
+    const profile = profiles.find(item => item.provider === definition.id) ?? null;
+    return { ...definition, profile, webhookUrl: definition.id === "tradingview_webhook" && profile ? `${req.nextUrl.origin}/api/trading-lab/webhooks/tradingview/${profile.id}` : null };
+  }) });
 }
 
 export async function POST(req: NextRequest) {
@@ -53,17 +56,9 @@ export async function POST(req: NextRequest) {
     }, { onConflict: "user_id,provider" }).select("id").single();
     if (profileError) throw profileError;
 
-    if (secret) {
-      const encrypted = encryptConnectorSecret(secret);
-      const { error: secretError } = await admin.from("trading_connector_secrets").upsert({
-        connector_id: profile.id, user_id: user.id, ciphertext: encrypted.ciphertext,
-        iv: encrypted.iv, auth_tag: encrypted.authTag, key_version: encrypted.keyVersion,
-        rotated_at: new Date().toISOString(),
-      }, { onConflict: "connector_id" });
-      if (secretError) throw secretError;
-    }
+    if (secret) await storeConnectorSecret(profile.id, user.id, secret);
     await admin.from("trading_connector_events").insert({ connector_id: profile.id, user_id: user.id, event_type: "connected", detail: { latency_ms: result.latencyMs } });
-    return NextResponse.json({ ...result, masked });
+    return NextResponse.json({ ...result, masked, connectorId: profile.id, webhookUrl: definition.id === "tradingview_webhook" ? `${req.nextUrl.origin}/api/trading-lab/webhooks/tradingview/${profile.id}` : null });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Connector operation failed";
     return NextResponse.json({ error: message }, { status: 500 });
@@ -76,6 +71,8 @@ export async function DELETE(req: NextRequest) {
   const provider = req.nextUrl.searchParams.get("provider");
   if (!provider) return NextResponse.json({ error: "Provider is required" }, { status: 400 });
   const admin = createAdminClient();
+  const { data: profile } = await admin.from("trading_connector_profiles").select("id").eq("user_id", user.id).eq("provider", provider).maybeSingle();
+  if (profile) await deleteConnectorSecret(profile.id, user.id);
   const { error } = await admin.from("trading_connector_profiles").delete().eq("user_id", user.id).eq("provider", provider);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });

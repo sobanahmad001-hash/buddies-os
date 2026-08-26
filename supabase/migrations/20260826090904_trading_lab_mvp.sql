@@ -18,14 +18,12 @@ create table if not exists public.trading_connector_profiles (
   unique (user_id, provider)
 );
 
--- Ciphertext is written and read only by trusted server code using service_role.
--- Encryption keys live in the deployment secret manager, never in Postgres.
+-- Vault references are written and read only by trusted server code using service_role.
+-- Supabase Vault keeps the encryption key separate from database backups.
 create table if not exists public.trading_connector_secrets (
   connector_id uuid primary key references public.trading_connector_profiles(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
-  ciphertext text not null,
-  iv text not null,
-  auth_tag text not null,
+  vault_secret_id uuid not null,
   key_version integer not null default 1,
   created_at timestamptz not null default now(),
   rotated_at timestamptz
