@@ -8,7 +8,8 @@ export async function GET(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const symbol = req.nextUrl.searchParams.get("symbol") ?? "XAU/USD";
-    return NextResponse.json(await getLabSnapshot(user.id, symbol, true));
+    const interval = req.nextUrl.searchParams.get("interval") ?? "1h";
+    return NextResponse.json(await getLabSnapshot(user.id, symbol, true, interval));
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Market data failed" }, { status: 500 });
   }

@@ -17,7 +17,16 @@ export async function testConnector(provider: string, secret?: string) {
   } else {
     throw new Error("Unsupported connector provider.");
   }
-  if (!response.ok) throw new Error(`${provider} rejected the connection (${response.status}).`);
+  if (!response.ok) {
+    const raw = await response.text();
+    let detail = raw;
+    try {
+      const parsed = JSON.parse(raw) as { message?: string; error?: string | { message?: string }; code?: string };
+      detail = parsed.message ?? (typeof parsed.error === "string" ? parsed.error : parsed.error?.message) ?? parsed.code ?? raw;
+    } catch { /* Preserve a non-JSON upstream response. */ }
+    const reason = response.status === 401 ? "authentication failed" : response.status === 403 ? "access or plan restriction" : response.status === 429 ? "rate limit reached" : "request rejected";
+    throw new Error(`${provider} ${reason} (${response.status}): ${String(detail || response.statusText).replace(/\b(sk|key)-[A-Za-z0-9_-]{12,}\b/g, "[redacted]").slice(0, 500)}`);
+  }
   if (provider === "cftc") {
     const rows = await response.json() as Record<string, string>[];
     if (!rows[0]?.report_date_as_yyyy_mm_dd) throw new Error("CFTC returned no dated gold positioning data.");

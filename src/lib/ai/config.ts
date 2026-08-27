@@ -43,7 +43,9 @@ export function getDefaultModel(provider: AIProvider, workload: AIWorkload): str
   }
 
   if (provider === "anthropic") {
-    return workload === "chat" ? "claude-haiku-4-5-20251001" : "claude-sonnet-4-5";
+    return workload === "chat"
+      ? configuredValue("ANTHROPIC_MODEL_FAST") ?? "claude-haiku-4-5-20251001"
+      : configuredValue("ANTHROPIC_MODEL_DEFAULT") ?? "claude-sonnet-5";
   }
 
   return workload === "chat" ? "grok-3-mini" : "grok-3";

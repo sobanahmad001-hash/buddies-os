@@ -40,7 +40,7 @@ export const CONNECTOR_CATALOG: readonly ConnectorDefinition[] = [
     auth: "api_key",
     capabilities: ["spot_quote", "historical_bars"],
     phase: 2,
-    note: "Spot XAU/USD context and secondary bar source; volume is used only when explicitly reported.",
+    note: "Spot XAU/USD availability depends on your Twelve Data plan. The connection test shows the provider's exact response; demo research data remains available when the symbol is not included in your plan.",
   },
   {
     id: "fred",

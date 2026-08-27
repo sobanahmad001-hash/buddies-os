@@ -127,14 +127,14 @@ export function decide(fundamental: PillarResult, technical: PillarResult, volum
   return { state, bias: direction, confidence: Math.round(available.reduce((sum, item) => sum + item.confidence, 0) / Math.max(available.length, 1)), blockers, trigger: structure?.triggerPrice ?? (direction === "bullish" ? "Wait for a completed-candle break or higher-low confirmation" : direction === "bearish" ? "Wait for a completed-candle break or lower-high confirmation" : "Wait for two pillars to align"), invalidation: structure?.invalidationPrice ?? (direction === "bullish" ? "Below the latest structural swing low" : direction === "bearish" ? "Above the latest structural swing high" : "Unavailable until direction forms"), target: structure?.targetPrice ?? null, rewardRisk: structure?.rewardRisk ?? null };
 }
 
-export function demoCandles(count = 220): LabCandle[] {
+export function demoCandles(count = 220, intervalMinutes = 60): LabCandle[] {
   let price = 2325;
   return Array.from({ length: count }, (_, index) => {
     const cycle = Math.sin(index / 11) * 3.2 + Math.sin(index / 37) * 6;
     const drift = index * .09;
     const open = price; const close = 2325 + drift + cycle; price = close;
     const spread = 2.2 + Math.abs(Math.sin(index / 5)) * 2;
-    return { time: new Date(Date.UTC(2026, 0, 1, index)).toISOString(), open: round(open), high: round(Math.max(open, close) + spread), low: round(Math.min(open, close) - spread), close: round(close), volume: Math.round(900 + Math.abs(Math.sin(index / 7)) * 600 + (index % 43 === 0 ? 1200 : 0)) };
+    return { time: new Date(Date.UTC(2026, 0, 1) + index * intervalMinutes * 60_000).toISOString(), open: round(open), high: round(Math.max(open, close) + spread), low: round(Math.min(open, close) - spread), close: round(close), volume: Math.round(900 + Math.abs(Math.sin(index / 7)) * 600 + (index % 43 === 0 ? 1200 : 0)) };
   });
 }
 
