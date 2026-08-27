@@ -30,6 +30,15 @@ export type ProviderCallOutput = {
   model: string;
 };
 
+export function describeAIError(error: unknown) {
+  const upstream = error as { status?: number; code?: string; type?: string; message?: string; error?: { type?: string; code?: string; message?: string } };
+  const status = Number.isFinite(upstream?.status) ? Number(upstream.status) : null;
+  const raw = upstream?.error?.message || upstream?.message || "Unknown provider error";
+  const message = String(raw).replace(/\b(sk|key)-[A-Za-z0-9_-]{12,}\b/g, "[redacted]").slice(0, 800);
+  const type = upstream?.error?.type || upstream?.error?.code || upstream?.type || upstream?.code || (status === 401 ? "authentication_error" : status === 429 ? "rate_limit_error" : status && status >= 500 ? "provider_error" : error instanceof TypeError ? "network_error" : "ai_error");
+  return { type: String(type), message, status };
+}
+
 function getOpenAIClient(personalApiKey?: string) {
   const apiKey = personalApiKey?.trim() || process.env.OPENAI_API_KEY?.trim();
   if (!apiKey) throw new Error("OpenAI is not configured. Add OPENAI_API_KEY to the server environment.");

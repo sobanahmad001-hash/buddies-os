@@ -3,6 +3,11 @@ import { normalizeTradeRow, parseCsv } from "@/lib/trading-lab/journal";
 import { simulateLadder } from "@/lib/trading-lab/ladder";
 
 describe("Trading Lab deterministic engines", () => {
+  it("honors the requested demo chart interval", () => {
+    const candles = demoCandles(2, 15);
+    expect(Date.parse(candles[1].time) - Date.parse(candles[0].time)).toBe(15 * 60_000);
+  });
+
   it("withholds volume analysis when reported volume is missing", () => {
     const candles = demoCandles().map(item => ({ ...item, volume: null }));
     expect(volumePillar(candles).bias).toBe("unavailable");

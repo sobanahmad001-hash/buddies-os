@@ -3,6 +3,14 @@ import { resolveConnectorSecret } from "@/lib/trading-lab/connector-secrets";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { decide, demoCandles, structurePillar, technicalPillar, volumePillar, type LabCandle, type PillarResult } from "@/lib/trading-lab/engine";
 
+export type LabInterval = "15min" | "1h" | "4h" | "1day";
+
+export function normalizeLabInterval(value: unknown): LabInterval {
+  return value === "15min" || value === "4h" || value === "1day" ? value : "1h";
+}
+
+const intervalMinutes: Record<LabInterval, number> = { "15min": 15, "1h": 60, "4h": 240, "1day": 1440 };
+
 async function twelveDataCandles(userId: string, symbol: string, interval = "1h", outputsize = 220) {
   const key = await resolveConnectorSecret(userId, "twelve_data");
   if (!key) return null;
@@ -61,10 +69,11 @@ async function cftcGoldPositioning(userId: string): Promise<PillarResult & { asO
   }
 }
 
-export async function getLabSnapshot(userId: string, symbol = "XAU/USD", allowDemo = true) {
+export async function getLabSnapshot(userId: string, symbol = "XAU/USD", allowDemo = true, requestedInterval: unknown = "1h") {
+  const interval = normalizeLabInterval(requestedInterval);
   let candles: LabCandle[] | null = null; let source = "Twelve Data"; let demo = false;
-  try { candles = await twelveDataCandles(userId, symbol); } catch (error) { if (!allowDemo) throw error; }
-  if (!candles) { if (!allowDemo) throw new Error("No historical-bar connector is configured"); candles = demoCandles(); source = "Built-in deterministic preview dataset"; demo = true; }
+  try { candles = await twelveDataCandles(userId, symbol, interval); } catch (error) { if (!allowDemo) throw error; }
+  if (!candles) { if (!allowDemo) throw new Error("No historical-bar connector is configured"); candles = demoCandles(220, intervalMinutes[interval]); source = "Built-in deterministic preview dataset"; demo = true; }
   const technical = technicalPillar(candles); const volume = volumePillar(candles);
   let structureHistories: { D1: LabCandle[]; H4: LabCandle[]; H1: LabCandle[] };
   if (demo) {
@@ -78,6 +87,6 @@ export async function getLabSnapshot(userId: string, symbol = "XAU/USD", allowDe
   const [macro, positioning] = await Promise.all([demo ? Promise.resolve({ bias: "neutral", score: 0, confidence: 25, summary: "Preview macro context is neutral", evidence: ["Connect FRED for live macro evidence"], warnings: ["Demo context is not a live-market fact"] } as PillarResult) : fredFundamental(userId), cftcGoldPositioning(userId)]);
   const availableFundamentals = [macro, positioning].filter(item => item.bias !== "unavailable");
   const fundamental: PillarResult = availableFundamentals.length ? { bias: availableFundamentals.reduce((sum, item) => sum + item.score, 0) > 0 ? "bullish" : availableFundamentals.reduce((sum, item) => sum + item.score, 0) < 0 ? "bearish" : "neutral", score: availableFundamentals.reduce((sum, item) => sum + item.score, 0), confidence: Math.round(availableFundamentals.reduce((sum, item) => sum + item.confidence, 0) / availableFundamentals.length), summary: `${macro.summary}; ${positioning.summary}`, evidence: [...macro.evidence, ...positioning.evidence], warnings: [...macro.warnings, ...positioning.warnings] } : { bias: "unavailable", score: 0, confidence: 0, summary: "Macro and positioning data are unavailable", evidence: [], warnings: [...macro.warnings, ...positioning.warnings] };
-  const last = candles.at(-1)!; const parsed = Date.parse(last.time.replace(" ", "T") + (last.time.includes("Z") ? "" : "Z")); const fresh = demo || !Number.isFinite(parsed) || Date.now() - parsed < 4 * 60 * 60 * 1000;
-  return { symbol, source, demo, asOf: last.time, currentPrice: last.close, candles, dataQuality: { price: demo ? "preview" : "reported", volume: volume.available ? demo ? "preview" : "reported" : "unavailable", macro: macro.bias === "unavailable" ? "unavailable" : demo ? "preview" : "reported", positioning: positioning.bias === "unavailable" ? "unavailable" : "official-weekly", structure: structure.levels.length ? demo ? "preview" : "reported-multi-timeframe" : "unavailable" }, fundamental, positioning, technical, volume, structure, decision: decide(fundamental, technical, volume, fresh, structure) };
+  const last = candles.at(-1)!; const parsed = Date.parse(last.time.replace(" ", "T") + (last.time.includes("Z") ? "" : "Z")); const freshnessWindow = Math.max(intervalMinutes[interval] * 3, 60) * 60_000; const fresh = demo || !Number.isFinite(parsed) || Date.now() - parsed < freshnessWindow;
+  return { symbol, interval, source, demo, asOf: last.time, currentPrice: last.close, candles, dataQuality: { price: demo ? "preview" : "reported", volume: volume.available ? demo ? "preview" : "reported" : "unavailable", macro: macro.bias === "unavailable" ? "unavailable" : demo ? "preview" : "reported", positioning: positioning.bias === "unavailable" ? "unavailable" : "official-weekly", structure: structure.levels.length ? demo ? "preview" : "reported-multi-timeframe" : "unavailable" }, fundamental, positioning, technical, volume, structure, decision: decide(fundamental, technical, volume, fresh, structure) };
 }

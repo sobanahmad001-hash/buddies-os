@@ -45,6 +45,15 @@ describe("AI provider configuration", () => {
     });
   });
 
+  test("uses the current Anthropic analysis model", () => {
+    process.env.ANTHROPIC_API_KEY = "test-key";
+
+    expect(resolveAISelection({ provider: "anthropic", workload: "decision" })).toEqual({
+      provider: "anthropic",
+      model: "claude-sonnet-5",
+    });
+  });
+
   test("does not send a model to the wrong provider", () => {
     process.env.XAI_API_KEY = "test-key";
 

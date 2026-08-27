@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { resolveAISelection } from "@/lib/ai/config";
-import { callAIProvider } from "@/lib/ai/providers";
+import { callAIProvider, describeAIError } from "@/lib/ai/providers";
 import { STRATEGY_TEMPLATES } from "@/lib/trading-lab/templates";
 import { validateStrategyVersion } from "@/lib/trading-lab/strategy-schema";
 
@@ -30,5 +30,5 @@ When the idea is sufficiently measurable, explain the rules in plain language an
     const draft = extractDraft(response.text);
     const content = response.text.replace(/<strategy_draft>[\s\S]*?<\/strategy_draft>/i, "").trim();
     return NextResponse.json({ content, draft, provider: response.provider, model: response.model });
-  } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Copilot failed" }, { status: 500 }); }
+  } catch (error) { const detail = describeAIError(error); return NextResponse.json({ error: `${detail.type}: ${detail.message}`, errorType: detail.type, upstreamStatus: detail.status }, { status: detail.status && detail.status >= 400 && detail.status < 500 ? detail.status : 502 }); }
 }
