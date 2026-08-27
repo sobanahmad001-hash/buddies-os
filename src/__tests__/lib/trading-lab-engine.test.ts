@@ -1,4 +1,4 @@
-import { decide, demoCandles, runBacktest, technicalPillar, volumePillar } from "@/lib/trading-lab/engine";
+import { decide, demoCandles, runBacktest, structurePillar, technicalPillar, volumePillar } from "@/lib/trading-lab/engine";
 import { normalizeTradeRow, parseCsv } from "@/lib/trading-lab/journal";
 import { simulateLadder } from "@/lib/trading-lab/ladder";
 
@@ -11,6 +11,19 @@ describe("Trading Lab deterministic engines", () => {
   it("produces identical backtests from identical inputs", () => {
     const config = { initialCapital: 10000, riskPct: 1, stopAtr: 1.5, rewardRisk: 2, commission: 1, slippage: .1, entryMode: "swing" as const };
     expect(runBacktest(demoCandles(), config)).toEqual(runBacktest(demoCandles(), config));
+  });
+
+  it("detects deterministic, scored structural levels from completed history", () => {
+    const candles = demoCandles(500);
+    const result = structurePillar({ H1: candles }, candles);
+    expect(result.levels.length).toBeGreaterThan(0);
+    expect(result.levels.every(level => level.strength >= 5 && level.timeframe === "H1")).toBe(true);
+    expect(result.warnings.join(" ")).toContain("not a forecast");
+  });
+
+  it("records structure evidence inside historical backtest trades", () => {
+    const result = runBacktest(demoCandles(500), { initialCapital: 10000, riskPct: 1, stopAtr: 1.5, rewardRisk: 2, commission: 0, slippage: .1, entryMode: "swing" });
+    expect(result.trades[0]?.structure).toEqual(expect.objectContaining({ rejectionConfirmed: expect.any(Boolean), hitRateSample: expect.any(Number) }));
   });
 
   it("blocks decisions when only one pillar is available", () => {

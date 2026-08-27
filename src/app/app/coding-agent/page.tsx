@@ -596,6 +596,7 @@ RULES:
         files: fileChanges,
         prTitle: title,
         prBody: fileChanges.map(f => `- ${f.path}: ${f.description}`).join("\n"),
+        projectId: selectedProject?.id ?? null,
         taskId: selectedTask?.id ?? null,
       }),
     });

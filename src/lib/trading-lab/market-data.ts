@@ -1,15 +1,25 @@
 import "server-only";
 import { resolveConnectorSecret } from "@/lib/trading-lab/connector-secrets";
-import { decide, demoCandles, technicalPillar, volumePillar, type LabCandle, type PillarResult } from "@/lib/trading-lab/engine";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { decide, demoCandles, structurePillar, technicalPillar, volumePillar, type LabCandle, type PillarResult } from "@/lib/trading-lab/engine";
 
-async function twelveDataCandles(userId: string, symbol: string, interval = "1h") {
+async function twelveDataCandles(userId: string, symbol: string, interval = "1h", outputsize = 220) {
   const key = await resolveConnectorSecret(userId, "twelve_data");
   if (!key) return null;
-  const response = await fetch(`https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(symbol)}&interval=${interval}&outputsize=220&apikey=${encodeURIComponent(key)}`, { signal: AbortSignal.timeout(12_000), cache: "no-store" });
+  const response = await fetch(`https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(symbol)}&interval=${interval}&outputsize=${outputsize}&apikey=${encodeURIComponent(key)}`, { signal: AbortSignal.timeout(12_000), cache: "no-store" });
   if (!response.ok) throw new Error(`Twelve Data request failed (${response.status})`);
   const payload = await response.json();
   if (!Array.isArray(payload.values)) throw new Error(payload.message ?? "Twelve Data returned no candles");
   return payload.values.reverse().map((value: Record<string, string>): LabCandle => ({ time: value.datetime, open: Number(value.open), high: Number(value.high), low: Number(value.low), close: Number(value.close), volume: value.volume && Number(value.volume) > 0 ? Number(value.volume) : null }));
+}
+
+function aggregateCandles(candles: LabCandle[], hours: number) {
+  const groups: LabCandle[] = [];
+  for (let index = 0; index < candles.length; index += hours) {
+    const chunk = candles.slice(index, index + hours); if (!chunk.length) continue;
+    groups.push({ time: chunk[0].time, open: chunk[0].open, high: Math.max(...chunk.map(item => item.high)), low: Math.min(...chunk.map(item => item.low)), close: chunk.at(-1)!.close, volume: chunk.every(item => item.volume === null) ? null : chunk.reduce((sum,item) => sum + (item.volume ?? 0), 0) });
+  }
+  return groups;
 }
 
 async function fredFundamental(userId: string): Promise<PillarResult> {
@@ -29,7 +39,7 @@ async function fredFundamental(userId: string): Promise<PillarResult> {
   return { bias, score, confidence: evidence.length === 3 ? 70 : 50, summary: `${bias} gold macro pressure from available FRED series`, evidence, warnings: ["Economic-calendar and COT context remain separate inputs"] };
 }
 
-async function cftcGoldPositioning(): Promise<PillarResult & { asOf?: string; openInterest?: number | null }> {
+async function cftcGoldPositioning(userId: string): Promise<PillarResult & { asOf?: string; openInterest?: number | null }> {
   try {
     const query = new URLSearchParams({ "$where": "cftc_contract_market_code='088691'", "$order": "report_date_as_yyyy_mm_dd DESC", "$limit": "2" });
     const response = await fetch(`https://publicreporting.cftc.gov/resource/6dca-aqww.json?${query}`, { signal: AbortSignal.timeout(10_000), next: { revalidate: 21_600 } });
@@ -42,6 +52,9 @@ async function cftcGoldPositioning(): Promise<PillarResult & { asOf?: string; op
     const net = long - short; const ratio = openInterest ? net / openInterest : 0;
     const bias = ratio > .08 ? "bullish" : ratio < -.08 ? "bearish" : "neutral";
     const asOf = latest.report_date_as_yyyy_mm_dd;
+    try {
+      await createAdminClient().from("trading_connector_profiles").upsert({ user_id: userId, provider: "cftc", label: "CFTC COT", masked_secret: "No key required", capabilities: ["positioning"], status: "connected", last_checked_at: new Date().toISOString(), last_success_at: new Date().toISOString(), last_error: null }, { onConflict: "user_id,provider" });
+    } catch { /* Usage tracking must never suppress valid public market data. */ }
     return { bias, score: bias === "bullish" ? 1 : bias === "bearish" ? -1 : 0, confidence: 55, summary: `${bias} weekly CFTC positioning`, evidence: [`Non-commercial net ${net.toLocaleString()} contracts`, `Open interest ${openInterest.toLocaleString()}`, `Report date ${asOf}`], warnings: ["Weekly CFTC positioning is context only, never an intraday trigger"], asOf, openInterest };
   } catch (error) {
     return { bias: "unavailable", score: 0, confidence: 0, summary: "CFTC weekly positioning is unavailable", evidence: [], warnings: [error instanceof Error ? error.message : "CFTC request failed"], openInterest: null };
@@ -53,9 +66,18 @@ export async function getLabSnapshot(userId: string, symbol = "XAU/USD", allowDe
   try { candles = await twelveDataCandles(userId, symbol); } catch (error) { if (!allowDemo) throw error; }
   if (!candles) { if (!allowDemo) throw new Error("No historical-bar connector is configured"); candles = demoCandles(); source = "Built-in deterministic preview dataset"; demo = true; }
   const technical = technicalPillar(candles); const volume = volumePillar(candles);
-  const [macro, positioning] = await Promise.all([demo ? Promise.resolve({ bias: "neutral", score: 0, confidence: 25, summary: "Preview macro context is neutral", evidence: ["Connect FRED for live macro evidence"], warnings: ["Demo context is not a live-market fact"] } as PillarResult) : fredFundamental(userId), cftcGoldPositioning()]);
+  let structureHistories: { D1: LabCandle[]; H4: LabCandle[]; H1: LabCandle[] };
+  if (demo) {
+    const history = demoCandles(1200); structureHistories = { H1: history, H4: aggregateCandles(history, 4), D1: aggregateCandles(history, 24) };
+  } else {
+    const safeHistory = async (interval: string, outputsize: number, fallback: LabCandle[]) => { try { return await twelveDataCandles(userId, symbol, interval, outputsize) ?? fallback; } catch { return fallback; } };
+    const [h1, h4, d1] = await Promise.all([safeHistory("1h", 1500, candles), safeHistory("4h", 1500, aggregateCandles(candles, 4)), safeHistory("1day", 800, aggregateCandles(candles, 24))]);
+    structureHistories = { H1: h1, H4: h4, D1: d1 };
+  }
+  const structure = structurePillar(structureHistories, candles);
+  const [macro, positioning] = await Promise.all([demo ? Promise.resolve({ bias: "neutral", score: 0, confidence: 25, summary: "Preview macro context is neutral", evidence: ["Connect FRED for live macro evidence"], warnings: ["Demo context is not a live-market fact"] } as PillarResult) : fredFundamental(userId), cftcGoldPositioning(userId)]);
   const availableFundamentals = [macro, positioning].filter(item => item.bias !== "unavailable");
   const fundamental: PillarResult = availableFundamentals.length ? { bias: availableFundamentals.reduce((sum, item) => sum + item.score, 0) > 0 ? "bullish" : availableFundamentals.reduce((sum, item) => sum + item.score, 0) < 0 ? "bearish" : "neutral", score: availableFundamentals.reduce((sum, item) => sum + item.score, 0), confidence: Math.round(availableFundamentals.reduce((sum, item) => sum + item.confidence, 0) / availableFundamentals.length), summary: `${macro.summary}; ${positioning.summary}`, evidence: [...macro.evidence, ...positioning.evidence], warnings: [...macro.warnings, ...positioning.warnings] } : { bias: "unavailable", score: 0, confidence: 0, summary: "Macro and positioning data are unavailable", evidence: [], warnings: [...macro.warnings, ...positioning.warnings] };
   const last = candles.at(-1)!; const parsed = Date.parse(last.time.replace(" ", "T") + (last.time.includes("Z") ? "" : "Z")); const fresh = demo || !Number.isFinite(parsed) || Date.now() - parsed < 4 * 60 * 60 * 1000;
-  return { symbol, source, demo, asOf: last.time, currentPrice: last.close, candles, dataQuality: { price: demo ? "preview" : "reported", volume: volume.available ? demo ? "preview" : "reported" : "unavailable", macro: macro.bias === "unavailable" ? "unavailable" : demo ? "preview" : "reported", positioning: positioning.bias === "unavailable" ? "unavailable" : "official-weekly" }, fundamental, positioning, technical, volume, decision: decide(fundamental, technical, volume, fresh) };
+  return { symbol, source, demo, asOf: last.time, currentPrice: last.close, candles, dataQuality: { price: demo ? "preview" : "reported", volume: volume.available ? demo ? "preview" : "reported" : "unavailable", macro: macro.bias === "unavailable" ? "unavailable" : demo ? "preview" : "reported", positioning: positioning.bias === "unavailable" ? "unavailable" : "official-weekly", structure: structure.levels.length ? demo ? "preview" : "reported-multi-timeframe" : "unavailable" }, fundamental, positioning, technical, volume, structure, decision: decide(fundamental, technical, volume, fresh, structure) };
 }

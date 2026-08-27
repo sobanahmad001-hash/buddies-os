@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { requireCodingAgentProject } from "@/lib/coding-agent/project-gate";
 
 async function getGithubHeaders(supabase: any, userId: string, repoName: string) {
   const { data: integrations } = await supabase
@@ -76,6 +77,11 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "create_pr_with_files") {
+      try {
+        await requireCodingAgentProject(supabase, user.id, body.projectId);
+      } catch (error) {
+        return NextResponse.json({ error: error instanceof Error ? error.message : "Coding Agent is disabled for this project." }, { status: 403 });
+      }
       // 1. Get default branch
       const repoRes = await fetch(`https://api.github.com/repos/${repo}`, { headers });
       const repoData = await repoRes.json();

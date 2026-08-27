@@ -13,10 +13,14 @@ export async function testConnector(provider: string, secret?: string) {
     if (!secret || secret.length < 16) throw new Error("Webhook secret must contain at least 16 characters.");
     return { ok: true, latencyMs: 0, detail: "Webhook secret is ready" };
   } else if (provider === "cftc") {
-    response = await fetch("https://publicreporting.cftc.gov/api/views", { signal: AbortSignal.timeout(10_000), cache: "no-store" });
+    response = await fetch("https://publicreporting.cftc.gov/resource/6dca-aqww.json?$where=cftc_contract_market_code%3D%27088691%27&$order=report_date_as_yyyy_mm_dd%20DESC&$limit=1", { signal: AbortSignal.timeout(10_000), cache: "no-store" });
   } else {
     throw new Error("Unsupported connector provider.");
   }
   if (!response.ok) throw new Error(`${provider} rejected the connection (${response.status}).`);
+  if (provider === "cftc") {
+    const rows = await response.json() as Record<string, string>[];
+    if (!rows[0]?.report_date_as_yyyy_mm_dd) throw new Error("CFTC returned no dated gold positioning data.");
+  }
   return { ok: true, latencyMs: Date.now() - started, detail: "Connection verified" };
 }
