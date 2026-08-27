@@ -8,7 +8,7 @@ const agents = [
   { name: "Coding Agent", role: "Repository analysis, code changes, validation, and pull requests", icon: Code2, href: "/app/coding-agent", state: "Available" },
   { name: "Researcher", role: "Web research, synthesis, follow-up questions, and project handoff", icon: Search, href: "/app/research", state: "Available" },
   { name: "Documentation Agent", role: "Durable project documents and approved knowledge updates", icon: FileText, href: "/app/documents", state: "Planned" },
-  { name: "Trading Analyst", role: "Signals, market analysis, coaching, and trading summaries", icon: TrendingUp, href: "/app/trading", state: "Available" },
+  { name: "Trading Lab", role: "Evidence checks, strategy testing, ladder simulations, and manual journaling", icon: TrendingUp, href: "/app/trading-lab", state: "Available" },
 ];
 
 export default function AgentsPage() {

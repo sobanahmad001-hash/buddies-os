@@ -92,7 +92,40 @@ export function demoCandles(count = 220): LabCandle[] {
   });
 }
 
-export type BacktestConfig = { initialCapital: number; riskPct: number; stopAtr: number; rewardRisk: number; commission: number; slippage: number; entryMode?: "swing" | "reversal" | "momentum"; progressive?: { multiplier: number; maxIncreases: number } };
+type StrategyRule = { left: string; operator: string; right: unknown; timeframe?: string };
+type StrategyDefinition = { direction?: "long" | "short" | "both"; entry?: { logic: "all" | "any"; conditions: Array<StrategyRule | StrategyDefinition["entry"]> } };
+export type BacktestConfig = { initialCapital: number; riskPct: number; stopAtr: number; rewardRisk: number; commission: number; slippage: number; entryMode?: "swing" | "reversal" | "momentum"; strategy?: StrategyDefinition; progressive?: { multiplier: number; maxIncreases: number } };
+
+function operandValue(name: unknown, candles: LabCandle[], index: number): number | string | boolean | null {
+  if (typeof name !== "string") return typeof name === "number" || typeof name === "boolean" ? name : null;
+  if (["open", "high", "low", "close"].includes(name)) return candles[index]?.[name as "open" | "high" | "low" | "close"] ?? null;
+  const match = name.match(/^(ema|rsi|rolling_high|rolling_low)_(\d+)$/);
+  if (!match) return name;
+  const period = Number(match[2]);
+  const slice = candles.slice(0, index + 1); const closes = slice.map(item => item.close);
+  if (match[1] === "ema") return ema(closes, period).at(-1) ?? null;
+  if (match[1] === "rsi") return rsi(closes, period);
+  const window = slice.slice(-period - 1, -1);
+  if (!window.length) return null;
+  return match[1] === "rolling_high" ? Math.max(...window.map(item => item.high)) : Math.min(...window.map(item => item.low));
+}
+
+function rulePasses(rule: StrategyRule, candles: LabCandle[], index: number) {
+  const left = operandValue(rule.left, candles, index); const right = Array.isArray(rule.right) ? rule.right.map(item => operandValue(item, candles, index)) : operandValue(rule.right, candles, index);
+  if (typeof left !== "number") return false;
+  if (rule.operator === "between" && Array.isArray(right)) return left >= Number(right[0]) && left <= Number(right[1]);
+  if (typeof right !== "number") return false;
+  if (rule.operator === "gt") return left > right; if (rule.operator === "gte") return left >= right; if (rule.operator === "lt") return left < right; if (rule.operator === "lte") return left <= right; if (rule.operator === "eq") return left === right;
+  const previousLeft = operandValue(rule.left, candles, index - 1); const previousRight = operandValue(rule.right, candles, index - 1);
+  if (typeof previousLeft !== "number" || typeof previousRight !== "number") return false;
+  return rule.operator === "crosses_above" ? previousLeft <= previousRight && left > right : rule.operator === "crosses_below" ? previousLeft >= previousRight && left < right : false;
+}
+
+function groupPasses(group: StrategyDefinition["entry"], candles: LabCandle[], index: number): boolean {
+  if (!group) return false;
+  const values = group.conditions.map(item => item && "conditions" in item ? groupPasses(item as StrategyDefinition["entry"], candles, index) : rulePasses(item as StrategyRule, candles, index));
+  return group.logic === "all" ? values.every(Boolean) : values.some(Boolean);
+}
 export function runBacktest(candles: LabCandle[], config: BacktestConfig) {
   if (candles.length < 60) throw new Error("At least 60 candles are required for a backtest.");
   const closes = candles.map(item => item.close); const fast = ema(closes, 20); const slow = ema(closes, 50);
@@ -103,7 +136,10 @@ export function runBacktest(candles: LabCandle[], config: BacktestConfig) {
     const recent = candles.slice(index - 20, index);
     const previousHigh = Math.max(...recent.map(item => item.high));
     const previousLow = Math.min(...recent.map(item => item.low));
-    const signals = config.entryMode === "reversal"
+    const customSignal = config.strategy?.entry ? groupPasses(config.strategy.entry, candles, index) : null;
+    const signals = customSignal !== null
+      ? { long: customSignal && config.strategy?.direction !== "short", short: customSignal && config.strategy?.direction === "short" }
+      : config.entryMode === "reversal"
       ? { long: (currentRsi ?? 50) < 32 && closes[index] > candles[index].low + (candles[index].high - candles[index].low) * .6, short: (currentRsi ?? 50) > 68 && closes[index] < candles[index].low + (candles[index].high - candles[index].low) * .4 }
       : config.entryMode === "momentum"
         ? { long: closes[index] > previousHigh && fast[index] > slow[index], short: closes[index] < previousLow && fast[index] < slow[index] }

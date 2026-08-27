@@ -3,6 +3,17 @@ import { createClient } from "@/lib/supabase/server";
 import { resolveAISelection } from "@/lib/ai/config";
 import { callAIProvider } from "@/lib/ai/providers";
 import { STRATEGY_TEMPLATES } from "@/lib/trading-lab/templates";
+import { validateStrategyVersion } from "@/lib/trading-lab/strategy-schema";
+
+function extractDraft(text: string) {
+  const match = text.match(/<strategy_draft>([\s\S]*?)<\/strategy_draft>/i);
+  if (!match) return null;
+  try {
+    const candidate = JSON.parse(match[1]);
+    const parsed = validateStrategyVersion(candidate);
+    return parsed.success ? parsed.data : null;
+  } catch { return null; }
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,10 +21,14 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const body = await req.json();
     const selection = resolveAISelection({ provider: body.provider, model: body.model, workload: "analysis" });
-    const response = await callAIProvider({ ...selection, maxTokens: 900,
-      system: "You are the Buddies OS Strategy Copilot. Help translate trading ideas into measurable rules and critique backtest evidence. Never claim to have run a test unless results are supplied. Call vague ideas out explicitly. Doubling and ladders are risk overlays, not market edges. Keep risk warnings concrete and concise.",
-      messages: [{ role: "user", content: `User request: ${String(body.prompt ?? "").slice(0, 4000)}\n\nAvailable templates:\n${JSON.stringify(Object.fromEntries(Object.entries(STRATEGY_TEMPLATES).map(([key, value]) => [key, { name: value.name, description: value.description, timeframes: value.timeframes, entry: value.entry, exit: value.exit, sizing: value.sizing }]))) }\n\nBacktest result if supplied:\n${JSON.stringify(body.backtest ?? null)}` }],
+    const response = await callAIProvider({ ...selection, maxTokens: 1800,
+      system: `You are the Buddies OS Strategy Builder. Help a manual trader turn an idea into measurable, testable rules. Never instruct the user to buy, sell, or act urgently. Ask concise clarifying questions when words such as strong, near, confirmation, or support are not quantified. Doubling and ladders are risk overlays, never market edges.
+
+When the idea is sufficiently measurable, explain the rules in plain language and append exactly one valid JSON object wrapped in <strategy_draft>...</strategy_draft>. Use schemaVersion 1 and the same shape as the supplied examples. Supported backtest operands are close, open, high, low, ema_N, rsi_N, rolling_high_N, and rolling_low_N. Use only gt, gte, lt, lte, eq, crosses_above, crosses_below, or between. Otherwise ask a question and do not emit a draft. The user must approve before anything is saved.`,
+      messages: [{ role: "user", content: `Conversation:\n${JSON.stringify((body.messages ?? []).slice(-8))}\n\nLatest request: ${String(body.prompt ?? "").slice(0, 4000)}\n\nValid examples:\n${JSON.stringify(STRATEGY_TEMPLATES)}\n\nBacktest result if supplied:\n${JSON.stringify(body.backtest ?? null)}` }],
     });
-    return NextResponse.json({ content: response.text, provider: response.provider, model: response.model });
+    const draft = extractDraft(response.text);
+    const content = response.text.replace(/<strategy_draft>[\s\S]*?<\/strategy_draft>/i, "").trim();
+    return NextResponse.json({ content, draft, provider: response.provider, model: response.model });
   } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Copilot failed" }, { status: 500 }); }
 }

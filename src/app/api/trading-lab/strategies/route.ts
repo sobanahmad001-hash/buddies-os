@@ -20,20 +20,39 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const body = await req.json();
     if (body.action === "backtest") {
-      const template = STRATEGY_TEMPLATES[body.templateId] ?? STRATEGY_TEMPLATES.swing;
+      let template: any = STRATEGY_TEMPLATES[body.templateId] ?? null;
+      let customStrategy = false;
+      if (body.strategyId) {
+        const { data, error } = await supabase.from("trading_strategy_versions").select("definition,version").eq("user_id", user.id).eq("strategy_id", body.strategyId).order("version", { ascending: false }).limit(1).single();
+        if (error) throw error;
+        template = data.definition;
+        customStrategy = true;
+      }
+      if (!template) template = STRATEGY_TEMPLATES.swing;
       const snapshot = await getLabSnapshot(user.id, body.symbol ?? "XAU/USD", true);
       const riskPct = Number(body.riskPct ?? template.sizing.value);
       const progressive = body.ladderPreset === "controlled" ? { multiplier: 1.5, maxIncreases: 2 } : undefined;
-      const result = runBacktest(snapshot.candles, { initialCapital: Number(body.initialCapital ?? 1000), riskPct, stopAtr: Number(template.exit.stopValue ?? 1.5), rewardRisk: Number(template.exit.targetValue ?? 2), commission: Number(body.commission ?? 0), slippage: Number(body.slippage ?? .1), entryMode: template.entryMode, progressive });
+      const result = runBacktest(snapshot.candles, { initialCapital: Number(body.initialCapital ?? 1000), riskPct, stopAtr: Number(template.exit.stopValue ?? 1.5), rewardRisk: Number(template.exit.targetValue ?? 2), commission: Number(body.commission ?? template.execution?.commission ?? 0), slippage: Number(body.slippage ?? template.execution?.slippage ?? .1), entryMode: template.entryMode, strategy: customStrategy ? template : undefined, progressive });
       return NextResponse.json({ result, dataset: { source: snapshot.source, demo: snapshot.demo, symbol: snapshot.symbol, asOf: snapshot.asOf }, strategy: template });
     }
     if (body.action === "save") {
       const parsed = validateStrategyVersion(body.definition);
       if (!parsed.success) return NextResponse.json({ error: "Strategy rules are invalid", issues: parsed.error.issues }, { status: 400 });
-      const { data: strategy, error } = await supabase.from("trading_strategies").insert({ user_id: user.id, name: parsed.data.name, description: parsed.data.description, market: parsed.data.market }).select().single();
-      if (error) throw error;
-      const { data: version, error: versionError } = await supabase.from("trading_strategy_versions").insert({ strategy_id: strategy.id, user_id: user.id, version: 1, definition: parsed.data, change_note: "Initial version" }).select().single();
-      if (versionError) { await supabase.from("trading_strategies").delete().eq("id", strategy.id).eq("user_id", user.id); throw versionError; }
+      let strategy: any;
+      let nextVersion = 1;
+      if (body.strategyId) {
+        const { data, error } = await supabase.from("trading_strategies").update({ name: parsed.data.name, description: parsed.data.description, market: parsed.data.market, updated_at: new Date().toISOString() }).eq("id", body.strategyId).eq("user_id", user.id).select().single();
+        if (error) throw error;
+        strategy = data;
+        const { data: latest } = await supabase.from("trading_strategy_versions").select("version").eq("strategy_id", strategy.id).eq("user_id", user.id).order("version", { ascending: false }).limit(1).maybeSingle();
+        nextVersion = Number(latest?.version ?? 0) + 1;
+      } else {
+        const created = await supabase.from("trading_strategies").insert({ user_id: user.id, name: parsed.data.name, description: parsed.data.description, market: parsed.data.market }).select().single();
+        if (created.error) throw created.error;
+        strategy = created.data;
+      }
+      const { data: version, error: versionError } = await supabase.from("trading_strategy_versions").insert({ strategy_id: strategy.id, user_id: user.id, version: nextVersion, definition: parsed.data, change_note: body.changeNote ?? (nextVersion === 1 ? "Initial version" : "Revised in Strategy Builder") }).select().single();
+      if (versionError) { if (nextVersion === 1) await supabase.from("trading_strategies").delete().eq("id", strategy.id).eq("user_id", user.id); throw versionError; }
       return NextResponse.json({ strategy: { ...strategy, versions: [version] } });
     }
     return NextResponse.json({ error: "Unknown strategy action" }, { status: 400 });
