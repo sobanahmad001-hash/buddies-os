@@ -1,6 +1,6 @@
 'use client';
 
-import { CalendarCheck2, FolderKanban, Code2, FlaskConical, Inbox } from 'lucide-react';
+import { CalendarCheck2, FolderKanban, FlaskConical, Inbox } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -8,7 +8,6 @@ const links = [
   { href: '/app',          icon: CalendarCheck2,  label: 'Today' },
   { href: '/app/inbox',    icon: Inbox,           label: 'Inbox' },
   { href: '/app/projects', icon: FolderKanban,    label: 'Projects' },
-  { href: '/app/coding-agent', icon: Code2,       label: 'Code' },
   { href: '/app/trading-lab', icon: FlaskConical, label: 'Trading Lab' },
 ];
 

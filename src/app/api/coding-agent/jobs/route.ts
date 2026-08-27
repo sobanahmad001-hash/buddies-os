@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { requireCodingAgentProject } from "@/lib/coding-agent/project-gate";
 
 const REPO_PATTERN = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 
@@ -17,6 +18,11 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = await req.json();
+  try {
+    await requireCodingAgentProject(supabase, user.id, body.projectId);
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Coding Agent is disabled for this project." }, { status: 403 });
+  }
   const repository = String(body.repository ?? "").trim().replace(/^https?:\/\/github\.com\//, "").replace(/\.git$/, "");
   const prompt = String(body.prompt ?? "").trim();
   if (!REPO_PATTERN.test(repository)) return NextResponse.json({ error: "Repository must be owner/name" }, { status: 400 });
@@ -24,7 +30,7 @@ export async function POST(req: NextRequest) {
   const commands = Array.isArray(body.verificationCommands) ? body.verificationCommands.slice(0, 8).map(String) : [];
   const { data, error } = await supabase.from("coding_agent_jobs").insert({
     user_id: user.id,
-    project_id: body.projectId ?? null,
+    project_id: body.projectId,
     task_id: body.taskId ?? null,
     repository,
     base_branch: String(body.baseBranch ?? "main"),

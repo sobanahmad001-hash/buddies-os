@@ -17,10 +17,20 @@ export async function GET(req: NextRequest) {
   const { data, error } = await supabase.from("trading_connector_profiles").select("id,provider,label,masked_secret,capabilities,status,is_primary,last_checked_at,last_success_at,last_error,updated_at").eq("user_id", user.id);
   if (error && !error.message.includes("trading_connector_profiles")) return NextResponse.json({ error: error.message }, { status: 500 });
   const profiles = data ?? [];
-  return NextResponse.json({ connectors: CONNECTOR_CATALOG.map(definition => {
+  const connectors = await Promise.all(CONNECTOR_CATALOG.map(async definition => {
     const profile = profiles.find(item => item.provider === definition.id) ?? null;
-    return { ...definition, profile, webhookUrl: definition.id === "tradingview_webhook" && profile ? `${req.nextUrl.origin}/api/trading-lab/webhooks/tradingview/${profile.id}` : null };
-  }) });
+    let effectiveStatus = profile?.status === "connected" ? "connected" : "not_connected";
+    if (definition.auth === "none") {
+      try {
+        await testConnector(definition.id);
+        effectiveStatus = "active_no_setup";
+      } catch {
+        effectiveStatus = profile?.last_success_at ? "active_no_setup" : "not_connected";
+      }
+    }
+    return { ...definition, profile, effectiveStatus, webhookUrl: definition.id === "tradingview_webhook" && profile ? `${req.nextUrl.origin}/api/trading-lab/webhooks/tradingview/${profile.id}` : null };
+  }));
+  return NextResponse.json({ connectors });
 }
 
 export async function POST(req: NextRequest) {

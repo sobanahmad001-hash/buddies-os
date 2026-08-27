@@ -1,5 +1,6 @@
 import "server-only";
 import { resolveConnectorSecret } from "@/lib/trading-lab/connector-secrets";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { decide, demoCandles, technicalPillar, volumePillar, type LabCandle, type PillarResult } from "@/lib/trading-lab/engine";
 
 async function twelveDataCandles(userId: string, symbol: string, interval = "1h") {
@@ -29,7 +30,7 @@ async function fredFundamental(userId: string): Promise<PillarResult> {
   return { bias, score, confidence: evidence.length === 3 ? 70 : 50, summary: `${bias} gold macro pressure from available FRED series`, evidence, warnings: ["Economic-calendar and COT context remain separate inputs"] };
 }
 
-async function cftcGoldPositioning(): Promise<PillarResult & { asOf?: string; openInterest?: number | null }> {
+async function cftcGoldPositioning(userId: string): Promise<PillarResult & { asOf?: string; openInterest?: number | null }> {
   try {
     const query = new URLSearchParams({ "$where": "cftc_contract_market_code='088691'", "$order": "report_date_as_yyyy_mm_dd DESC", "$limit": "2" });
     const response = await fetch(`https://publicreporting.cftc.gov/resource/6dca-aqww.json?${query}`, { signal: AbortSignal.timeout(10_000), next: { revalidate: 21_600 } });
@@ -42,6 +43,9 @@ async function cftcGoldPositioning(): Promise<PillarResult & { asOf?: string; op
     const net = long - short; const ratio = openInterest ? net / openInterest : 0;
     const bias = ratio > .08 ? "bullish" : ratio < -.08 ? "bearish" : "neutral";
     const asOf = latest.report_date_as_yyyy_mm_dd;
+    try {
+      await createAdminClient().from("trading_connector_profiles").upsert({ user_id: userId, provider: "cftc", label: "CFTC COT", masked_secret: "No key required", capabilities: ["positioning"], status: "connected", last_checked_at: new Date().toISOString(), last_success_at: new Date().toISOString(), last_error: null }, { onConflict: "user_id,provider" });
+    } catch { /* Usage tracking must never suppress valid public market data. */ }
     return { bias, score: bias === "bullish" ? 1 : bias === "bearish" ? -1 : 0, confidence: 55, summary: `${bias} weekly CFTC positioning`, evidence: [`Non-commercial net ${net.toLocaleString()} contracts`, `Open interest ${openInterest.toLocaleString()}`, `Report date ${asOf}`], warnings: ["Weekly CFTC positioning is context only, never an intraday trigger"], asOf, openInterest };
   } catch (error) {
     return { bias: "unavailable", score: 0, confidence: 0, summary: "CFTC weekly positioning is unavailable", evidence: [], warnings: [error instanceof Error ? error.message : "CFTC request failed"], openInterest: null };
@@ -53,7 +57,7 @@ export async function getLabSnapshot(userId: string, symbol = "XAU/USD", allowDe
   try { candles = await twelveDataCandles(userId, symbol); } catch (error) { if (!allowDemo) throw error; }
   if (!candles) { if (!allowDemo) throw new Error("No historical-bar connector is configured"); candles = demoCandles(); source = "Built-in deterministic preview dataset"; demo = true; }
   const technical = technicalPillar(candles); const volume = volumePillar(candles);
-  const [macro, positioning] = await Promise.all([demo ? Promise.resolve({ bias: "neutral", score: 0, confidence: 25, summary: "Preview macro context is neutral", evidence: ["Connect FRED for live macro evidence"], warnings: ["Demo context is not a live-market fact"] } as PillarResult) : fredFundamental(userId), cftcGoldPositioning()]);
+  const [macro, positioning] = await Promise.all([demo ? Promise.resolve({ bias: "neutral", score: 0, confidence: 25, summary: "Preview macro context is neutral", evidence: ["Connect FRED for live macro evidence"], warnings: ["Demo context is not a live-market fact"] } as PillarResult) : fredFundamental(userId), cftcGoldPositioning(userId)]);
   const availableFundamentals = [macro, positioning].filter(item => item.bias !== "unavailable");
   const fundamental: PillarResult = availableFundamentals.length ? { bias: availableFundamentals.reduce((sum, item) => sum + item.score, 0) > 0 ? "bullish" : availableFundamentals.reduce((sum, item) => sum + item.score, 0) < 0 ? "bearish" : "neutral", score: availableFundamentals.reduce((sum, item) => sum + item.score, 0), confidence: Math.round(availableFundamentals.reduce((sum, item) => sum + item.confidence, 0) / availableFundamentals.length), summary: `${macro.summary}; ${positioning.summary}`, evidence: [...macro.evidence, ...positioning.evidence], warnings: [...macro.warnings, ...positioning.warnings] } : { bias: "unavailable", score: 0, confidence: 0, summary: "Macro and positioning data are unavailable", evidence: [], warnings: [...macro.warnings, ...positioning.warnings] };
   const last = candles.at(-1)!; const parsed = Date.parse(last.time.replace(" ", "T") + (last.time.includes("Z") ? "" : "Z")); const fresh = demo || !Number.isFinite(parsed) || Date.now() - parsed < 4 * 60 * 60 * 1000;
