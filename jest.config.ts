@@ -9,6 +9,7 @@ const config: Config = {
     "^@/(.*)$": "<rootDir>/src/$1",
   },
   testMatch: ["**/__tests__/**/*.test.ts", "**/__tests__/**/*.test.tsx"],
+  testPathIgnorePatterns: ["[/\\\\]_archive[/\\\\]"],
   clearMocks: true,
   collectCoverage: false,
   coverageDirectory: "coverage",
