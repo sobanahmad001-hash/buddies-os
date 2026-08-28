@@ -27,6 +27,13 @@ describe("Trading Lab foundation contracts", () => {
     expect(connectorsForCapability("futures_volume").map(item => item.id)).toContain("databento");
   });
 
+  it("classifies operating connectors separately from optional paid inputs", () => {
+    expect(connectorsForCapability("macro_series")[0].access).toBe("required_free");
+    expect(connectorsForCapability("futures_volume")[0]).toMatchObject({ id: "databento", access: "optional_paid" });
+    expect(connectorsForCapability("futures_volume")[0]).not.toHaveProperty("recommended");
+    expect(connectorsForCapability("chart_alerts")[0].access).toBe("optional_paid");
+  });
+
   it("accepts a general multi-timeframe swing strategy", () => {
     const result = validateStrategyVersion(swingStrategy);
     expect(result.success).toBe(true);
