@@ -1,7 +1,7 @@
 import "server-only";
 import { resolveConnectorSecret } from "@/lib/trading-lab/connector-secrets";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { decide, demoCandles, structurePillar, technicalPillar, volumePillar, type LabCandle, type PillarResult } from "@/lib/trading-lab/engine";
+import { aggregateCandles, buildStructureHistories, decide, demoCandles, structurePillar, technicalPillar, volumePillar, type LabCandle, type PillarResult } from "@/lib/trading-lab/engine";
 
 export type LabInterval = "15min" | "1h" | "4h" | "1day";
 
@@ -19,15 +19,6 @@ async function twelveDataCandles(userId: string, symbol: string, interval = "1h"
   const payload = await response.json();
   if (!Array.isArray(payload.values)) throw new Error(payload.message ?? "Twelve Data returned no candles");
   return payload.values.reverse().map((value: Record<string, string>): LabCandle => ({ time: value.datetime, open: Number(value.open), high: Number(value.high), low: Number(value.low), close: Number(value.close), volume: value.volume && Number(value.volume) > 0 ? Number(value.volume) : null }));
-}
-
-function aggregateCandles(candles: LabCandle[], hours: number) {
-  const groups: LabCandle[] = [];
-  for (let index = 0; index < candles.length; index += hours) {
-    const chunk = candles.slice(index, index + hours); if (!chunk.length) continue;
-    groups.push({ time: chunk[0].time, open: chunk[0].open, high: Math.max(...chunk.map(item => item.high)), low: Math.min(...chunk.map(item => item.low)), close: chunk.at(-1)!.close, volume: chunk.every(item => item.volume === null) ? null : chunk.reduce((sum,item) => sum + (item.volume ?? 0), 0) });
-  }
-  return groups;
 }
 
 async function fredFundamental(userId: string): Promise<PillarResult> {
@@ -77,7 +68,7 @@ export async function getLabSnapshot(userId: string, symbol = "XAU/USD", allowDe
   const technical = technicalPillar(candles); const volume = volumePillar(candles);
   let structureHistories: { D1: LabCandle[]; H4: LabCandle[]; H1: LabCandle[] };
   if (demo) {
-    const history = demoCandles(1200); structureHistories = { H1: history, H4: aggregateCandles(history, 4), D1: aggregateCandles(history, 24) };
+    const history = demoCandles(1200); structureHistories = buildStructureHistories(history);
   } else {
     const safeHistory = async (interval: string, outputsize: number, fallback: LabCandle[]) => { try { return await twelveDataCandles(userId, symbol, interval, outputsize) ?? fallback; } catch { return fallback; } };
     const [h1, h4, d1] = await Promise.all([safeHistory("1h", 1500, candles), safeHistory("4h", 1500, aggregateCandles(candles, 4)), safeHistory("1day", 800, aggregateCandles(candles, 24))]);

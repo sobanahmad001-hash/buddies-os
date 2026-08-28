@@ -8,9 +8,13 @@ const swingStrategy = {
   symbols: ["GC.FUT", "XAU/USD"],
   direction: "both",
   timeframes: { context: ["1day", "4h"], setup: "1h", trigger: "15min" },
-  entry: { logic: "all", conditions: [
+  longEntry: { logic: "all", conditions: [
     { id: "trend", left: "close", operator: "gt", right: "ema_50", timeframe: "1day" },
     { id: "confirm", left: "close", operator: "crosses_above", right: "resistance", timeframe: "15min" },
+  ] },
+  shortEntry: { logic: "all", conditions: [
+    { id: "trend-short", left: "close", operator: "lt", right: "ema_50", timeframe: "1day" },
+    { id: "confirm-short", left: "close", operator: "crosses_below", right: "nearest_support", timeframe: "15min" },
   ] },
   exit: { stopType: "structure", targetType: "risk_multiple", targetValue: 2 },
   sizing: { type: "percent_risk", value: 1 },
@@ -26,7 +30,15 @@ describe("Trading Lab foundation contracts", () => {
   it("accepts a general multi-timeframe swing strategy", () => {
     const result = validateStrategyVersion(swingStrategy);
     expect(result.success).toBe(true);
-    if (result.success) expect(result.data.entry.conditions).toHaveLength(2);
+    if (result.success) {
+      expect(result.data.longEntry.conditions).toHaveLength(2);
+      expect(result.data.shortEntry.conditions).toHaveLength(2);
+    }
+  });
+
+  it("rejects a both-direction strategy with one ambiguous entry group", () => {
+    const result = validateStrategyVersion({ ...swingStrategy, longEntry: undefined, shortEntry: undefined, entry: swingStrategy.longEntry });
+    expect(result.success).toBe(false);
   });
 
   it("rejects an unsafe unlimited progressive multiplier", () => {
