@@ -18,6 +18,7 @@ export type ConnectorDefinition = {
   auth: "api_key" | "webhook_secret" | "none";
   capabilities: ConnectorCapability[];
   phase: number;
+  access: "required_free" | "optional_paid";
   recommended?: boolean;
   note: string;
 };
@@ -30,8 +31,8 @@ export const CONNECTOR_CATALOG: readonly ConnectorDefinition[] = [
     auth: "api_key",
     capabilities: ["historical_bars", "futures_volume", "open_interest", "trades", "market_depth"],
     phase: 2,
-    recommended: true,
-    note: "Primary COMEX futures history, volume, open interest and later order-flow source.",
+    access: "optional_paid",
+    note: "Optional and not yet wired into the live Lab pipeline. Historical data is usage-priced; the Standard live-data plan is currently $199/month.",
   },
   {
     id: "twelve_data",
@@ -40,6 +41,7 @@ export const CONNECTOR_CATALOG: readonly ConnectorDefinition[] = [
     auth: "api_key",
     capabilities: ["spot_quote", "historical_bars"],
     phase: 2,
+    access: "required_free",
     note: "Spot XAU/USD availability depends on your Twelve Data plan. The connection test shows the provider's exact response; demo research data remains available when the symbol is not included in your plan.",
   },
   {
@@ -49,6 +51,7 @@ export const CONNECTOR_CATALOG: readonly ConnectorDefinition[] = [
     auth: "api_key",
     capabilities: ["macro_series"],
     phase: 2,
+    access: "required_free",
     recommended: true,
     note: "Official economic series for nominal yields, real yields and macro context.",
   },
@@ -59,6 +62,7 @@ export const CONNECTOR_CATALOG: readonly ConnectorDefinition[] = [
     auth: "none",
     capabilities: ["positioning"],
     phase: 2,
+    access: "required_free",
     recommended: true,
     note: "Weekly positioning context; never treated as an intraday trigger.",
   },
@@ -69,7 +73,8 @@ export const CONNECTOR_CATALOG: readonly ConnectorDefinition[] = [
     auth: "webhook_secret",
     capabilities: ["chart_alerts"],
     phase: 8,
-    note: "Receives authenticated and deduplicated TradingView alert events.",
+    access: "optional_paid",
+    note: "Optional authenticated alert input. TradingView webhook notifications require a paid Essential plan or higher; the free Basic plan cannot send them.",
   },
 ] as const;
 
