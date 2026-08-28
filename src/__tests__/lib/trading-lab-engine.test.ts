@@ -1,4 +1,4 @@
-import { decide, demoCandles, runBacktest, structurePillar, technicalPillar, volumePillar } from "@/lib/trading-lab/engine";
+import { buildStructureHistories, decide, demoCandles, runBacktest, structurePillar, technicalPillar, volumePillar } from "@/lib/trading-lab/engine";
 import { normalizeTradeRow, parseCsv } from "@/lib/trading-lab/journal";
 import { simulateLadder } from "@/lib/trading-lab/ladder";
 
@@ -29,6 +29,37 @@ describe("Trading Lab deterministic engines", () => {
   it("records structure evidence inside historical backtest trades", () => {
     const result = runBacktest(demoCandles(500), { initialCapital: 10000, riskPct: 1, stopAtr: 1.5, rewardRisk: 2, commission: 0, slippage: .1, entryMode: "swing" });
     expect(result.trades[0]?.structure).toEqual(expect.objectContaining({ rejectionConfirmed: expect.any(Boolean), hitRateSample: expect.any(Number) }));
+  });
+
+  it("backtests both directions from independent long and short rules", () => {
+    const result = runBacktest(demoCandles(500), {
+      initialCapital: 10000, riskPct: 1, stopAtr: 1.5, rewardRisk: 2, commission: 0, slippage: .1,
+      strategy: {
+        direction: "both",
+        longEntry: { logic: "all", conditions: [{ left: "close", operator: "gt", right: "ema_20" }] },
+        shortEntry: { logic: "all", conditions: [{ left: "close", operator: "lt", right: "ema_20" }] },
+      },
+    });
+    expect(new Set(result.trades.map(trade => trade.direction))).toEqual(new Set(["long", "short"]));
+  });
+
+  it("refuses a legacy both-direction strategy with one ambiguous rule set", () => {
+    expect(() => runBacktest(demoCandles(), {
+      initialCapital: 10000, riskPct: 1, stopAtr: 1.5, rewardRisk: 2, commission: 0, slippage: .1,
+      strategy: { direction: "both", entry: { logic: "all", conditions: [{ left: "close", operator: "gt", right: "ema_20" }] } },
+    })).toThrow("separate long and short entry rules");
+  });
+
+  it("uses the live multi-timeframe Structure calculation inside backtests", () => {
+    const candles = demoCandles(500);
+    const result = runBacktest(candles, { initialCapital: 10000, riskPct: 1, stopAtr: 1.5, rewardRisk: 2, commission: 0, slippage: .1, entryMode: "swing" });
+    const trade = result.trades[0];
+    const signalIndex = candles.findIndex(candle => candle.time === trade.entryTime) - 1;
+    const slice = candles.slice(0, signalIndex + 1);
+    const liveStructure = structurePillar(buildStructureHistories(slice), slice);
+    expect(trade.structure.levels).toEqual(liveStructure.levels);
+    expect(trade.structure.support).toBe(liveStructure.support?.price ?? null);
+    expect(trade.structure.resistance).toBe(liveStructure.resistance?.price ?? null);
   });
 
   it("blocks decisions when only one pillar is available", () => {

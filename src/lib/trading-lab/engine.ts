@@ -139,14 +139,28 @@ export function demoCandles(count = 220, intervalMinutes = 60): LabCandle[] {
 }
 
 type StrategyRule = { left: string; operator: string; right: unknown; timeframe?: string };
-type StrategyDefinition = { direction?: "long" | "short" | "both"; entry?: { logic: "all" | "any"; conditions: Array<StrategyRule | StrategyDefinition["entry"]> } };
+type ConditionGroup = { logic: "all" | "any"; conditions: Array<StrategyRule | ConditionGroup> };
+type StrategyDefinition = { direction?: "long" | "short" | "both"; entry?: ConditionGroup; longEntry?: ConditionGroup; shortEntry?: ConditionGroup };
 export type BacktestConfig = { initialCapital: number; riskPct: number; stopAtr: number; rewardRisk: number; commission: number; slippage: number; entryMode?: "swing" | "reversal" | "momentum"; strategy?: StrategyDefinition; progressive?: { multiplier: number; maxIncreases: number } };
+
+export function aggregateCandles(candles: LabCandle[], hours: number) {
+  const groups: LabCandle[] = [];
+  for (let index = 0; index < candles.length; index += hours) {
+    const chunk = candles.slice(index, index + hours); if (!chunk.length) continue;
+    groups.push({ time: chunk[0].time, open: chunk[0].open, high: Math.max(...chunk.map(item => item.high)), low: Math.min(...chunk.map(item => item.low)), close: chunk.at(-1)!.close, volume: chunk.every(item => item.volume === null) ? null : chunk.reduce((sum,item) => sum + (item.volume ?? 0), 0) });
+  }
+  return groups;
+}
+
+export function buildStructureHistories(h1: LabCandle[]) {
+  return { H1: h1, H4: aggregateCandles(h1, 4), D1: aggregateCandles(h1, 24) };
+}
 
 function operandValue(name: unknown, candles: LabCandle[], index: number): number | string | boolean | null {
   if (typeof name !== "string") return typeof name === "number" || typeof name === "boolean" ? name : null;
   if (["open", "high", "low", "close"].includes(name)) return candles[index]?.[name as "open" | "high" | "low" | "close"] ?? null;
   if (["nearest_support", "nearest_resistance", "distance_to_support_atr", "distance_to_resistance_atr", "structure_hit_rate"].includes(name)) {
-    const slice = candles.slice(0, index + 1); const structure = structurePillar({ H1: slice }, slice);
+    const slice = candles.slice(0, index + 1); const structure = structurePillar(buildStructureHistories(slice), slice);
     return name === "nearest_support" ? structure.support?.price ?? null : name === "nearest_resistance" ? structure.resistance?.price ?? null : name === "distance_to_support_atr" ? structure.distanceToSupportAtr : name === "distance_to_resistance_atr" ? structure.distanceToResistanceAtr : structure.historicalHitRate;
   }
   const match = name.match(/^(ema|rsi|rolling_high|rolling_low)_(\d+)$/);
@@ -171,13 +185,14 @@ function rulePasses(rule: StrategyRule, candles: LabCandle[], index: number) {
   return rule.operator === "crosses_above" ? previousLeft <= previousRight && left > right : rule.operator === "crosses_below" ? previousLeft >= previousRight && left < right : false;
 }
 
-function groupPasses(group: StrategyDefinition["entry"], candles: LabCandle[], index: number): boolean {
+function groupPasses(group: ConditionGroup | undefined, candles: LabCandle[], index: number): boolean {
   if (!group) return false;
-  const values = group.conditions.map(item => item && "conditions" in item ? groupPasses(item as StrategyDefinition["entry"], candles, index) : rulePasses(item as StrategyRule, candles, index));
+  const values = group.conditions.map(item => item && "conditions" in item ? groupPasses(item as ConditionGroup, candles, index) : rulePasses(item as StrategyRule, candles, index));
   return group.logic === "all" ? values.every(Boolean) : values.some(Boolean);
 }
 export function runBacktest(candles: LabCandle[], config: BacktestConfig) {
   if (candles.length < 60) throw new Error("At least 60 candles are required for a backtest.");
+  if (config.strategy?.direction === "both" && (!config.strategy.longEntry || !config.strategy.shortEntry)) throw new Error("Both-direction strategies require separate long and short entry rules.");
   const closes = candles.map(item => item.close); const fast = ema(closes, 20); const slow = ema(closes, 50);
   let balance = config.initialCapital; let peak = balance; let maxDrawdown = 0; let lossStreak = 0;
   const trades: any[] = []; const curve = [{ time: candles[50].time, balance }];
@@ -186,9 +201,9 @@ export function runBacktest(candles: LabCandle[], config: BacktestConfig) {
     const recent = candles.slice(index - 20, index);
     const previousHigh = Math.max(...recent.map(item => item.high));
     const previousLow = Math.min(...recent.map(item => item.low));
-    const customSignal = config.strategy?.entry ? groupPasses(config.strategy.entry, candles, index) : null;
-    const signals = customSignal !== null
-      ? { long: customSignal && config.strategy?.direction !== "short", short: customSignal && config.strategy?.direction === "short" }
+    const customStrategy = config.strategy && (config.strategy.entry || config.strategy.longEntry || config.strategy.shortEntry);
+    const signals = customStrategy
+      ? { long: config.strategy?.direction !== "short" && groupPasses(config.strategy?.direction === "both" ? config.strategy.longEntry : config.strategy?.entry, candles, index), short: config.strategy?.direction !== "long" && groupPasses(config.strategy?.direction === "both" ? config.strategy.shortEntry : config.strategy?.entry, candles, index) }
       : config.entryMode === "reversal"
       ? { long: (currentRsi ?? 50) < 32 && closes[index] > candles[index].low + (candles[index].high - candles[index].low) * .6, short: (currentRsi ?? 50) > 68 && closes[index] < candles[index].low + (candles[index].high - candles[index].low) * .4 }
       : config.entryMode === "momentum"
@@ -196,7 +211,7 @@ export function runBacktest(candles: LabCandle[], config: BacktestConfig) {
         : { long: fast[index - 1] <= slow[index - 1] && fast[index] > slow[index], short: fast[index - 1] >= slow[index - 1] && fast[index] < slow[index] };
     if (!signals.long && !signals.short) continue;
     const direction = signals.long ? "long" : "short"; const entry = candles[index + 1].open + (direction === "long" ? config.slippage : -config.slippage);
-    const structure = structurePillar({ H1: candles.slice(0, index + 1) }, candles.slice(0, index + 1));
+    const structureSlice = candles.slice(0, index + 1); const structure = structurePillar(buildStructureHistories(structureSlice), structureSlice);
     const currentAtr = atr(candles.slice(0, index + 1)) ?? entry * .01;
     const stopDistance = currentAtr * config.stopAtr; const riskMultiplier = config.progressive ? Math.min(config.progressive.multiplier ** lossStreak, config.progressive.multiplier ** config.progressive.maxIncreases) : 1;
     const risk = balance * (config.riskPct / 100) * riskMultiplier; const size = risk / stopDistance;
@@ -208,7 +223,7 @@ export function runBacktest(candles: LabCandle[], config: BacktestConfig) {
     }
     const gross = (direction === "long" ? exit - entry : entry - exit) * size; const fees = config.commission * 2; const pnl = gross - fees; balance += pnl; lossStreak = pnl < 0 ? lossStreak + 1 : 0;
     peak = Math.max(peak, balance); maxDrawdown = Math.max(maxDrawdown, peak - balance);
-    trades.push({ direction, entryTime: candles[index + 1].time, exitTime: candles[exitIndex].time, entryPrice: round(entry), exitPrice: round(exit), size: round(size, 4), pnl: round(pnl), rMultiple: round(pnl / risk), fees, exitReason: reason, structure: { support: structure.support?.price ?? null, resistance: structure.resistance?.price ?? null, rejectionConfirmed: structure.rejectionConfirmed, historicalHitRate: structure.historicalHitRate, hitRateSample: structure.hitRateSample } });
+    trades.push({ direction, entryTime: candles[index + 1].time, exitTime: candles[exitIndex].time, entryPrice: round(entry), exitPrice: round(exit), size: round(size, 4), pnl: round(pnl), rMultiple: round(pnl / risk), fees, exitReason: reason, structure: { support: structure.support?.price ?? null, resistance: structure.resistance?.price ?? null, rejectionConfirmed: structure.rejectionConfirmed, historicalHitRate: structure.historicalHitRate, hitRateSample: structure.hitRateSample, levels: structure.levels } });
     curve.push({ time: candles[exitIndex].time, balance: round(balance) });
   }
   const wins = trades.filter(item => item.pnl > 0); const losses = trades.filter(item => item.pnl <= 0);

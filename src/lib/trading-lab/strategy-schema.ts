@@ -28,7 +28,9 @@ export const strategyVersionSchema = z.object({
     setup: z.string().min(1),
     trigger: z.string().min(1),
   }),
-  entry: conditionGroupSchema,
+  entry: conditionGroupSchema.optional(),
+  longEntry: conditionGroupSchema.optional(),
+  shortEntry: conditionGroupSchema.optional(),
   exit: z.object({
     stopType: z.enum(["fixed", "atr", "structure"]),
     stopValue: z.number().positive().optional(),
@@ -55,6 +57,13 @@ export const strategyVersionSchema = z.object({
     commission: z.number().nonnegative(),
     slippage: z.number().nonnegative(),
   }),
+}).superRefine((strategy, context) => {
+  if (strategy.direction === "both" && (!strategy.longEntry || !strategy.shortEntry)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["direction"], message: "Both-direction strategies require separate longEntry and shortEntry rules" });
+  }
+  if (strategy.direction !== "both" && !strategy.entry) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["entry"], message: "A directional strategy requires entry rules" });
+  }
 });
 
 export type StrategyVersionInput = z.input<typeof strategyVersionSchema>;
