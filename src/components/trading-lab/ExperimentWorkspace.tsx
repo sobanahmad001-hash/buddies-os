@@ -25,7 +25,7 @@ export default function ExperimentWorkspace({ strategies, onStrategiesSaved, onE
       const input = { strategyVersionId: v.text("strategyVersionId"), parentExperimentId: v.text("parentExperimentId") || null,
         name: v.text("name"), hypothesis: v.text("hypothesis"), session: v.text("session"), timezone: v.text("timezone"), targetSample: v.number("targetSample"),
         eligibility: v.text("eligibility"), invalidation: v.text("invalidation"), stopConditions: v.text("stopConditions"), reviewCriteria: v.text("reviewCriteria"),
-        riskCurrency: v.text("riskCurrency").toUpperCase(), riskAmount: v.number("riskAmount"), entryTolerance: v.number("entryTolerance"), protectionTolerance: v.number("protectionTolerance"), quantityTolerancePct: v.number("quantityTolerancePct"), approved: true };
+        accountType: v.text("accountType"), riskCurrency: v.text("riskCurrency").toUpperCase(), riskAmount: v.number("riskAmount"), entryTolerance: v.number("entryTolerance"), protectionTolerance: v.number("protectionTolerance"), quantityTolerancePct: v.number("quantityTolerancePct"), approved: true };
       const saved = await labApi("experiments", { action: "create", input: { ...input, requestId: identity(input) } });
       setSelected(saved.experiment.id); await reload(saved.experiment.id);
     } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
@@ -48,6 +48,7 @@ export default function ExperimentWorkspace({ strategies, onStrategiesSaved, onE
           <label className="text-xs text-muted">Previous experiment · optional<select name="parentExperimentId" className={inputClass}><option value="">First / independent experiment</option>{experiments.filter(e => e.review_snapshot).map(e => <option key={e.id} value={e.id}>{e.protocol.name} · {e.review_snapshot.action}</option>)}</select></label>
           <Field name="name" label="Experiment name"/><Field name="targetSample" label="Target number of trades" type="number" min={2} max={1000} value={20}/>
           <Field name="session" label="Defined trading session" placeholder="London, 08:00–11:00"/><Field name="timezone" label="Session timezone" placeholder="Europe/London"/>
+          <label className="text-xs text-muted">Sample account type<select name="accountType" required defaultValue="" className={inputClass}><option value="" disabled>Choose live or demo</option><option value="live">Live · real money</option><option value="demo">Demo · simulated money</option></select></label>
           <Field name="riskCurrency" label="Risk currency · three-letter code" placeholder="USD"/><Field name="riskAmount" label="Fixed planned monetary risk per trade" type="number" min={0.01}/>
           <Field name="entryTolerance" label="Allowed entry deviation · price units" type="number" min={0}/><Field name="protectionTolerance" label="Allowed initial SL/TP deviation · price units" type="number" min={0}/><Field name="quantityTolerancePct" label="Allowed initial quantity deviation · %" type="number" min={0} max={100}/>
         </div>
@@ -61,7 +62,7 @@ export default function ExperimentWorkspace({ strategies, onStrategiesSaved, onE
     </details>
     {error && <p role="alert" className="rounded-lg border border-amber-500/30 p-3 text-sm text-amber-600">{error}</p>}
     {detail && <>
-      <details className={panelClass}><summary className="cursor-pointer font-semibold">Frozen protocol · {detail.experiment.protocol.name}</summary><dl className="mt-3 space-y-3 text-sm">{["hypothesis", "session", "timezone", "eligibility", "invalidation", "stopConditions", "reviewCriteria"].map(key => <div key={key}><dt className="font-semibold">{key.replace(/([A-Z])/g, " $1")}</dt><dd className="mt-1 whitespace-pre-wrap text-muted">{detail.experiment.protocol[key]}</dd></div>)}</dl></details>
+      <details className={panelClass}><summary className="cursor-pointer font-semibold">Frozen protocol · {detail.experiment.protocol.name}</summary><dl className="mt-3 space-y-3 text-sm">{["hypothesis", "accountType", "session", "timezone", "eligibility", "invalidation", "stopConditions", "reviewCriteria"].map(key => <div key={key}><dt className="font-semibold">{key.replace(/([A-Z])/g, " $1")}</dt><dd className="mt-1 whitespace-pre-wrap text-muted">{detail.experiment.protocol[key]}</dd></div>)}</dl></details>
       {!detail.experiment.review_snapshot && <>
         <PreTradePlan key={selected} strategies={strategies} experiment={detail.experiment} onSaved={() => { void reload().catch(e => setError(e.message)); }}/>
         <button type="button" onClick={onExecute} className={buttonClass}>Record manual execution →</button>

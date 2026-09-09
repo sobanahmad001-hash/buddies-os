@@ -6,6 +6,9 @@ const { PGlite } = await import(process.env.BUDDIES_PGLITE_MODULE || '@electric-
 const db = new PGlite();
 const root = fileURLToPath(new URL('../', import.meta.url));
 const source = async path => readFile(root + path, 'utf8');
+if (process.env.BUDDIES_TEST_SCHEMA !== 'repository') {
+  await db.exec(await source('scripts/fixtures/trading-live-schema.sql'));
+} else {
 const shared = await source('supabase/migrations/20250112_missing_tables.sql');
 const core = await source('supabase/migrations/20260325_trading_core_tables.sql');
 const lab = await source('supabase/migrations/20260826090904_trading_lab_mvp.sql');
@@ -23,6 +26,7 @@ await db.exec(`create role authenticated; create role anon; create schema auth;
  ${lab.match(/alter table public\.trading_entries[\s\S]*?;/i)[0]}`);
 const baseTables=['decisions','rules','decision_lessons','behavior_logs','rule_violations','ai_memory_items','trading_strategies','trading_strategy_versions','trading_ladder_campaigns','trading_decisions','trading_import_batches','trading_entries'];
 for (const name of baseTables) await db.exec(`alter table ${name} enable row level security; create policy owner on ${name} for all to authenticated using(auth.uid()=user_id) with check(auth.uid()=user_id); grant select,insert,update,delete on ${name} to authenticated;`);
+}
 await db.exec(await source('docs/sql/trading_lab_pretrade.sql'));
 await db.exec(await source('docs/sql/trading_lab_manual_workflow.sql'));
 await db.exec(await source('docs/sql/trading_lab_manual_workflow.sql'));
@@ -34,7 +38,7 @@ await db.query("insert into trading_strategies(id,user_id,name) values($1,$2,'Te
 const definition={schemaVersion:1,name:'Gold',symbols:['XAUUSD'],direction:'long'};
 await db.query('insert into trading_strategy_versions(id,user_id,strategy_id,version,definition) values($1,$2,$3,1,$4)',[versionId,owner,strategyId,definition]);
 await db.query("insert into rules(id,user_id,rule_text) values($1,$2,'Do not move stop')",[ruleId,owner]);
-const protocol={requestId:crypto.randomUUID(),strategyVersionId:versionId,parentExperimentId:null,name:'Sample',hypothesis:'Confirmation improves net R',session:'London',timezone:'Europe/London',targetSample:2,eligibility:'All qualifying setups',invalidation:'Missing confirmation',stopConditions:'Daily stop',reviewCriteria:'Review after sample',riskCurrency:'USD',riskAmount:10,entryTolerance:1,protectionTolerance:0,quantityTolerancePct:0,approved:true};
+const protocol={requestId:crypto.randomUUID(),strategyVersionId:versionId,parentExperimentId:null,name:'Sample',hypothesis:'Confirmation improves net R',session:'London',timezone:'Europe/London',targetSample:2,eligibility:'All qualifying setups',invalidation:'Missing confirmation',stopConditions:'Daily stop',reviewCriteria:'Review after sample',accountType:'live',riskCurrency:'USD',riskAmount:10,entryTolerance:1,protectionTolerance:0,quantityTolerancePct:0,approved:true};
 const experiment=(await db.query('insert into trading_experiments(user_id,request_id,strategy_version_id,protocol,strategy_snapshot) values($1,$2,$3,$4,$5) returning *',[owner,protocol.requestId,versionId,protocol,definition])).rows[0];
 await assert.rejects(db.query("update trading_strategy_versions set definition='{}' where id=$1",[versionId]),/frozen/);
 await assert.rejects(db.query("update trading_experiments set protocol='{}' where id=$1",[experiment.id]),/immutable/);
@@ -43,9 +47,14 @@ const plan={requestId:crypto.randomUUID(),strategyVersionId:versionId,experiment
 const capture=async p=>(await db.query('select capture_trading_plan($1,$2,$3,$4,$5) as r',[p.requestId,p.strategyVersionId,p,{mode:'manual_assessment',verdict:'REVIEW'},definition])).rows[0].r;
 await assert.rejects(capture({...plan,requestId:crypto.randomUUID(),riskAmount:20}),/risk must match/);
 const saved=await capture(plan);
+assert.deepEqual((await db.query('select verdict,chosen_option,predicted_probability from decisions where id=$1',[saved.buddies_decision_id])).rows[0],{verdict:'wait',chosen_option:'REVIEW',predicted_probability:60});
 const tradeId=crypto.randomUUID();
 const append=async(kind,payload,revision,requestId=crypto.randomUUID(),id=tradeId)=>(await db.query('select append_trading_event($1,$2,$3,$4,$5) as r',[requestId,id,revision,kind,payload])).rows[0].r;
-const open={planId:saved.id,occurredAt:await now(),price:101,quantity:2,stopLoss:95,takeProfit:120,actualRiskAmount:12,brokerReference:'Ticket 1',reason:'Manual fill'};
+const open={planId:saved.id,occurredAt:await now(),price:101,quantity:2,stopLoss:95,takeProfit:120,actualRiskAmount:12,accountType:'live',brokerReference:'Ticket 1',reason:'Manual fill'};
+const demoPlan=await capture({...plan,requestId:crypto.randomUUID()});
+const demo=await append('open',{...open,planId:demoPlan.id,accountType:'demo',occurredAt:await now()},0,crypto.randomUUID(),crypto.randomUUID());
+assert.equal(demo.sample_member,false,'Demo evidence stays outside a declared live sample');
+assert.equal(demo.account_type,'demo'); assert.equal(demo.ladder_step,0,'Manual samples do not participate in a ladder step');
 const openRequest=crypto.randomUUID();
 let t=await append('open',open,0,openRequest);
 assert.equal(t.sample_member,true); assert.equal(t.planned_risk_amount,10); assert.equal(t.lot_size,0,'Units are not mislabelled as lots');
@@ -71,6 +80,7 @@ const reviewRequest=crypto.randomUUID();
 t=await append('review',review,5,reviewRequest); await append('review',review,5,reviewRequest);
 assert.equal((await db.query('select count(*)::int n from decision_lessons')).rows[0].n,1,'Review retry has one lesson');
 assert.equal((await db.query('select count(*)::int n from rule_violations')).rows[0].n,1);
+assert.deepEqual((await db.query('select mood_tag,trigger_tag from behavior_logs')).rows[0],{mood_tag:null,trigger_tag:'moved_stop'},'A trading behavior is not a mood');
 assert.equal((await db.query('select count(*)::int n from ai_memory_items')).rows[0].n,1);
 assert.equal((await db.query('select actual_outcome_bool from decisions where id=$1',[saved.buddies_decision_id])).rows[0].actual_outcome_bool,true);
 await assert.rejects(append('review',{...review,probabilityOutcome:'neither'},6),/horizon/);
@@ -80,7 +90,8 @@ await assert.rejects(append('review',{...review,lesson:'Amendment'},6),/forced m
 assert.equal((await db.query('select lifecycle_revision from trading_entries where id=$1',[t.id])).rows[0].lifecycle_revision,6);
 assert.equal((await db.query('select count(*)::int n from decision_lessons')).rows[0].n,1);
 await db.exec('reset role; drop trigger zz_fail on ai_memory_items; set role authenticated;');
-t=await append('review',{...review,lesson:'Amended human lesson'},6);
+t=await append('review',{...review,lesson:'Amended human lesson',probabilityOutcome:'unresolved',probabilityObservedAt:null,probabilityEvidence:''},6);
+assert.deepEqual((await db.query('select actual_outcome_bool,outcome_rating from decisions where id=$1',[saved.buddies_decision_id])).rows[0],{actual_outcome_bool:null,outcome_rating:null},'Unresolved evidence must not become a failure');
 assert.equal((await db.query("select count(*)::int n from ai_memory_items where status='active'")).rows[0].n,1);
 // Coverage includes zero-setup sessions; overlapping periods cannot inflate frequency.
 const end=await now();
@@ -89,6 +100,7 @@ await assert.rejects(db.query('insert into trading_observation_sessions(user_id,
 const outcome={requestId:crypto.randomUUID(),experimentId:experiment.id,action:'RETEST',rationale:'Insufficient sample',nextHypothesis:'Continue in a fresh sample',stopReason:'Manual early stop',approved:true};
 const final=(await db.query('select review_trading_experiment($1,$2) r',[experiment.id,outcome])).rows[0].r;
 assert.ok(final.review_decision_id);
+assert.deepEqual((await db.query('select verdict,chosen_option from decisions where id=$1',[final.review_decision_id])).rows[0],{verdict:'wait',chosen_option:'RETEST'});
 assert.equal((await db.query('select review_trading_experiment($1,$2) r',[experiment.id,outcome])).rows[0].r.id,experiment.id);
 await assert.rejects(append('review',review,7),/frozen/);
 await assert.rejects(capture({...plan,requestId:crypto.randomUUID()}),/active experiment/);

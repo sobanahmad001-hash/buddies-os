@@ -6,6 +6,9 @@ import { fileURLToPath } from 'node:url';
 const { PGlite } = await import(process.env.BUDDIES_PGLITE_MODULE || '@electric-sql/pglite');
 const db = new PGlite();
 const root = fileURLToPath(new URL('../', import.meta.url));
+if (process.env.BUDDIES_TEST_SCHEMA !== 'repository') {
+  await db.exec(await readFile(`${root}scripts/fixtures/trading-live-schema.sql`, 'utf8'));
+} else {
 const labMigration = await readFile(`${root}supabase/migrations/20260826090904_trading_lab_mvp.sql`, 'utf8');
 const sharedMigration = await readFile(`${root}supabase/migrations/20250112_missing_tables.sql`, 'utf8');
 const table = (sql, name) => {
@@ -31,6 +34,7 @@ for (const name of ['decisions', 'trading_strategies', 'trading_strategy_version
   await db.exec(`alter table public.${name} enable row level security;
     create policy owner on public.${name} for all to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
     grant select, insert, update, delete on public.${name} to authenticated;`);
+}
 }
 const draft = await readFile(`${root}docs/sql/trading_lab_pretrade.sql`, 'utf8');
 await db.exec(draft);
@@ -62,6 +66,7 @@ const saved = await capture();
 assert.ok(saved.id && saved.buddies_decision_id && saved.locked_at);
 assert.equal(saved.strategy_version_id, versionId);
 assert.equal((await db.query('select probability from decisions where id = $1', [saved.buddies_decision_id])).rows[0].probability, 0);
+assert.deepEqual((await db.query('select verdict,chosen_option,predicted_probability from decisions where id=$1',[saved.buddies_decision_id])).rows[0],{verdict:'wait',chosen_option:'WAIT',predicted_probability:0});
 assert.equal((await capture()).id, saved.id, 'Same request returns same record');
 assert.equal((await db.query('select count(*)::int as n from decisions')).rows[0].n, 1);
 await assert.rejects(capture({ ...plan, entry: 3451 }), /Request ID already/);
@@ -73,6 +78,8 @@ await assert.rejects(db.query("update trading_decisions set plan_snapshot = '{}'
 await assert.rejects(db.query('update trading_decisions set locked_at = null where id = $1', [saved.id]), /immutable/);
 await assert.rejects(db.query('delete from trading_decisions where id = $1', [saved.id]), /immutable/);
 await assert.rejects(db.query('update decisions set probability = 99 where id = $1', [saved.buddies_decision_id]), /locked/);
+await assert.rejects(db.query('update decisions set predicted_probability = 99 where id = $1', [saved.buddies_decision_id]), /locked/);
+await assert.rejects(db.query("update decisions set chosen_option = 'REVIEW' where id = $1", [saved.buddies_decision_id]), /locked/);
 await assert.rejects(db.query('delete from decisions where id = $1', [saved.buddies_decision_id]), /locked/);
 await assert.rejects(db.query("update trading_strategy_versions set definition = '{}' where id = $1", [versionId]), /locked plans/);
 await db.query("update decisions set outcome_rating = 'success' where id = $1", [saved.buddies_decision_id]);

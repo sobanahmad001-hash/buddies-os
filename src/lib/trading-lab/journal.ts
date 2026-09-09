@@ -35,6 +35,6 @@ export function normalizeTradeRow(row: Record<string, string>, index: number) {
     setup_name: first(row, ["setup_name", "setup", "tag"]) || null, timeframe: first(row, ["timeframe", "tf"]) || null,
     session: first(row, ["session"]) || null, notes: first(row, ["notes", "comment"]) || null,
     opened_at: new Date(opened).toISOString(), closed_at: closed ? new Date(closed).toISOString() : null,
-    status: closed || exit !== null ? "closed" : "open", external_trade_id: externalId, source: "csv_import", account_type: "external", ladder_step: 1,
+    status: closed || exit !== null ? "closed" : "open", external_trade_id: externalId, source: "csv_import", account_type: null, ladder_step: 1,
   };
 }

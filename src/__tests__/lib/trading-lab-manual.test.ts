@@ -4,7 +4,7 @@ import { netPnl, tradeEventSchema, tradeReviewSchema, reviewQuestions } from "@/
 import { readAll } from "@/lib/trading-lab/manual-data";
 
 const id = "11111111-1111-4111-8111-111111111111";
-const protocol = experimentSchema.parse({ requestId: id, strategyVersionId: id, name: "Gold sample", hypothesis: "Confirmation adds value", session: "London", timezone: "Europe/London", targetSample: 20, eligibility: "All qualifying", invalidation: "No confirmation", stopConditions: "Loss limit", reviewCriteria: "Evaluate expectancy", riskCurrency: "USD", riskAmount: 10, entryTolerance: 1, protectionTolerance: 0, quantityTolerancePct: 0, approved: true });
+const protocol = experimentSchema.parse({ requestId: id, strategyVersionId: id, name: "Gold sample", hypothesis: "Confirmation adds value", session: "London", timezone: "Europe/London", targetSample: 20, eligibility: "All qualifying", invalidation: "No confirmation", stopConditions: "Loss limit", reviewCriteria: "Evaluate expectancy", accountType: "live", riskCurrency: "USD", riskAmount: 10, entryTolerance: 1, protectionTolerance: 0, quantityTolerancePct: 0, approved: true });
 const review = () => tradeReviewSchema.parse({ findings: Object.fromEntries(reviewQuestions.map(k => [k, { status: "pass", evidence: "Manual evidence" }])), strategyReference: { r: null, evidence: "" }, frozenPlanReference: { r: null, evidence: "" }, probabilityOutcome: "unresolved", probabilityObservedAt: null, probabilityEvidence: "", behaviors: [], lesson: "Keep sample rules fixed", nextAction: "Continue sample" });
 function trade(key: string, r: number, time: string): LabTrade {
   return { id: key, decision_id: key, status: "closed", opened_at: "2026-09-09T10:01:00Z", closed_at: time, lifecycle_revision: 2,

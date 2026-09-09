@@ -6,6 +6,7 @@ export const experimentSchema = z.object({
   parentExperimentId: z.string().uuid().nullable().default(null),
   name: text.max(120), hypothesis: text, session: text.max(120), timezone: text.max(100),
   targetSample: z.number().int().min(2).max(1000),
+  accountType: z.enum(["live", "demo"]),
   eligibility: text, invalidation: text, stopConditions: text, reviewCriteria: text,
   riskCurrency: z.string().regex(/^[A-Z]{3}$/), riskAmount: z.number().finite().positive(),
   entryTolerance: z.number().finite().nonnegative(), protectionTolerance: z.number().finite().nonnegative(),

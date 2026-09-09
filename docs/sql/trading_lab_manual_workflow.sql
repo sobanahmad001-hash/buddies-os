@@ -1,6 +1,13 @@
--- Review draft. Apply after trading_lab_pretrade.sql in a verified test database.
+-- Canonical deployment SQL, part 2. Apply after trading_lab_pretrade.sql.
 -- This extends shared decisions, lessons, behavior, rules and memory.
 begin;
+
+-- Preserve exact fill averages and fractional units. The live legacy journal used
+-- four decimal places, which rounded additional fills on every projection update.
+alter table public.trading_entries
+  alter column entry_price type numeric,
+  alter column exit_price type numeric,
+  alter column lot_size type numeric;
 
 create table if not exists public.trading_experiments (
   id uuid primary key default gen_random_uuid(), user_id uuid not null references auth.users(id),
@@ -41,6 +48,13 @@ create table if not exists public.trading_trade_events (
   payload jsonb not null, recorded_at timestamptz not null default now(), unique(user_id, request_id)
 );
 create index if not exists trading_trade_events_trade on public.trading_trade_events(user_id, trade_id, expected_revision);
+create index if not exists trading_events_trade_reference on public.trading_trade_events(trade_id);
+create index if not exists trading_experiments_version on public.trading_experiments(strategy_version_id);
+create index if not exists trading_experiments_parent on public.trading_experiments(parent_experiment_id);
+create index if not exists trading_experiments_review_decision on public.trading_experiments(review_decision_id);
+create index if not exists trading_observation_experiment on public.trading_observation_sessions(experiment_id, started_at, ended_at);
+create index if not exists trading_decisions_experiment on public.trading_decisions(experiment_id);
+create index if not exists trading_entries_experiment_reference on public.trading_entries(experiment_id);
 
 alter table public.decisions add column if not exists actual_outcome_bool boolean, add column if not exists actual_outcome text;
 alter table public.decision_lessons
@@ -48,14 +62,21 @@ alter table public.decision_lessons
   add column if not exists missed_signal text, add column if not exists what_next text,
   add column if not exists source_event_id uuid references public.trading_trade_events(id) on delete restrict;
 alter table public.behavior_logs add column if not exists decision_id uuid references public.decisions(id) on delete restrict,
+  add column if not exists trigger_tag text,
   add column if not exists source_event_id uuid references public.trading_trade_events(id) on delete restrict;
 alter table public.rule_violations add column if not exists decision_id uuid references public.decisions(id) on delete restrict,
+  add column if not exists notes text,
   add column if not exists source_event_id uuid references public.trading_trade_events(id) on delete restrict;
 create unique index if not exists trading_lesson_event on public.decision_lessons(source_event_id) where source_event_id is not null;
+create index if not exists trading_behavior_decision on public.behavior_logs(decision_id);
+create index if not exists trading_behavior_event on public.behavior_logs(source_event_id);
+create index if not exists trading_violation_decision on public.rule_violations(decision_id);
+create index if not exists trading_violation_event on public.rule_violations(source_event_id);
 
 do $$ declare name text; begin
   foreach name in array array['trading_experiments','trading_observation_sessions','trading_trade_events'] loop
     execute format('alter table public.%I enable row level security', name);
+    execute format('revoke all on public.%I from anon, authenticated', name);
     execute format('drop policy if exists owner on public.%I', name);
     execute format('create policy owner on public.%I for all to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id)', name);
     execute format('grant select, insert, update on public.%I to authenticated', name);
@@ -87,6 +108,7 @@ begin
       or p->>'requestId' is distinct from NEW.request_id::text
       or nullif(p->>'parentExperimentId','')::uuid is distinct from NEW.parent_experiment_id
       or coalesce((p->>'targetSample')::integer,0) not between 2 and 1000
+      or coalesce(p->>'accountType','') not in ('live','demo')
       or coalesce((p->>'riskAmount')::numeric,0) <= 0 or coalesce(p->>'riskCurrency','') !~ '^[A-Z]{3}$'
       or coalesce((p->>'entryTolerance')::numeric,-1) < 0 or coalesce((p->>'protectionTolerance')::numeric,-1) < 0
       or coalesce((p->>'quantityTolerancePct')::numeric,-1) not between 0 and 100 then
@@ -113,7 +135,7 @@ begin
       from public.trading_entries where experiment_id=OLD.id and user_id=OLD.user_id and sample_member;
     if count_open>0 then raise exception 'Close the remaining sample trades before review'; end if;
     if count_closed < (OLD.protocol->>'targetSample')::integer and coalesce(length(btrim(NEW.review_snapshot->>'stopReason')),0)=0 then raise exception 'An early stop needs a reason'; end if;
-    if not exists(select 1 from public.decisions d where d.id=NEW.review_decision_id and d.user_id=NEW.user_id and d.verdict=NEW.review_snapshot->>'action' and d.domain='trading') then raise exception 'Owned shared review decision required'; end if;
+    if not exists(select 1 from public.decisions d where d.id=NEW.review_decision_id and d.user_id=NEW.user_id and d.chosen_option=NEW.review_snapshot->>'action' and d.domain='trading') then raise exception 'Owned shared review decision required'; end if;
     NEW.review_snapshot := NEW.review_snapshot || jsonb_build_object('recordedAt',clock_timestamp(),'closedSample',count_closed);
   end if;
   return NEW;
@@ -206,14 +228,15 @@ begin
     if d.experiment_id is not null then
       select * into e from public.trading_experiments where id=d.experiment_id and user_id=NEW.user_id for update;
       select count(*) into num from public.trading_entries where experiment_id=e.id and sample_member;
-      member:=e.review_snapshot is null and num<(e.protocol->>'targetSample')::integer;
+      member:=e.review_snapshot is null and num<(e.protocol->>'targetSample')::integer and p->>'accountType'=e.protocol->>'accountType';
     end if;
-    insert into public.trading_entries(id,user_id,instrument,direction,entry_price,lot_size,stop_loss,take_profit,opened_at,
+    if coalesce(p->>'accountType','') not in ('live','demo') then raise exception 'Actual live or demo account type required' using errcode='23514'; end if;
+    insert into public.trading_entries(id,user_id,ladder_step,instrument,direction,entry_price,lot_size,stop_loss,take_profit,opened_at,
       status,source,account_type,decision_id,experiment_id,sample_member,lifecycle_revision,open_snapshot,
       planned_risk_amount,risk_currency,remaining_quantity,filled_quantity,last_event_at,notes)
-      values(NEW.trade_id,NEW.user_id,d.instrument,case when d.plan_snapshot->>'direction'='long' then 'buy' else 'sell' end,
+      values(NEW.trade_id,NEW.user_id,0,d.instrument,case when d.plan_snapshot->>'direction'='long' then 'buy' else 'sell' end,
         price,case when d.plan_snapshot->>'quantityUnit'='lots' then qty else 0 end,(p->>'stopLoss')::numeric,(p->>'takeProfit')::numeric,occurred,
-        'open','manual','external',d.id,d.experiment_id,member,1,p,(d.plan_snapshot->>'riskAmount')::numeric,d.plan_snapshot->>'riskCurrency',qty,qty,occurred,p->>'reason');
+        'open','manual',p->>'accountType',d.id,d.experiment_id,member,1,p,(d.plan_snapshot->>'riskAmount')::numeric,d.plan_snapshot->>'riskCurrency',qty,qty,occurred,p->>'reason');
     return NEW;
   end if;
   select * into t from public.trading_entries where id=NEW.trade_id and user_id=NEW.user_id for update;
@@ -250,16 +273,16 @@ begin
       if b->>'ruleId' is not null and not exists(select 1 from public.rules where id=(b->>'ruleId')::uuid and user_id=NEW.user_id) then raise exception 'Rule must belong to the same owner' using errcode='42501'; end if;
     end loop;
     update public.trading_entries set review_snapshot=p, lifecycle_revision=lifecycle_revision+1 where id=t.id;
-    update public.decisions set actual_outcome_bool=event_outcome, outcome_rating=case when event_outcome is null then 'unresolved' when event_outcome then 'success' else 'failure' end,
+    update public.decisions set actual_outcome_bool=event_outcome, outcome_rating=case when event_outcome is null then null when event_outcome then 'success' else 'failure' end,
       actual_outcome=format('Manual trade %s: net %s %s (%sR). Prediction event: %s. Thesis: %s. Strategy followed: %s. %s',t.id,t.net_pnl,t.risk_currency,t.net_pnl/t.planned_risk_amount,p->>'probabilityOutcome',p->'findings'->'thesis'->>'status',p->'findings'->'strategyFollowed'->>'status',p->>'lesson'),
       closed_at=t.closed_at where id=shared_id and user_id=NEW.user_id;
-    insert into public.decision_lessons(user_id,decision_id,source_event_id,lesson,domain,what_next)
-      values(NEW.user_id,shared_id,NEW.id,p->>'lesson','trading',p->>'nextAction') returning id into lesson_id;
+    insert into public.decision_lessons(user_id,decision_id,source_event_id,lesson,what_next)
+      values(NEW.user_id,shared_id,NEW.id,p->>'lesson',p->>'nextAction') returning id into lesson_id;
     for b in select value from jsonb_array_elements(p->'behaviors') loop
-      insert into public.behavior_logs(user_id,decision_id,source_event_id,mood_tag,notes)
-        values(NEW.user_id,shared_id,NEW.id,b->>'type',b->>'evidence');
+      insert into public.behavior_logs(user_id,decision_id,source_event_id,trigger_tag,notes)
+        values(NEW.user_id,shared_id,NEW.id,b->>'type',(b->>'type')||': '||(b->>'evidence'));
       if b->>'ruleId' is not null then
-        insert into public.rule_violations(user_id,decision_id,source_event_id,rule_id,context)
+        insert into public.rule_violations(user_id,decision_id,source_event_id,rule_id,notes)
           values(NEW.user_id,shared_id,NEW.id,(b->>'ruleId')::uuid,b->>'evidence');
       end if;
     end loop;
@@ -331,8 +354,10 @@ begin
     if e.review_snapshot - 'recordedAt' - 'closedSample' is distinct from p_review then raise exception 'Experiment is already reviewed' using errcode='23505'; end if;
     return to_jsonb(e);
   end if;
-  insert into public.decisions(user_id,context,verdict,domain)
-    values(actor,'Experiment review: '||(e.protocol->>'name')||E'\n'||(p_review->>'rationale'),p_review->>'action','trading') returning id into shared_id;
+  insert into public.decisions(user_id,context,verdict,chosen_option,domain)
+    values(actor,'Experiment review: '||(e.protocol->>'name')||E'\n'||(p_review->>'rationale'),
+      case p_review->>'action' when 'KEEP' then 'enter' when 'KILL' then 'do_not_enter' else 'wait' end,
+      p_review->>'action','trading') returning id into shared_id;
   update public.trading_experiments set review_snapshot=p_review,review_decision_id=shared_id where id=e.id returning * into e;
   insert into public.ai_memory_items(user_id,memory_type,title,content,source_kind,source_ref,metadata)
     values(actor,'decision','Experiment review: '||(e.protocol->>'name'),(p_review->>'action')||': '||(p_review->>'rationale')||E'\nNext hypothesis: '||coalesce(p_review->>'nextHypothesis',''),

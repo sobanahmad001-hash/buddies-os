@@ -26,7 +26,7 @@ export const tradeReviewSchema = z.object({
   if (new Set(v.behaviors.map(b => b.type)).size !== v.behaviors.length) c.addIssue({ code: "custom", path: ["behaviors"], message: "Record each behavior once per review." });
 });
 export const tradeEventSchema = z.discriminatedUnion("kind", [
-  z.object({ ...common, kind: z.literal("open"), payload: z.object({ ...fill, planId: z.string().uuid(), stopLoss: positive, takeProfit: positive, actualRiskAmount: positive, brokerReference: reason.max(200) }).strict() }).strict(),
+  z.object({ ...common, kind: z.literal("open"), payload: z.object({ ...fill, planId: z.string().uuid(), accountType: z.enum(["live", "demo"]), stopLoss: positive, takeProfit: positive, actualRiskAmount: positive, brokerReference: reason.max(200) }).strict() }).strict(),
   z.object({ ...common, kind: z.literal("add_fill"), payload: z.object(fill).strict() }).strict(),
   z.object({ ...common, kind: z.literal("change_protection"), payload: z.object({ occurredAt: timestamp, stopLoss: positive, takeProfit: positive, reason }).strict() }).strict(),
   z.object({ ...common, kind: z.literal("partial_exit"), payload: z.object(fill).strict() }).strict(),

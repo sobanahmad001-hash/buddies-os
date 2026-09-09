@@ -1,7 +1,14 @@
--- Review draft, not a deployed migration. Generate the migration with Supabase CLI
--- after verifying the production schema and run these checks on a local/staging DB.
+-- Canonical deployment SQL, part 1. See docs/TRADING_LAB_DEPLOYMENT.md for
+-- the verified project, migration receipt and validation status.
 -- Additive extension: existing Lab analysis rows keep their original semantics.
 begin;
+
+-- These shared fields already exist in the verified live schema. Older repository
+-- baselines omit them; keep the additive migration replayable on either baseline.
+alter table public.decisions
+  add column if not exists chosen_option text,
+  add column if not exists expected_outcome text,
+  add column if not exists predicted_probability integer;
 
 alter table public.trading_decisions
   add column if not exists buddies_decision_id uuid references public.decisions(id) on delete restrict,
@@ -15,6 +22,7 @@ create unique index if not exists trading_plan_request_unique
   on public.trading_decisions(user_id, capture_request_id) where capture_request_id is not null;
 create unique index if not exists trading_plan_shared_decision_unique
   on public.trading_decisions(buddies_decision_id) where buddies_decision_id is not null;
+create index if not exists trading_decisions_version_reference on public.trading_decisions(strategy_version_id);
 
 create or replace function public.protect_trading_plan()
 returns trigger language plpgsql security invoker set search_path = '' as $$
@@ -64,9 +72,9 @@ begin
     if TG_OP = 'DELETE' then
       raise exception 'Shared decision has a locked trading plan' using errcode = '23514';
     end if;
-    if (NEW.id, NEW.user_id, NEW.project_id, NEW.context, NEW.verdict, NEW.probability, NEW.domain, NEW.created_at)
+    if (NEW.id, NEW.user_id, NEW.project_id, NEW.context, NEW.verdict, NEW.probability, NEW.domain, NEW.created_at, NEW.chosen_option, NEW.expected_outcome, NEW.predicted_probability)
        is distinct from
-       (OLD.id, OLD.user_id, OLD.project_id, OLD.context, OLD.verdict, OLD.probability, OLD.domain, OLD.created_at) then
+       (OLD.id, OLD.user_id, OLD.project_id, OLD.context, OLD.verdict, OLD.probability, OLD.domain, OLD.created_at, OLD.chosen_option, OLD.expected_outcome, OLD.predicted_probability) then
       raise exception 'Original decision fields are locked; outcome updates remain available' using errcode = '23514';
     end if;
   end if;
@@ -139,8 +147,12 @@ begin
   if (p_plan->>'predictedProbability')::numeric not between 0 and 100 then
     raise exception 'Probability outside 0 to 100' using errcode = '23514';
   end if;
-  insert into public.decisions(user_id, context, verdict, probability, domain)
-    values (actor, p_plan->>'context', p_assessment->>'verdict', (p_plan->>'predictedProbability')::integer, 'trading')
+  -- Respect Buddies' existing verdict vocabulary; REVIEW never authorizes entry.
+  insert into public.decisions(user_id, context, verdict, chosen_option, probability, predicted_probability, expected_outcome, domain)
+    values (actor, p_plan->>'context',
+      case when p_assessment->>'verdict' = 'NO TRADE' then 'do_not_enter' else 'wait' end,
+      p_assessment->>'verdict', (p_plan->>'predictedProbability')::integer, (p_plan->>'predictedProbability')::integer,
+      'TP before SL under the frozen plan by ' || (p_plan->>'validUntil'), 'trading')
     returning id into shared_id;
   insert into public.trading_decisions(
     user_id, strategy_version_id, buddies_decision_id, capture_request_id,
