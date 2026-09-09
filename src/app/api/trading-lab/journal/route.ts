@@ -43,9 +43,10 @@ export async function POST(req: NextRequest) {
     if (body.action !== "log") return NextResponse.json({ error: "Unknown journal action" }, { status: 400 });
     const trade = body.trade ?? {};
     if (trade.decision_id) {
-      const linked = await supabase.from("trading_decisions").select("id").eq("id", trade.decision_id).eq("user_id", user.id).maybeSingle();
+      const linked = await supabase.from("trading_decisions").select("id,locked_at").eq("id", trade.decision_id).eq("user_id", user.id).maybeSingle();
       if (linked.error) return NextResponse.json({ error: "Could not verify the linked decision." }, { status: 503 });
       if (!linked.data) return NextResponse.json({ error: "Linked decision not found." }, { status: 404 });
+      if (linked.data.locked_at) return NextResponse.json({ error: "Use Execution to record this locked plan with its fills and outcome history." }, { status: 409 });
     }
     const { data, error } = await supabase.from("trading_entries").insert({ user_id: user.id, instrument: trade.instrument ?? "XAUUSD", direction: trade.direction === "sell" ? "sell" : "buy", entry_price: Number(trade.entry_price), exit_price: trade.exit_price ? Number(trade.exit_price) : null, lot_size: Number(trade.lot_size ?? .01), stop_loss: trade.stop_loss ? Number(trade.stop_loss) : null, take_profit: trade.take_profit ? Number(trade.take_profit) : null, result_usd: trade.result_usd ? Number(trade.result_usd) : null, status: trade.exit_price ? "closed" : "open", opened_at: trade.opened_at ?? new Date().toISOString(), closed_at: trade.exit_price ? trade.closed_at ?? new Date().toISOString() : null, notes: trade.notes ?? null, strategy: trade.strategy ?? null, setup_name: trade.setup_name ?? null, timeframe: trade.timeframe ?? null, session: trade.session ?? null, emotions: trade.emotions ?? null, lessons: trade.lessons ?? null, decision_id: trade.decision_id ?? null, ladder_campaign_id: trade.ladder_campaign_id ?? null, checklist_passed: trade.checklist_passed ?? null, checklist_results: trade.checklist_results ?? {}, source: "manual", account_type: "external", ladder_step: 1 }).select().single();
     if (error) throw error; return NextResponse.json({ entry: data });

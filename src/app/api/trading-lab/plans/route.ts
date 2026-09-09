@@ -1,3 +1,4 @@
+import { readAll } from "@/lib/trading-lab/manual-data";
 import { NextRequest, NextResponse } from "next/server";
 import { isDeepStrictEqual } from "node:util";
 import { createClient } from "@/lib/supabase/server";
@@ -8,11 +9,12 @@ export async function GET() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const { data, error } = await supabase.from("trading_decisions")
-    .select("id,buddies_decision_id,strategy_version_id,locked_at,plan_snapshot,assessment_snapshot,strategy_snapshot")
-    .eq("user_id", user.id).not("locked_at", "is", null).order("locked_at", { ascending: false }).limit(20);
-  if (error) return NextResponse.json({ error: "Saved plans are unavailable. Verify the pre-trade database setup." }, { status: 503 });
-  return NextResponse.json({ plans: data ?? [] });
+  try {
+    const plans = await readAll(supabase.from("trading_decisions")
+      .select("id,buddies_decision_id,strategy_version_id,experiment_id,locked_at,plan_snapshot,assessment_snapshot,strategy_snapshot")
+      .eq("user_id", user.id).not("locked_at", "is", null).order("locked_at", { ascending: false }).order("id"));
+    return NextResponse.json({ plans });
+  } catch { return NextResponse.json({ error: "Saved plans are unavailable. Verify the manual-workflow database setup." }, { status: 503 }); }
 }
 
 export async function POST(req: NextRequest) {

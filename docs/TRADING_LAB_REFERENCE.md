@@ -1,6 +1,6 @@
 # Buddies OS — Trading Lab working reference
 
-Version 1.0 · 9 September 2026 · Owner: Soban
+Version 1.1 · 9 September 2026 · Owner: Soban
 
 ## Purpose and architectural boundary
 
@@ -96,17 +96,43 @@ Stage 1: manual Trading Lab. Stage 2: real-time Trading Copilot. Stage 3: paper 
 
 Update this section with each delivery; distinguish implemented, tested and deployed.
 
-- Audit: complete against the source commit above.
-- Reference: established by this document; user's restart brief governs architectural scope.
-- Slice 1: implemented locally on `codex/trading-lab-reference-and-pretrade`; pending production schema reconciliation and deployment.
-- Implemented: exact-version plan form and history; manual condition/safety assessments; plan validation; retry-safe API; shared-decision linkage and immutable snapshot SQL draft; journal link ownership checks.
-- Verification: automated contract/API tests and existing suite; TypeScript; optimized Next.js build with placeholder local Supabase configuration; isolated PGlite 0.5.8 database tests using existing table definitions. No live Supabase acceptance test or authenticated browser test has been completed.
-- SQL draft: `docs/sql/trading_lab_pretrade.sql`. The Supabase CLI could not be started in this environment; this has not been represented as an applied or CLI-generated migration. Promote it to a migration only after environment verification.
-- Database checks: repeat application, atomic two-record save, forced second-insert rollback, retry identity, cross-owner visibility/link rejection, expiry/geometry checks, immutable plan/version/prediction fields, and allowed generic outcome updates.
-- Local SQL verification script: `scripts/test-trading-plan-db.mjs`. It uses an optional externally installed `@electric-sql/pglite@0.5.8` module; pass its absolute `dist/index.js` path in `BUDDIES_PGLITE_MODULE`. Production dependencies were not changed.
-- Remaining milestone work: execution changes/closing/reconciliation; shared lessons and violations; durable Strategy Builder chat; controlled experiment records and sample review; simulation repairs where required.
-- Production migration/deployment: pending verified environment mapping.
-- First strategy/protocol: to be explicitly defined with Soban before starting the sample; older trading preferences are not silently adopted as current rules.
+- Audit: complete against the source commit above; the restart brief governs scope.
+- Review branch: `codex/trading-lab-reference-and-pretrade`, draft PR #17.
+- Manual milestone implementation: strategy version creation/revisions; approved experiments; pre-trade capture; manual execution and partial/final exits; post-trade review; shared lessons/behavior/rules/memory; sample metrics and human review action.
+- Main navigation now starts with Experiments and Execution. Existing research, builder chat, simulation and historical journal remain available.
+- Exact version saves are atomic and retry-safe. Approving an experiment freezes its version and protocol before collecting evidence. No experiment or strategy is automatically approved by AI.
+- Event history is append-only and protected at the database boundary. Execution updates use an expected revision; stale edits and duplicate request identities are handled explicitly. Legacy quick-entry routes cannot bypass a locked plan's lifecycle.
+- Reviews write the journal, shared decision, lesson, behavior observations, linked rule violations and searchable `ai_memory_items` in one transaction. A failure rolls back the review; retrying does not duplicate learning. Review amendments preserve earlier events and supersede their retrieval memory.
+- Closed samples have immutable protocols, trade reviews, observation coverage and shared review decisions. New learning continues in another approved experiment.
+- Metrics: wins/losses/breakevens, average win/loss R, realized payoff, mean net R expectancy, profit factor, chronological closed-trade drawdown, observation frequency, manual rule compliance, execution scores, behavioral associations and event-specific probability calibration. Reference outcomes are separately evidenced manual reconstructions; paired comparisons use the same trades and fixed original risk.
+- Database mapping remains unverified. The connector exposes one inactive unnamed project and one active `anka-os` project. Read-only inspection of the deployed site's public assets did not establish the Buddies project URL. No project was created, restored or modified.
+- SQL drafts, in order: `docs/sql/trading_lab_pretrade.sql`, then `docs/sql/trading_lab_manual_workflow.sql`. They are not applied migrations. `docs/sql/trading_lab_preflight.sql` inventories the verified database without reading user records. Generate migration files with the Supabase CLI after reconciliation with the live schema.
+- Verification: 74 unit/API tests; TypeScript; optimized Next.js build using placeholder local Supabase configuration; isolated PGlite 0.5.8 tests using existing migration table definitions and owner policies. Database checks include version freeze/revisions, atomic lifecycle and learning, sample admission/overflow, partial fills, gross/net accounting, probability horizon, coverage overlap, retries, optimistic concurrency, rollback and cross-owner rejection.
+- SQL scripts: `scripts/test-trading-plan-db.mjs` and `scripts/test-trading-manual-db.mjs`. Supply externally installed `@electric-sql/pglite@0.5.8` through `BUDDIES_PGLITE_MODULE`. Production dependencies and the lockfile were not changed.
+- UI fixture harness: `scripts/preview-trading-manual.mjs`, using optional `esbuild@0.25.10` through `BUDDIES_ESBUILD_MODULE`. It renders actual components with synthetic, schema-validated mock responses and has no account credentials. It compiled and served, but the cloud browser rejected the localhost connection. Desktop/mobile visual and authenticated browser acceptance remain pending.
+- Deployed status: unchanged. PR is a reviewable implementation, not a live or validated trading system.
+- First strategy/protocol: Soban must define and approve it before starting the sample. Older preferences are not silently adopted as current trading rules.
+
+## Manual release boundaries
+
+- Pre-trade market/strategy assessments are manual evidence checks. Automatic chart/screenshot interpretation, a calibrated AI win probability, real-time setup detection and broker execution are not implemented in this milestone.
+- Optional structured context captures higher-timeframe context, structure, Wyckoff/VSA, volume, liquidity, regime and news. Screenshot/evidence URLs are references; this release does not archive external content or extend the existing upload service. Preserve original files separately because links can change or expire.
+- One locked plan links to one manual trade with the planned instrument/direction and quantity unit. Additional entry fills are supported before the first exit; re-entry after an exit requires a separate plan. Historical/unplanned trades remain in the existing journal and do not acquire invented pre-trade predictions.
+- The first target number of recorded executions is the fixed sample, including execution/rule violations. Additional executions remain visible outside the sample. Opening and closing times are manually reported, not broker-verified. Timestamp reconciliation flags execution before capture or after expiry; clean event calibration excludes those trades. Recording evidence cannot prove that an unreported losing trade did not exist.
+- Initial entry, initial SL, initial TP, initial quantity, timing, and reviewed management compliance receive equal execution-score weights. Price/quantity tolerances are fixed in the protocol. A missing management assessment leaves the overall trade score unknown. Actual initial risk is recorded separately; paired R comparisons always retain planned risk.
+- Broker-net P&L includes all partial/final exits and already includes costs. Gross P&L subtracts fees and adds signed financing (negative charge, positive credit). The user supplies the complete reconciliation and evidence. Realized trade drawdown is not intratrade account equity drawdown.
+- Session observations include zero-setup periods, manually counted qualifying/taken opportunities and missed-setup reasons. Overlapping coverage is rejected. These counts are explicitly manual and are not automatically reconciled with an external market feed.
+- A reference gap or a behavioral group's associated P&L is not an attributable financial cost. Groups may overlap. Counterfactual simulation, automatic condition ablation and causal attribution remain future work.
+- A sample checkpoint and KEEP/MODIFY/RETEST/KILL action do not establish an edge. This release reports descriptive evidence as insufficient for a conclusive edge claim; a further statistical validation protocol remains necessary.
+- Existing Strategy Builder chat persistence, automated AI post-trade explanations and simulator repairs remain follow-up work. The simulator has an explicit limitations notice and is excluded from manual-sample validation.
+
+## Live acceptance sequence
+
+1. Verify the existing Buddies Supabase URL/project and environment settings; do not infer ownership from another project's name.
+2. Run the read-only preflight, reconcile shared columns/policies/triggers, and generate the two additive migrations using the Supabase CLI. Apply and validate in a test environment first, including security advisors.
+3. Exercise the authenticated workflow: save/revise strategy → approve sample → lock plan → record entry → record protection/fills/exits → reconcile P&L → review → verify shared learning → finalize sample.
+4. Check reload, mobile layout, stale requests, unavailable storage and a second test user's isolation. Confirm real uploads/links and broker unit/cost conventions before recording the first actual sample.
+5. Release through the existing Buddies deployment after acceptance. No new Buddies app, repository or domain-specific memory engine is required.
 
 ## Release checks
 

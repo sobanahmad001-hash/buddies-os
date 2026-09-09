@@ -1,3 +1,6 @@
+import { randomUUID } from "node:crypto";
+import { z } from "zod";
+import { dbError } from "@/lib/trading-lab/manual-data";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getLabSnapshot } from "@/lib/trading-lab/market-data";
@@ -10,7 +13,8 @@ async function auth() { const supabase = await createClient(); const { data: { u
 export async function GET() {
   const { supabase, user } = await auth();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const { data } = await supabase.from("trading_strategies").select("*,trading_strategy_versions(id,version,definition,change_note,created_at)").eq("user_id", user.id).order("updated_at", { ascending: false });
+  const { data, error } = await supabase.from("trading_strategies").select("*,trading_strategy_versions(id,version,definition,change_note,created_at)").eq("user_id", user.id).order("updated_at", { ascending: false });
+  if (error) return NextResponse.json({ error: "Saved strategies could not be loaded." }, { status: 503 });
   return NextResponse.json({ strategies: data ?? [], templates: STRATEGY_TEMPLATES, ladderPresets: LADDER_PRESETS });
 }
 
@@ -38,22 +42,12 @@ export async function POST(req: NextRequest) {
     if (body.action === "save") {
       const parsed = validateStrategyVersion(body.definition);
       if (!parsed.success) return NextResponse.json({ error: "Strategy rules are invalid", issues: parsed.error.issues }, { status: 400 });
-      let strategy: any;
-      let nextVersion = 1;
-      if (body.strategyId) {
-        const { data, error } = await supabase.from("trading_strategies").update({ name: parsed.data.name, description: parsed.data.description, market: parsed.data.market, updated_at: new Date().toISOString() }).eq("id", body.strategyId).eq("user_id", user.id).select().single();
-        if (error) throw error;
-        strategy = data;
-        const { data: latest } = await supabase.from("trading_strategy_versions").select("version").eq("strategy_id", strategy.id).eq("user_id", user.id).order("version", { ascending: false }).limit(1).maybeSingle();
-        nextVersion = Number(latest?.version ?? 0) + 1;
-      } else {
-        const created = await supabase.from("trading_strategies").insert({ user_id: user.id, name: parsed.data.name, description: parsed.data.description, market: parsed.data.market }).select().single();
-        if (created.error) throw created.error;
-        strategy = created.data;
-      }
-      const { data: version, error: versionError } = await supabase.from("trading_strategy_versions").insert({ strategy_id: strategy.id, user_id: user.id, version: nextVersion, definition: parsed.data, change_note: body.changeNote ?? (nextVersion === 1 ? "Initial version" : "Revised in Strategy Builder") }).select().single();
-      if (versionError) { if (nextVersion === 1) await supabase.from("trading_strategies").delete().eq("id", strategy.id).eq("user_id", user.id); throw versionError; }
-      return NextResponse.json({ strategy: { ...strategy, versions: [version] } });
+      const requestId = body.requestId ?? randomUUID();
+      if (!z.string().uuid().safeParse(requestId).success || (body.strategyId && !z.string().uuid().safeParse(body.strategyId).success)) return NextResponse.json({ error: "Invalid request or strategy ID" }, { status: 400 });
+      const saved = await supabase.rpc("save_trading_strategy", { p_request_id: requestId, p_strategy_id: body.strategyId ?? null, p_definition: parsed.data, p_change_note: String(body.changeNote ?? "Approved strategy version").slice(0, 4000) });
+      if (saved.error) { const e = dbError(saved.error); return NextResponse.json({ error: e.error }, { status: e.status }); }
+      if (!saved.data?.strategy?.id || !saved.data?.version?.id) return NextResponse.json({ error: "No complete version receipt returned." }, { status: 503 });
+      return NextResponse.json({ strategy: { ...saved.data.strategy, versions: [saved.data.version] }, version: saved.data.version });
     }
     return NextResponse.json({ error: "Unknown strategy action" }, { status: 400 });
   } catch (error) {

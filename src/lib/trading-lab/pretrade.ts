@@ -18,6 +18,14 @@ const assessmentSchema = z.object({
 export const pretradeSchema = z.object({
   requestId: z.string().uuid(),
   strategyVersionId: z.string().uuid(),
+  experimentId: z.string().uuid().nullable().optional(),
+  marketContext: z.object({
+    higherTimeframe: z.string().trim().max(2000), structure: z.string().trim().max(2000),
+    wyckoff: z.string().trim().max(2000), volume: z.string().trim().max(2000),
+    liquidity: z.string().trim().max(2000), regime: z.string().trim().max(500),
+    news: z.string().trim().max(2000),
+  }).strict().optional(),
+  evidenceLinks: z.array(z.string().url().max(2000).refine(v => v.startsWith("https://"), "Evidence links must use HTTPS.")).max(10).optional(),
   instrument: z.string().trim().min(1).max(40),
   direction: z.enum(["long", "short"]),
   entry: z.number().finite().positive(),
@@ -58,7 +66,7 @@ export function planChecks(strategy: StrategyVersion, direction: "long" | "short
   const visit = (group: Group, path: string) => group.conditions.forEach((condition, index) => {
     const key = `${path}.${index}`;
     if ("conditions" in condition) visit(condition, key);
-    else checks.push({ key, label: `${condition.id}: ${condition.left} ${condition.operator} ${JSON.stringify(condition.right)} · ${condition.timeframe ?? strategy.timeframes.trigger}` });
+    else checks.push({ key, label: condition.left.startsWith("manual:") ? `${condition.left.slice(7)} · ${condition.timeframe ?? strategy.timeframes.trigger}` : `${condition.id}: ${condition.left} ${condition.operator} ${JSON.stringify(condition.right)} · ${condition.timeframe ?? strategy.timeframes.trigger}` });
   });
   const group = entryGroup(strategy, direction);
   if (group) visit(group, "entry");
