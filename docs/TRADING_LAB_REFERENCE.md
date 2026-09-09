@@ -1,6 +1,6 @@
 # Buddies OS — Trading Lab working reference
 
-Version 1.2 · 9 September 2026 · Owner: Soban
+Version 1.3 · 9 September 2026 · Owner: Soban
 
 ## Purpose and architectural boundary
 
@@ -86,7 +86,7 @@ Simulation repairs may run earlier when a manual-sample feature depends on them,
 
 Manual assessment is intentional: the initial form collects the user's evidence against the actual stored condition tree and safety definitions. It does not automatically infer Wyckoff phases, inspect screenshots, check live news, monitor the broker or assert that a setup will win. Numerical price geometry and required assessments are checked by code. Optional probability describes TP-before-SL by the stated expiry and is explicitly uncalibrated.
 
-The existing market-analysis route remains separate. New capture records use existing `trading_decisions` linked to `decisions`; no parallel decision engine or memory store is introduced. Historical Lab rows remain historical. Schema changes have been tested against a copy of the live structure; production application is held for explicit approval after automatic review rejected the migration.
+The existing market-analysis route remains separate. New capture records use existing `trading_decisions` linked to `decisions`; no parallel decision engine or memory store is introduced. Historical Lab rows remain historical. Schema changes passed tests against a copy of the live structure. Following Soban's explicit approval, the reviewed migration was applied to production and its schema and access protections were verified.
 
 ## Deferred stages
 
@@ -106,12 +106,12 @@ Update this section with each delivery; distinguish implemented, tested and depl
 - Closed samples have immutable protocols, trade reviews, observation coverage and shared review decisions. New learning continues in another approved experiment.
 - Metrics: wins/losses/breakevens, average win/loss R, realized payoff, mean net R expectancy, profit factor, chronological closed-trade drawdown, observation frequency, manual rule compliance, execution scores, behavioral associations and event-specific probability calibration. Reference outcomes are separately evidenced manual reconstructions; paired comparisons use the same trades and fixed original risk.
 - Database mapping and live schema audit are complete for Soban's identified project. No project was created or restored by this work. The separate `anka-os` project was not changed.
-- Canonical proposed SQL, in order: `docs/sql/trading_lab_pretrade.sql`, then `docs/sql/trading_lab_manual_workflow.sql`. They are not applied migrations. The proposed `trading_lab_controlled_manual_samples` production migration was blocked by automatic approval review because explicit authorization was required for its shared-table and database-protection changes. Migration history confirms it was not applied. `docs/TRADING_LAB_DEPLOYMENT.md` records the reviewable scope and remaining gates.
+- Canonical proposed SQL, in order: `docs/sql/trading_lab_pretrade.sql`, then `docs/sql/trading_lab_manual_workflow.sql`. They were applied together after Soban explicitly approved the previously blocked shared-table and database-protection changes. Supabase migration history confirms `20260909234633_trading_lab_controlled_manual_samples`. Live checks confirm owner RLS, authenticated-only RPC access, missing-user rejection and full fill precision. Repository CLI history export remains pending. `docs/TRADING_LAB_DEPLOYMENT.md` records the reviewable scope and remaining gates.
 - Verification: 74 unit/API tests; TypeScript; optimized Next.js build using placeholder local Supabase configuration; isolated PGlite 0.5.8 tests using existing migration table definitions and owner policies. Database checks include version freeze/revisions, atomic lifecycle and learning, sample admission/overflow, partial fills, gross/net accounting, probability horizon, coverage overlap, retries, optimistic concurrency, rollback and cross-owner rejection.
 - SQL scripts: `scripts/test-trading-plan-db.mjs` and `scripts/test-trading-manual-db.mjs`. Supply externally installed `@electric-sql/pglite@0.5.8` through `BUDDIES_PGLITE_MODULE`. Tests now default to the captured live catalog fixture; `BUDDIES_TEST_SCHEMA=repository` uses the older repository definitions. Both baselines passed. No production dependencies or lockfile changes.
 - Compatibility fixes preserve generic verdicts and exact Lab actions, shared predicted probability, unknown outcome ratings, real behavior trigger fields, existing violation notes, valid live/demo account types and precise fill averages. A declared live sample cannot count demo executions. Test data exists only in isolated databases.
 - UI fixture harness: `scripts/preview-trading-manual.mjs`, using optional `esbuild@0.25.10` through `BUDDIES_ESBUILD_MODULE`. It renders actual components with synthetic, schema-validated mock responses and has no account credentials. It compiled and served, but the cloud browser rejected the localhost connection. Desktop/mobile visual and authenticated browser acceptance remain pending.
-- Deployed status: production database/app unchanged. Vercel reported the preceding PR commit successfully built a branch preview, but the preview redirects to Vercel login. Updated code remains in the existing review branch. Production migration, authenticated desktop/mobile acceptance and app release remain pending.
+- Deployed status: production database migration applied; production app release pending. Vercel reported the preceding PR commit successfully built a branch preview, but the preview redirects to Vercel login. Updated code remains in the existing review branch. Authenticated desktop/mobile acceptance and app release remain pending.
 - First strategy/protocol: Soban must define and approve it before starting the sample. Older preferences are not silently adopted as current trading rules.
 
 ## Manual release boundaries
@@ -130,7 +130,7 @@ Update this section with each delivery; distinguish implemented, tested and depl
 ## Live acceptance sequence
 
 1. Project and live-schema verification are complete. Confirm the Vercel environment settings point to the identified project.
-2. Obtain explicit approval for the production schema change described in `TRADING_LAB_DEPLOYMENT.md`; automatic review blocked its application. After approval, apply the verified SQL, record/reconcile migration history and run live permission/schema checks and advisors. Isolated tests already pass against the captured live schema.
+2. Approval, production application, live schema/permission checks and advisors are complete. Migration receipt: `20260909234633`. Reconcile the repository CLI history export; see `TRADING_LAB_DEPLOYMENT.md`. Isolated tests already pass against the captured live schema.
 3. Exercise the authenticated workflow: save/revise strategy → approve sample → lock plan → record entry → record protection/fills/exits → reconcile P&L → review → verify shared learning → finalize sample.
 4. Check reload, mobile layout, stale requests, unavailable storage and a second test user's isolation. Confirm real uploads/links and broker unit/cost conventions before recording the first actual sample.
 5. Release through the existing Buddies deployment after acceptance. No new Buddies app, repository or domain-specific memory engine is required.

@@ -1,6 +1,6 @@
 # Trading Lab — verified database and deployment review
 
-9 September 2026 · PR #17 · Status: tested implementation; production migration blocked pending explicit approval.
+9 September 2026 · PR #17 · Status: approved production migration applied and verified; authenticated app acceptance pending.
 
 ## Confirmed target
 
@@ -25,7 +25,7 @@ The read-only audit captured columns with exact precision, constraints, owner po
 | Shared lesson, behavior and violation fields differ from old repository baselines | Reuse `decision_lessons.decision_id`, behavior `trigger_tag` and violation `notes`. Trading behaviors do not become mood labels. Derive the lesson's domain through its shared decision. |
 | Shared outcome ratings exclude `unresolved` | Preserve null for unresolved prediction outcomes; do not record a failure. |
 
-## Exact proposed database change
+## Approved and applied database change
 
 Migration name: `trading_lab_controlled_manual_samples`.
 
@@ -41,7 +41,7 @@ pretrade: bdecfcd02b8a2dc95bcde51c9978503a2e20892046f8f41a72f1d2355ced3ef2
 manual:   eeb9843c35fa0ee3c44fc6a92ab3b5a7ffdfbb2f244eca129620fb7db7c39af4
 ```
 
-The proposed application combines both bodies in one transaction with a 5-second lock timeout and 90-second statement timeout. Neither script has been applied to production. They remain review SQL rather than CLI-generated migration-history files; a CLI export/history reconciliation remains a release task.
+Both bodies were applied in one transaction with a 5-second lock timeout and 90-second statement timeout after Soban explicitly approved. Supabase recorded migration `20260909234633_trading_lab_controlled_manual_samples`. The reviewed source digests above are unchanged. Repository CLI migration-history export/reconciliation remains a release task; do not reapply the migration merely to create a local filename.
 
 | Area | Scope and effect |
 |---|---|
@@ -63,14 +63,14 @@ Shared-table triggers and precision changes can acquire locks and affect writes 
 
 Advisor references: [RLS policies](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy), [GraphQL discoverability](https://supabase.com/docs/guides/database/database-linter?lint=0027_pg_graphql_authenticated_table_exposed), [definer functions](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable).
 
-## Blocked action and remaining release gates
+## Approval history and remaining release gates
 
 The automatic approval reviewer rejected `apply_migration` for this production project because the user had not explicitly authorized this exact shared-table, privilege, trigger, function, index and RLS change. The action was not retried through another path. A subsequent migration-history read confirmed that the proposed migration is absent.
 
-Soban's explicit approval is needed to apply the proposed production database change above. After approval:
+Soban subsequently replied **approved**. The same reviewed migration applied successfully on 9 September 2026 and is recorded in remote migration history. The earlier block is resolved.
 
-1. Apply the reviewed SQL once; capture its migration receipt and reconcile repository migration history.
-2. Confirm resulting columns, functions, owner grants, RLS and advisors on the selected project.
+1. Applied: migration `20260909234633`. Reconcile the repository CLI migration-history export before release.
+2. Verified: three new tables have RLS, authenticated owner predicates in USING and WITH CHECK, no anonymous SELECT and no authenticated TRUNCATE. Four RPCs are SECURITY INVOKER, callable by authenticated users, and denied to anonymous users. Read-only execution checks confirmed all four reject a missing user identity. Entry/exit prices and lot quantities use unrestricted numeric precision. Security/performance advisors were rerun: existing notices remain, with three expected new authenticated GraphQL schema-discovery notices for the new owner-protected tables. No new definer-function or missing-policy notices appeared.
 3. Confirm the existing Vercel environment points to this project and run an authenticated lifecycle acceptance check, including reload, a second user's isolation and mobile layout.
 4. Release PR #17 through the existing deployment after acceptance; the PR remains a draft until those checks pass.
 5. Define and approve the first real strategy/protocol before recording its sample.
