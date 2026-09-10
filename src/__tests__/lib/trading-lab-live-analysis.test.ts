@@ -1,0 +1,13 @@
+import {volumePillar,demoCandles} from "@/lib/trading-lab/engine";
+import {researchMarketNews} from "@/lib/trading-lab/live-news";
+import {POST as research} from "@/app/api/research/chat/route";
+import {NextRequest,NextResponse} from "next/server";
+jest.mock("@/app/api/research/chat/route",()=>({POST:jest.fn()}));
+const bars=()=>demoCandles(40).map(b=>({...b,volume:100}));
+test("missing current volume never substitutes older positive bars",()=>{const b=bars();b[b.length-1].volume=null as any;expect(volumePillar(b).available).toBe(false);});
+test("reported zero volume stays a measured zero",()=>{const b=bars();b[b.length-1].volume=0;const v=volumePillar(b);expect(v.available).toBe(true);expect(v.relativeVolume).toBe(0);expect(v.bias).toBe("neutral");});
+test("volume expansion is measured against the prior bars and does not prove aggression",()=>{const b=bars();b[b.length-1].volume=400;const v=volumePillar(b);expect(v.relativeVolume).toBe(4);expect(v.measurements?.baselineVolume).toBe(100);expect(v.warnings.join(' ')).toContain('aggression');expect(v.warnings.join(' ')).toContain('phase is unassigned');});
+const req=()=>new NextRequest('http://localhost/api/trading-lab/decision',{method:'POST'});
+test("news without source citations is withheld",async()=>{(research as jest.Mock).mockResolvedValue(NextResponse.json({reply:'Unverified story',citations:[]}));const n=await researchMarketNews(req(),{demo:false,dataQuality:{price:'reported'}});expect(n.status).toBe('unavailable');expect(n.reply).toBeNull();});
+test("synthetic prices are excluded from the news alignment prompt",async()=>{(research as jest.Mock).mockImplementation(async(r:NextRequest)=>{const b=await r.json();expect(b.requireCitations).toBe(true);expect(b.message).not.toContain('123456789');return NextResponse.json({reply:'Cited news only',citations:[{url:'https://example.com/news',title:'Source'}],sessionId:'saved'});});const n=await researchMarketNews(req(),{demo:true,symbol:'XAU/USD',technical:{price:123456789},dataQuality:{price:'preview'}});expect(n.alignmentAvailable).toBe(false);expect(n.marketAsOf).toBeNull();expect(n.sessionId).toBe('saved');});
+test("fresh market evidence and its timestamp reach grounded research",async()=>{(research as jest.Mock).mockImplementation(async(r:NextRequest)=>{const b=await r.json();expect(b.message).toContain('EMA20 above EMA50');return NextResponse.json({reply:'Sourced alignment',citations:[{url:'https://example.com/news'}]});});const n=await researchMarketNews(req(),{demo:false,symbol:'XAU/USD',asOf:'2026-09-10T10:00:00Z',dataQuality:{price:'reported'},technical:{summary:'EMA20 above EMA50'}});expect(n.alignmentAvailable).toBe(true);expect(n.marketAsOf).toBe('2026-09-10T10:00:00Z');});
