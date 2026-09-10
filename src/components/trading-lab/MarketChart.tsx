@@ -25,6 +25,8 @@ export default function MarketChart({ candles, levels = [] }: { candles: Candle[
     const chart = createChart(host.current, {
       autoSize: true,
       height: 430,
+      // Let vertical swipes scroll the workspace; horizontal drags still pan the chart.
+      handleScroll: { vertTouchDrag: false },
       layout: { background: { type: ColorType.Solid, color: canvas }, textColor: muted, panes: { separatorColor: line, separatorHoverColor: accent, enableResize: true } },
       grid: { vertLines: { color: subtle }, horzLines: { color: subtle } },
       crosshair: { vertLine: { color: accent, labelBackgroundColor: accent }, horzLine: { color: accent, labelBackgroundColor: accent } },

@@ -172,7 +172,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <ToastProvider>
     <ErrorBoundary>
-    <div className="flex h-screen w-screen overflow-hidden bg-canvas text-ink">
+    <div className="flex h-dvh w-full overflow-hidden bg-canvas text-ink">
       <div className="hidden md:flex h-full">
         <NavContent
           collapsed={collapsed}
@@ -201,7 +201,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </>
       )}
 
-      <main className="flex-1 flex flex-col overflow-hidden min-w-0 pb-[60px] md:pb-0">
+      <main className="flex-1 flex flex-col overflow-hidden min-h-0 min-w-0 pb-[calc(60px+env(safe-area-inset-bottom))] md:pb-0">
         <div className="md:hidden flex items-center gap-3 px-4 py-3 bg-surface border-b border-line shrink-0">
           <button
             onClick={() => setMobileOpen(true)}
@@ -227,4 +227,3 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     </ToastProvider>
   );
 }
-
