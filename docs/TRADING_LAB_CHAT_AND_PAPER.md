@@ -2,7 +2,7 @@
 
 10 September 2026 · Implementation plan · Owner: Soban
 
-Status: the requested product direction is recorded here. The chat workflow and internal paper execution described below are planned, not implemented or deployed. This extends [the working reference](TRADING_LAB_REFERENCE.md); it does not replace Buddies or the existing manual trade lifecycle.
+Status: this is the design baseline. The first implementation is committed locally on the review branch; public GitHub publication and production database deployment are blocked by automatic approval review. [The release record](TRADING_LAB_CHAT_PAPER_RELEASE.md) is authoritative for completed work, supported capabilities, exact approval scope and remaining acceptance. This extends [the working reference](TRADING_LAB_REFERENCE.md); it does not replace Buddies or the existing manual trade lifecycle.
 
 ## Product decision
 
@@ -122,4 +122,4 @@ Strategy discovery, automatic condition ablation and controlled live broker exec
 
 ## Change and release status
 
-This change updates the development reference and records the implementation plan only. It does not add a paper account, worker, persistent chat, new tabs, application code or a database migration. The earlier manual workflow remains on draft PR #17; its database migration is applied and its production app release is still pending acceptance. Use [the deployment record](TRADING_LAB_DEPLOYMENT.md) for that release's verification details.
+The implementation described in [the release record](TRADING_LAB_CHAT_PAPER_RELEASE.md) now extends this plan. Source audit observations above describe the pre-extension code. Soban owns signed-in browser acceptance; automated tests and deployment evidence are maintained in the release record.

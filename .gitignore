@@ -29,3 +29,6 @@ supabase/.temp/
 Thumbs.db
 .vscode/
 .idea/
+
+# Reproducible Edge worker bundle; deploy from scripts/build-trading-paper-worker.mjs.
+/supabase/functions/trading-paper-worker/worker.js

@@ -1,5 +1,7 @@
 # Trading Lab — verified database and deployment review
 
+This records the earlier manual milestone. The later chat/paper implementation, exact production approval scope and current deployment gates are maintained in [the chat/paper release record](TRADING_LAB_CHAT_PAPER_RELEASE.md).
+
 9 September 2026 · PR #17 · Status: approved production migration applied and verified; authenticated app acceptance pending.
 
 ## Confirmed target

@@ -5,8 +5,8 @@ import ManualStrategyEditor from "./ManualStrategyEditor";
 import ExperimentResults from "./ExperimentResults";
 import { buttonClass, Field, formValues, inputClass, labApi, panelClass, TextField, useRequestIdentity } from "./manual-ui";
 
-export default function ExperimentWorkspace({ strategies, onStrategiesSaved, onExecute }: { strategies: any[]; onStrategiesSaved: () => Promise<void>; onExecute: () => void }) {
-  const [experiments, setExperiments] = useState<any[]>([]), [selected, setSelected] = useState("");
+export default function ExperimentWorkspace({ strategies, onStrategiesSaved, onExecute, selectedId="", onSelected }: { selectedId?:string; onSelected?:(id:string)=>void; strategies: any[]; onStrategiesSaved: () => Promise<void>; onExecute: () => void }) {
+  const [experiments, setExperiments] = useState<any[]>([]), [selected, setSelected] = useState(selectedId);
   const [detail, setDetail] = useState<any>(null), [error, setError] = useState(""), [busy, setBusy] = useState(false);
   const identity = useRequestIdentity();
   const versions = strategies.flatMap(s => (s.trading_strategy_versions ?? []).map((v: any) => ({ ...v, name: s.name })));
@@ -19,15 +19,16 @@ export default function ExperimentWorkspace({ strategies, onStrategiesSaved, onE
     if (selected) { const result = await labApi(`experiments?id=${encodeURIComponent(selected)}`); if (active) setDetail(result); }
     if (active) setError("");
   }).catch(e => { if (active) setError(e.message); }); return () => { active = false; }; }, [selected]);
+  useEffect(()=>{onSelected?.(selected);},[selected]);
   const create = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); const v = formValues(event.currentTarget); setBusy(true); setError("");
     try {
       const input = { strategyVersionId: v.text("strategyVersionId"), parentExperimentId: v.text("parentExperimentId") || null,
         name: v.text("name"), hypothesis: v.text("hypothesis"), session: v.text("session"), timezone: v.text("timezone"), targetSample: v.number("targetSample"),
         eligibility: v.text("eligibility"), invalidation: v.text("invalidation"), stopConditions: v.text("stopConditions"), reviewCriteria: v.text("reviewCriteria"),
-        accountType: v.text("accountType"), riskCurrency: v.text("riskCurrency").toUpperCase(), riskAmount: v.number("riskAmount"), entryTolerance: v.number("entryTolerance"), protectionTolerance: v.number("protectionTolerance"), quantityTolerancePct: v.number("quantityTolerancePct"), approved: true };
+        accountType: v.text("accountType"), executionSource: v.text("executionSource"), riskCurrency: v.text("riskCurrency").toUpperCase(), riskAmount: v.number("riskAmount"), entryTolerance: v.number("entryTolerance"), protectionTolerance: v.number("protectionTolerance"), quantityTolerancePct: v.number("quantityTolerancePct"), approved: true };
       const saved = await labApi("experiments", { action: "create", input: { ...input, requestId: identity(input) } });
-      setSelected(saved.experiment.id); await reload(saved.experiment.id);
+      setSelected(saved.experiment.id); await reload(saved.experiment.id); await onStrategiesSaved();
     } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
   };
   const observe = async (event: FormEvent<HTMLFormElement>) => {
@@ -38,7 +39,7 @@ export default function ExperimentWorkspace({ strategies, onStrategiesSaved, onE
     } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
   };
   return <div className="space-y-4">
-    <section className={panelClass}><h2 className="text-xl font-bold">Manual strategy experiments</h2><p className="mt-2 text-sm text-muted">Define one version, lock a sample, capture plans before execution, then review the evidence. Actual orders stay with your broker.</p>
+    <section className={panelClass}><h2 className="text-xl font-bold">Controlled strategy experiments</h2><p className="mt-2 text-sm text-muted">Define one version, lock a sample, capture plans before execution, then review the evidence. Choose internal paper execution or manual broker recording for each sample.</p>
       <label className="mt-4 block text-xs text-muted">Experiment<select value={selected} onChange={e => setSelected(e.target.value)} className={inputClass}><option value="">Choose an experiment</option>{experiments.map(e => <option key={e.id} value={e.id}>{e.protocol.name} · {e.review_snapshot ? e.review_snapshot.action : "active"}</option>)}</select></label>
     </section>
     <ManualStrategyEditor strategies={strategies} onSaved={onStrategiesSaved}/>
@@ -49,6 +50,7 @@ export default function ExperimentWorkspace({ strategies, onStrategiesSaved, onE
           <Field name="name" label="Experiment name"/><Field name="targetSample" label="Target number of trades" type="number" min={2} max={1000} value={20}/>
           <Field name="session" label="Defined trading session" placeholder="London, 08:00–11:00"/><Field name="timezone" label="Session timezone" placeholder="Europe/London"/>
           <label className="text-xs text-muted">Sample account type<select name="accountType" required defaultValue="" className={inputClass}><option value="" disabled>Choose live or demo</option><option value="live">Live · real money</option><option value="demo">Demo · simulated money</option></select></label>
+          <label className="text-xs text-muted">Execution source<select name="executionSource" defaultValue="broker_manual" className={inputClass}><option value="broker_manual">Manual broker records</option><option value="paper">Buddies paper engine · demo only</option></select></label>
           <Field name="riskCurrency" label="Risk currency · three-letter code" placeholder="USD"/><Field name="riskAmount" label="Fixed planned monetary risk per trade" type="number" min={0.01}/>
           <Field name="entryTolerance" label="Allowed entry deviation · price units" type="number" min={0}/><Field name="protectionTolerance" label="Allowed initial SL/TP deviation · price units" type="number" min={0}/><Field name="quantityTolerancePct" label="Allowed initial quantity deviation · %" type="number" min={0} max={100}/>
         </div>

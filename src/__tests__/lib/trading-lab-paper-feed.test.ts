@@ -1,0 +1,12 @@
+import {fetchPaperBars} from "@/lib/trading-lab/paper-service";
+import {resolveConnectorSecret} from "@/lib/trading-lab/connector-secrets";
+jest.mock("server-only",()=>({}),{virtual:true});
+jest.mock("@/lib/trading-lab/connector-secrets",()=>({resolveConnectorSecret:jest.fn()}));
+const clock=Date.parse("2026-09-07T08:02:30Z"),originalFetch=global.fetch;
+beforeEach(()=>{(resolveConnectorSecret as jest.Mock).mockResolvedValue("fixture-key");global.fetch=jest.fn();});
+afterAll(()=>{global.fetch=originalFetch;});
+const response=(values:any[])=>({ok:true,json:async()=>({values})});
+const row=(datetime:string)=>({datetime,open:"100",high:"102",low:"99",close:"101",volume:"0"});
+test("provider adapter requests UTC one-minute data, excludes incomplete bars, preserves zero volume",async()=>{(fetch as jest.Mock).mockResolvedValue(response([row("2026-09-07 08:02:00"),row("2026-09-07 08:01:00")]));const bars=await fetchPaperBars("owner","XAU/USD",180,false,clock);expect(bars).toHaveLength(1);expect(bars[0].time).toBe("2026-09-07T08:01:00.000Z");expect(bars[0].volume).toBe(0);const u=new URL((fetch as jest.Mock).mock.calls[0][0]);expect(u.searchParams.get("timezone")).toBe("UTC");expect(u.searchParams.get("interval")).toBe("1min");});
+test("missing connectors never fall back to synthetic prices",async()=>{(resolveConnectorSecret as jest.Mock).mockResolvedValue(null);await expect(fetchPaperBars("owner","XAU/USD",180,false,clock)).rejects.toThrow(/Synthetic data is never substituted/);expect(fetch).not.toHaveBeenCalled();});
+test("stale, duplicate or malformed evidence is rejected",async()=>{(fetch as jest.Mock).mockResolvedValue(response([row("2026-09-07 07:00:00")]));await expect(fetchPaperBars("owner","XAU/USD",180,false,clock)).rejects.toThrow(/stale/);(fetch as jest.Mock).mockResolvedValue(response([row("2026-09-07 08:01:00"),row("2026-09-07 08:01:00")]));await expect(fetchPaperBars("owner","XAU/USD",180,false,clock)).rejects.toThrow(/unique/);(fetch as jest.Mock).mockResolvedValue(response([{...row("2026-09-07 08:01:00"),low:"200"}]));await expect(fetchPaperBars("owner","XAU/USD",180,false,clock)).rejects.toThrow(/valid prices/);});
