@@ -138,3 +138,7 @@ Update this section with each delivery; distinguish implemented, tested and depl
 ## Release checks
 
 Verify unauthenticated/cross-owner requests, malformed plans, long/short price ordering, nested conditions, unknown evidence, probability zero/unknown, expired evidence, duplicate retries and save failures. Test database linkage/immutability under authenticated ownership rules. Run focused tests and typecheck; production acceptance additionally requires a migrated staging/production environment and an authenticated lifecycle check. Keep each slice reviewable in Git and update this reference with its actual status.
+
+### Preview acceptance update — 10 September 2026
+
+Vercel access and Buddies sign-in succeeded. The signed-in branch preview renders Experiments (including live/demo controls) and Execution, and preserves access after reload. Desktop layout was inspected. No strategy/sample/trade was created. Production database migration is complete; full write-lifecycle, mobile and second-user browser acceptance, CLI history export and production app release remain pending.

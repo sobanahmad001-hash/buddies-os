@@ -76,3 +76,11 @@ Soban subsequently replied **approved**. The same reviewed migration applied suc
 5. Define and approve the first real strategy/protocol before recording its sample.
 
 The branch preview at `https://buddies-os-git-codex-tradin-a28328-sobanahmad001-9513s-projects.vercel.app` is protected by Vercel login. The previous branch commit has a successful Vercel build status, but browser acceptance and the production app release are not complete. Do not disable deployment protection or send passwords/API secrets in chat to perform acceptance.
+
+## Signed-in preview check — 10 September 2026
+
+The secure Vercel and Buddies sign-in flows completed. The protected branch preview now opens `/app/trading-lab` under the signed-in account. Experiments renders the new protocol and live/demo controls; Execution renders locked-plan and recorded-trade selectors. Reload preserves signed-in access and Execution navigation. A desktop screenshot was inspected. No real strategy, experiment, trade or learning record was created by this check.
+
+Verified preview: https://buddies-os-git-codex-tradin-a28328-sobanahmad001-9513s-projects.vercel.app/app/trading-lab
+
+This resolves the preview sign-in blocker and provides authenticated read/navigation acceptance. Full authenticated write-lifecycle, second-user browser and mobile acceptance, repository CLI history export, and the production app release remain pending. The first real sample still requires Soban's strategy rules and explicit protocol approval.
