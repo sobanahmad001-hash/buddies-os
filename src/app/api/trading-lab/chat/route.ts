@@ -14,7 +14,7 @@ import { chatActionSchema } from "@/lib/trading-lab/chat";
 export const maxDuration = 60;
 
 async function contextFor(db: any, userId: string, context: z.infer<typeof chatContextSchema>) {
-  const [versions, experiments, plans, trades, memories, rules, paper] = await Promise.all([
+  const [versions, experiments, plans, trades, memories, rules, paper, analyses] = await Promise.all([
     db.from("trading_strategies").select("id,name,trading_strategy_versions(id,version,definition,change_note)").eq("user_id",userId).order("updated_at",{ascending:false}).limit(30),
     db.from("trading_experiments").select("*").eq("user_id",userId).order("approved_at",{ascending:false}).limit(30),
     db.from("trading_decisions").select("id,strategy_version_id,experiment_id,plan_snapshot,assessment_snapshot,locked_at").eq("user_id",userId).not("locked_at","is",null).order("locked_at",{ascending:false}).limit(30),
@@ -22,6 +22,7 @@ async function contextFor(db: any, userId: string, context: z.infer<typeof chatC
     db.from("ai_memory_items").select("id,content,metadata").eq("user_id",userId).eq("status","active").eq("source_kind","trading_review").order("created_at",{ascending:false}).limit(12),
     db.from("rules").select("id,rule_text,domain").eq("user_id",userId).eq("active",true).limit(60),
     db.from("trading_paper_runs").select("id,name,mode,status,experiment_id,config,state,updated_at").eq("user_id",userId).order("created_at",{ascending:false}).limit(10),
+    db.from("trading_decisions").select("id,instrument,as_of,data_quality,fundamental,technical,volume_wyckoff,narrative,sources").eq("user_id",userId).not("as_of","is",null).order("as_of",{ascending:false}).limit(3),
   ]);
   for (const result of [versions,experiments,plans,rules]) if(result.error) throw new Error("Saved context could not be verified. Retry before requesting changes.");
   const selectedExperiment=experiments.data?.find((e:any)=>e.id===context.experimentId);
@@ -33,7 +34,7 @@ async function contextFor(db: any, userId: string, context: z.infer<typeof chatC
     const observations=await readAll(db.from("trading_observation_sessions").select("*").eq("user_id",userId).eq("experiment_id",selectedExperiment.id).order("id"));
     metrics=experimentMetrics(selectedExperiment.protocol,trades.filter((t:any)=>t.experiment_id===selectedExperiment.id&&t.sample_member),observations);
   }
-  return {selected:context,strategies:versions.data,experiments:experiments.data,plans:plans.data,trades:trades.slice(-40),metrics,
+  return {recentMarketAnalyses:analyses.error?{unavailable:true}:analyses.data,analysisNotice:"Saved observations may be stale. Their timestamps and sources are authoritative; they are not approved strategy rules or pre-trade plans.",selected:context,strategies:versions.data,experiments:experiments.data,plans:plans.data,trades:trades.slice(-40),metrics,
     lessons:memories.error ? {unavailable:true}:memories.data,rules:rules.data,paperRuns:paper.error ? {unavailable:true}:paper.data?.map((r:any)=>({id:r.id,name:r.name,mode:r.mode,status:r.status,experimentId:r.experiment_id,config:r.config,metrics:paperMetrics(r.state),latestEvaluation:r.state.lastEvaluation,lastTime:r.state.lastTime,warnings:r.state.warnings,error:r.state.lastError,orders:r.state.orders.slice(-20),omittedOrders:Math.max(0,r.state.orders.length-20)})),now:new Date().toISOString()};
 }
 

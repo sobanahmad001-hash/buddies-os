@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { message, history, projectIds, sessionId } = await req.json();
+    const { message, history, projectIds, sessionId, requireCitations } = await req.json();
     if (!message) return NextResponse.json({ error: "message required" }, { status: 400 });
 
     // Load project context if projects selected
@@ -97,7 +97,7 @@ ${projectContext}`;
       // Fallback to Chat Completions if Responses API unavailable
     }
 
-    if (!replyText) {
+    if (!replyText && requireCitations !== true) {
       const fallback = await openai.chat.completions.create({
         model: "gpt-4.1",
         messages: [
@@ -107,6 +107,10 @@ ${projectContext}`;
         max_tokens: 2000,
       });
       replyText = fallback.choices[0]?.message?.content ?? "No response.";
+    }
+
+    if (requireCitations === true && (!replyText || !citations.some(c => c.url.startsWith("https://")))) {
+      return NextResponse.json({ error: "Cited web research is unavailable." }, { status: 503 });
     }
 
     // Parse suggested tasks from response

@@ -8,6 +8,7 @@ const withPWA = require("next-pwa")({
     document: "/offline.html",
   },
   runtimeCaching: [
+    { urlPattern: /\/api\/trading-lab\//, handler: "NetworkOnly", method: "GET", options: {} },
     {
       urlPattern: /^https?.*/,
       handler: "NetworkFirst",

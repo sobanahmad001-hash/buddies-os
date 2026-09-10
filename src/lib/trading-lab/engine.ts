@@ -93,19 +93,27 @@ export function technicalPillar(candles: LabCandle[]): PillarResult & { rsi: num
   return { bias, score, confidence: Math.min(90, 55 + Math.abs(score) * 7), summary: `${bias} structure: close ${round(last)}, EMA20 ${round(fast)}, EMA50 ${round(slow)}, RSI ${currentRsi}`, evidence: [`Price is ${last >= fast ? "above" : "below"} EMA20`, `EMA20 is ${fast >= slow ? "above" : "below"} EMA50`, `RSI ${currentRsi}`], warnings: [], rsi: currentRsi, atr: atr(candles), ema20: round(fast), ema50: round(slow) };
 }
 
-export function volumePillar(candles: LabCandle[]): PillarResult & { available: boolean; relativeVolume: number | null; event: string | null } {
-  const bars = candles.filter(item => item.volume !== null && (item.volume ?? 0) > 0);
-  if (bars.length < 20) return { available: false, bias: "unavailable", score: 0, confidence: 0, summary: "Reported volume is unavailable", evidence: [], warnings: ["Wyckoff/VSA confirmation is withheld; zero or missing volume is never interpreted as low participation"], relativeVolume: null, event: null };
-  const recent = bars.slice(-20); const last = recent.at(-1)!;
-  const avgVolume = recent.slice(0, -1).reduce((sum, item) => sum + (item.volume ?? 0), 0) / 19;
-  const avgSpread = recent.slice(0, -1).reduce((sum, item) => sum + item.high - item.low, 0) / 19;
-  const relativeVolume = round((last.volume ?? 0) / avgVolume);
-  const closeLocation = last.high === last.low ? .5 : (last.close - last.low) / (last.high - last.low);
-  const spreadRatio = (last.high - last.low) / avgSpread;
-  const climatic = relativeVolume >= 1.8 && spreadRatio >= 1.3;
-  const bias: PillarBias = climatic && closeLocation >= .65 ? "bullish" : climatic && closeLocation <= .35 ? "bearish" : "neutral";
-  const event = bias === "bullish" ? "possible sign of strength / spring response" : bias === "bearish" ? "possible sign of weakness / upthrust response" : null;
-  return { available: true, bias, score: bias === "bullish" ? 2 : bias === "bearish" ? -2 : 0, confidence: event ? 68 : 50, summary: event ? `${event}; relative volume ${relativeVolume}x` : `No confirmed Wyckoff event; relative volume ${relativeVolume}x`, evidence: [`Relative volume ${relativeVolume}x`, `Spread ${round(spreadRatio)}x average`, `Close location ${Math.round(closeLocation * 100)}%`], warnings: ["Wyckoff event labels are provisional until subsequent bars confirm them"], relativeVolume, event };
+export function volumePillar(candles: LabCandle[]) {
+  const recent = candles.slice(-20);
+  const unavailable = (reason:string) => ({ available:false, bias:"unavailable" as PillarBias, score:0, confidence:0, summary:reason, evidence:[] as string[], warnings:["Current volume confirmation is withheld. Missing recent bars are not replaced by older positive-volume bars."], relativeVolume:null, event:null as string|null, measurements:null as null|Record<string,number|string> });
+  if(recent.length<20 || recent.some(b=>b.volume===null || !Number.isFinite(b.volume) || b.volume!<0)) return unavailable("Need reported volume on the latest 20 displayed candles");
+  const last=recent.at(-1)!, previous=recent.slice(0,-1);
+  const avgVolume=previous.reduce((n,b)=>n+b.volume!,0)/19;
+  const avgSpread=previous.reduce((n,b)=>n+b.high-b.low,0)/19;
+  if(avgVolume<=0 || avgSpread<=0) return unavailable("Volume/spread baseline is insufficient");
+  const relativeVolume=round(last.volume!/avgVolume),spreadRatio=(last.high-last.low)/avgSpread;
+  const closeLocation=last.high === last.low ? .5 :(last.close-last.low)/(last.high-last.low);
+  const rangeLow=Math.min(...previous.map(b=>b.low)),rangeHigh=Math.max(...previous.map(b=>b.high));
+  const increased=relativeVolume>=1.8, wide=spreadRatio>=1.3;
+  const spring=increased&&last.low<rangeLow&&last.close>rangeLow&&closeLocation>=.65;
+  const upthrust=increased&&last.high>rangeHigh&&last.close<rangeHigh&&closeLocation<=.35;
+  const bias:PillarBias=increased&&wide&&closeLocation>=.65?"bullish":increased&&wide&&closeLocation<=.35?"bearish":"neutral";
+  const event=spring?"Candidate spring response at the prior range low":upthrust?"Candidate upthrust response at the prior range high":increased&&wide?"High activity with a wide price spread":increased?"High activity with limited price spread":null;
+  return { available:true,bias,score:bias==="bullish"?2:bias==="bearish"?-2:0,confidence:event?60:40,
+    summary:event??`No volume expansion: ${relativeVolume}x the prior 19-bar average`,
+    evidence:[`Latest reported volume ${last.volume}; prior 19-bar average ${round(avgVolume)}`,`Relative volume ${relativeVolume}x; price spread ${round(spreadRatio)}x average`,`Close location ${round(closeLocation*100)}%; candle change ${round(last.close-last.open)}`,`Observed candle ${last.time}`],
+    warnings:["Price and reported activity are observed; buyer/seller aggression is not measured by OHLC volume.","Wyckoff candidates need range context and subsequent confirmation. Accumulation/distribution phase is unassigned."],relativeVolume,event,
+    measurements:{asOf:last.time,volume:last.volume!,baselineVolume:round(avgVolume),relativeVolume,spreadRatio:round(spreadRatio),closeLocationPct:round(closeLocation*100),candleChange:round(last.close-last.open),rangeLow,rangeHigh,sampleBars:20} };
 }
 
 export function decide(fundamental: PillarResult, technical: PillarResult, volume: ReturnType<typeof volumePillar>, fresh: boolean, structure?: StructureResult, minimumRewardRisk = 1.5) {
