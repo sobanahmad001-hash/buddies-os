@@ -1,24 +1,28 @@
 import "server-only";
 import { resolveConnectorSecret } from "@/lib/trading-lab/connector-secrets";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { aggregateCandles, buildStructureHistories, decide, demoCandles, structurePillar, technicalPillar, volumePillar, type LabCandle, type PillarResult } from "@/lib/trading-lab/engine";
+import { buildStructureHistories, decide, demoCandles, structurePillar, technicalPillar, volumePillar, type LabCandle, type PillarResult } from "@/lib/trading-lab/engine";
 
-export type LabInterval = "15min" | "1h" | "4h" | "1day";
+export type LabInterval = "1min" | "5min" | "15min" | "1h" | "4h" | "1day";
 
 export function normalizeLabInterval(value: unknown): LabInterval {
-  return value === "15min" || value === "4h" || value === "1day" ? value : "1h";
+  return value === "1min" || value === "5min" || value === "15min" || value === "4h" || value === "1day" ? value : "1h";
 }
 
-const intervalMinutes: Record<LabInterval, number> = { "15min": 15, "1h": 60, "4h": 240, "1day": 1440 };
+const intervalMinutes: Record<LabInterval, number> = { "1min": 1, "5min": 5, "15min": 15, "1h": 60, "4h": 240, "1day": 1440 };
 
 async function twelveDataCandles(userId: string, symbol: string, interval = "1h", outputsize = 220) {
   const key = await resolveConnectorSecret(userId, "twelve_data");
   if (!key) return null;
-  const response = await fetch(`https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(symbol)}&interval=${interval}&outputsize=${outputsize}&apikey=${encodeURIComponent(key)}`, { signal: AbortSignal.timeout(12_000), cache: "no-store" });
+  const response = await fetch(`https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(symbol)}&interval=${interval}&outputsize=${outputsize}&timezone=UTC&apikey=${encodeURIComponent(key)}`, { signal: AbortSignal.timeout(12_000), cache: "no-store" });
   if (!response.ok) throw new Error(`Twelve Data request failed (${response.status})`);
   const payload = await response.json();
   if (!Array.isArray(payload.values)) throw new Error(payload.message ?? "Twelve Data returned no candles");
-  return payload.values.reverse().map((value: Record<string, string>): LabCandle => ({ time: value.datetime, open: Number(value.open), high: Number(value.high), low: Number(value.low), close: Number(value.close), volume: value.volume && Number(value.volume) > 0 ? Number(value.volume) : null }));
+  const bars = payload.values.map((value: Record<string, string>): LabCandle => ({ time: new Date(value.datetime.replace(" ", "T") + "Z").toISOString(), open: Number(value.open), high: Number(value.high), low: Number(value.low), close: Number(value.close), volume: value.volume != null && value.volume !== "" && Number.isFinite(Number(value.volume)) && Number(value.volume) >= 0 ? Number(value.volume) : null })).sort((a:LabCandle,b:LabCandle)=>a.time.localeCompare(b.time));
+  const duration=intervalMinutes[normalizeLabInterval(interval)]*60000;
+  const completed=bars.filter((b:LabCandle)=>Date.parse(b.time)+duration<=Date.now());
+  if (!completed.length || completed.some((b:LabCandle,i:number)=>![b.open,b.high,b.low,b.close].every(v=>Number.isFinite(v)&&v>0) || b.low>Math.min(b.open,b.close) || b.high<Math.max(b.open,b.close) || (i>0&&b.time===completed[i-1].time))) throw new Error("Provider candles are missing or invalid");
+  return completed;
 }
 
 async function fredFundamental(userId: string): Promise<PillarResult> {
@@ -71,13 +75,13 @@ export async function getLabSnapshot(userId: string, symbol = "XAU/USD", allowDe
     const history = demoCandles(1200); structureHistories = buildStructureHistories(history);
   } else {
     const safeHistory = async (interval: string, outputsize: number, fallback: LabCandle[]) => { try { return await twelveDataCandles(userId, symbol, interval, outputsize) ?? fallback; } catch { return fallback; } };
-    const [h1, h4, d1] = await Promise.all([safeHistory("1h", 1500, candles), safeHistory("4h", 1500, aggregateCandles(candles, 4)), safeHistory("1day", 800, aggregateCandles(candles, 24))]);
+    const [h1, h4, d1] = await Promise.all([safeHistory("1h", 1500, interval === "1h" ? candles : []), safeHistory("4h", 1500, interval === "4h" ? candles : []), safeHistory("1day", 800, interval === "1day" ? candles : [])]);
     structureHistories = { H1: h1, H4: h4, D1: d1 };
   }
   const structure = structurePillar(structureHistories, candles);
   const [macro, positioning] = await Promise.all([demo ? Promise.resolve({ bias: "neutral", score: 0, confidence: 25, summary: "Preview macro context is neutral", evidence: ["Connect FRED for live macro evidence"], warnings: ["Demo context is not a live-market fact"] } as PillarResult) : fredFundamental(userId), cftcGoldPositioning(userId)]);
   const availableFundamentals = [macro, positioning].filter(item => item.bias !== "unavailable");
   const fundamental: PillarResult = availableFundamentals.length ? { bias: availableFundamentals.reduce((sum, item) => sum + item.score, 0) > 0 ? "bullish" : availableFundamentals.reduce((sum, item) => sum + item.score, 0) < 0 ? "bearish" : "neutral", score: availableFundamentals.reduce((sum, item) => sum + item.score, 0), confidence: Math.round(availableFundamentals.reduce((sum, item) => sum + item.confidence, 0) / availableFundamentals.length), summary: `${macro.summary}; ${positioning.summary}`, evidence: [...macro.evidence, ...positioning.evidence], warnings: [...macro.warnings, ...positioning.warnings] } : { bias: "unavailable", score: 0, confidence: 0, summary: "Macro and positioning data are unavailable", evidence: [], warnings: [...macro.warnings, ...positioning.warnings] };
-  const last = candles.at(-1)!; const parsed = Date.parse(last.time.replace(" ", "T") + (last.time.includes("Z") ? "" : "Z")); const freshnessWindow = Math.max(intervalMinutes[interval] * 3, 60) * 60_000; const fresh = demo || !Number.isFinite(parsed) || Date.now() - parsed < freshnessWindow;
-  return { symbol, interval, source, demo, asOf: last.time, currentPrice: last.close, candles, dataQuality: { price: demo ? "preview" : "reported", volume: volume.available ? demo ? "preview" : "reported" : "unavailable", macro: macro.bias === "unavailable" ? "unavailable" : demo ? "preview" : "reported", positioning: positioning.bias === "unavailable" ? "unavailable" : "official-weekly", structure: structure.levels.length ? demo ? "preview" : "reported-multi-timeframe" : "unavailable" }, fundamental, positioning, technical, volume, structure, decision: decide(fundamental, technical, volume, fresh, structure) };
+  const last = candles.at(-1)!; const parsed = Date.parse(last.time.replace(" ", "T") + (last.time.includes("Z") ? "" : "Z")); const freshnessWindow = Math.max(intervalMinutes[interval] * 3, 60) * 60_000; const fresh = !demo && Number.isFinite(parsed) && Date.now() >= parsed && Date.now() - parsed < freshnessWindow;
+  return { symbol, interval, source, demo, asOf: last.time, currentPrice: last.close, candles, dataQuality: { price: demo ? "preview" : fresh ? "reported" : "stale", volume: volume.available ? demo ? "preview" : "reported" : "unavailable", macro: macro.bias === "unavailable" ? "unavailable" : demo ? "preview" : "reported", positioning: positioning.bias === "unavailable" ? "unavailable" : "official-weekly", structure: structure.levels.length ? demo ? "preview" : "reported-multi-timeframe" : "unavailable" }, fundamental, positioning, technical, volume, structure, decision: decide(fundamental, technical, volume, fresh, structure) };
 }

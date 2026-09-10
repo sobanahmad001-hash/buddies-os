@@ -1,0 +1,88 @@
+# Trading Lab — verified database and deployment review
+
+This records the earlier manual milestone. The later chat/paper implementation, exact production approval scope and current deployment gates are maintained in [the chat/paper release record](TRADING_LAB_CHAT_PAPER_RELEASE.md).
+
+9 September 2026 · PR #17 · Status: approved production migration applied and verified; authenticated app acceptance pending.
+
+## Confirmed target
+
+- Existing project: **sobanahmad001-hash's Project**, AWS `ap-southeast-2`.
+- Supabase reference: `vzjpaptthqrohqnbhfvn`.
+- Project URL: `https://vzjpaptthqrohqnbhfvn.supabase.co`.
+- Observed state: `ACTIVE_HEALTHY`, Postgres 17.6.1.063.
+- Existing production migrations include `trading_lab_mvp` and `tradingview_alert_ingestion` (26 August 2026). No new project or replacement architecture is needed.
+- Vercel production environment variables have not been inspected. The project mapping is based on Soban's identification and the matching live Buddies schema.
+
+The read-only audit captured columns with exact precision, constraints, owner policies, grants, indexes and triggers for the ten relevant existing tables. No user records, credentials or trading results were exported. The test fixture is `scripts/fixtures/trading-live-schema.sql`. It substitutes text for two unused embedding columns and stubs external foreign-key targets; it does not validate vector search, authentication delivery or the browser.
+
+## Live compatibility fixes
+
+| Finding | Change |
+|---|---|
+| Shared verdicts are restricted to `enter`, `wait`, `do_not_enter` | Preserve this vocabulary. Keep exact Lab actions in existing `chosen_option` and immutable Lab snapshots. `REVIEW` and `WAIT` map to `wait`; `NO TRADE` maps to `do_not_enter`. Experiment `KEEP` maps to `enter`, `KILL` to `do_not_enter`, and `MODIFY`/`RETEST` to `wait`; none activates execution. |
+| Shared `predicted_probability` already exists | Populate and freeze it alongside `probability`; preserve zero and unknown. |
+| Journal requires `ladder_step` | Explicitly use 0 for a manual lifecycle outside ladder progression. |
+| Journal account types allow live/demo, not external | Require actual live/demo selection and freeze the sample's account type before collection. Other account types remain visible outside that sample. Legacy imports/quick entries with unknown account type use null. |
+| Journal prices and lots had four decimal places | Widen existing numeric columns to preserve precise fill averages and fractional quantities. Historical precision cannot be reconstructed. |
+| Shared lesson, behavior and violation fields differ from old repository baselines | Reuse `decision_lessons.decision_id`, behavior `trigger_tag` and violation `notes`. Trading behaviors do not become mood labels. Derive the lesson's domain through its shared decision. |
+| Shared outcome ratings exclude `unresolved` | Preserve null for unresolved prediction outcomes; do not record a failure. |
+
+## Approved and applied database change
+
+Migration name: `trading_lab_controlled_manual_samples`.
+
+Canonical SQL, in order:
+
+1. `docs/sql/trading_lab_pretrade.sql`
+2. `docs/sql/trading_lab_manual_workflow.sql`
+
+Reviewed source SHA-256 digests:
+
+```text
+pretrade: bdecfcd02b8a2dc95bcde51c9978503a2e20892046f8f41a72f1d2355ced3ef2
+manual:   eeb9843c35fa0ee3c44fc6a92ab3b5a7ffdfbb2f244eca129620fb7db7c39af4
+```
+
+Both bodies were applied in one transaction with a 5-second lock timeout and 90-second statement timeout after Soban explicitly approved. Supabase recorded migration `20260909234633_trading_lab_controlled_manual_samples`. The reviewed source digests above are unchanged. Repository CLI migration-history export/reconciliation remains a release task; do not reapply the migration merely to create a local filename.
+
+| Area | Scope and effect |
+|---|---|
+| Three new domain tables | `trading_experiments`, `trading_observation_sessions`, `trading_trade_events`; owned rows, explicit authenticated grants and RLS. No anonymous access. |
+| Existing trading records | Extend `trading_decisions`, `trading_entries` and `trading_strategy_versions` for shared-decision links, immutable snapshots, sample membership, precise accounting and retry identity. Add supporting indexes and foreign keys. |
+| Shared Buddies records | Add source decision/event links to existing lessons, behavior and violations. Compatibility `ADD COLUMN IF NOT EXISTS` statements preserve shared fields already present. Guard original predictions linked to locked plans and completed experiment review decisions. |
+| Shared memory and rules | Grant the operations needed by invoker functions, under existing owner RLS. Reviews write existing shared learning/memory tables atomically. No parallel learning store. |
+| Database functions | Capture a plan, save a strategy version, append a trade event, and finalize an experiment review. Functions use invoker privileges; triggers preserve evidence and synchronize shared records. |
+| Data preservation | No reset, truncation, deletion, historical prediction backfill, broker execution or automatic strategy approval. Once the feature is used, protected evidence intentionally resists update/delete. |
+
+Shared-table triggers and precision changes can acquire locks and affect writes to linked records. That is the production impact requiring explicit approval. If deployment fails during the transaction it must roll back; do not reset the database. If the app release later has a problem, return to the previous app release and preserve the database evidence rather than deleting new history.
+
+## Verification completed
+
+- 74 unit/API tests, TypeScript checks and optimized Next.js build passed. The local build used placeholder Supabase settings and does not prove production environment configuration.
+- Pre-trade and manual lifecycle SQL passed isolated PGlite 0.5.8 tests against both the repository baseline and the captured live structure. The manual workflow was applied twice in each isolated database to check repeatability.
+- Tests cover shared verdict mapping, immutable probabilities, version/protocol freeze, account-type separation, precise fills, protection changes, partial/final exits, gross/net costs, fixed-risk R, sample admission/overflow, event horizon, unresolved outcomes, lessons/rules/memory, amended reviews, atomic rollback, retries, stale revisions and cross-owner rejection.
+- Live security/performance advisors were read before any migration. Existing notices include redundant owner policies and indexes, unindexed foreign keys, public vector extension, an intentionally RLS-closed table, authenticated GraphQL schema discoverability, existing workspace definer functions, and disabled leaked-password protection. These were not silently changed as part of Trading Lab. Newly proposed tables have owner policies and indexes for their references. Post-migration advisors remain required.
+
+Advisor references: [RLS policies](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy), [GraphQL discoverability](https://supabase.com/docs/guides/database/database-linter?lint=0027_pg_graphql_authenticated_table_exposed), [definer functions](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable).
+
+## Approval history and remaining release gates
+
+The automatic approval reviewer rejected `apply_migration` for this production project because the user had not explicitly authorized this exact shared-table, privilege, trigger, function, index and RLS change. The action was not retried through another path. A subsequent migration-history read confirmed that the proposed migration is absent.
+
+Soban subsequently replied **approved**. The same reviewed migration applied successfully on 9 September 2026 and is recorded in remote migration history. The earlier block is resolved.
+
+1. Applied: migration `20260909234633`. Reconcile the repository CLI migration-history export before release.
+2. Verified: three new tables have RLS, authenticated owner predicates in USING and WITH CHECK, no anonymous SELECT and no authenticated TRUNCATE. Four RPCs are SECURITY INVOKER, callable by authenticated users, and denied to anonymous users. Read-only execution checks confirmed all four reject a missing user identity. Entry/exit prices and lot quantities use unrestricted numeric precision. Security/performance advisors were rerun: existing notices remain, with three expected new authenticated GraphQL schema-discovery notices for the new owner-protected tables. No new definer-function or missing-policy notices appeared.
+3. Confirm the existing Vercel environment points to this project and run an authenticated lifecycle acceptance check, including reload, a second user's isolation and mobile layout.
+4. Release PR #17 through the existing deployment after acceptance; the PR remains a draft until those checks pass.
+5. Define and approve the first real strategy/protocol before recording its sample.
+
+The branch preview at `https://buddies-os-git-codex-tradin-a28328-sobanahmad001-9513s-projects.vercel.app` is protected by Vercel login. The previous branch commit has a successful Vercel build status, but browser acceptance and the production app release are not complete. Do not disable deployment protection or send passwords/API secrets in chat to perform acceptance.
+
+## Signed-in preview check — 10 September 2026
+
+The secure Vercel and Buddies sign-in flows completed. The protected branch preview now opens `/app/trading-lab` under the signed-in account. Experiments renders the new protocol and live/demo controls; Execution renders locked-plan and recorded-trade selectors. Reload preserves signed-in access and Execution navigation. A desktop screenshot was inspected. No real strategy, experiment, trade or learning record was created by this check.
+
+Verified preview: https://buddies-os-git-codex-tradin-a28328-sobanahmad001-9513s-projects.vercel.app/app/trading-lab
+
+This resolves the preview sign-in blocker and provides authenticated read/navigation acceptance. Full authenticated write-lifecycle, second-user browser and mobile acceptance, repository CLI history export, and the production app release remain pending. The first real sample still requires Soban's strategy rules and explicit protocol approval.

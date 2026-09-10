@@ -1,5 +1,7 @@
 # Buddies OS Trading Lab execution reference
 
+Historical August plan. The September restart and current delivery direction are governed by [TRADING_LAB_REFERENCE.md](TRADING_LAB_REFERENCE.md) and its [chat/paper extension](TRADING_LAB_CHAT_AND_PAPER.md). Use those documents for current architecture, status and priorities; retain this file as earlier context.
+
 Status: approved for phased implementation on 2026-08-26.
 
 The complete product blueprint is stored at `output/pdf/buddies-os-trading-lab-blueprint.pdf`.

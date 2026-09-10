@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
 Decision: "${decision.context}"
 Verdict: ${decision.verdict}
 Predicted probability: ${decision.probability ?? "unknown"}%
-Outcome: ${decision.actual_outcome_bool ? "SUCCESS" : "FAILURE"}
+Outcome: ${decision.actual_outcome_bool == null ? "UNRESOLVED (do not infer success or failure)" : decision.actual_outcome_bool ? "SUCCESS" : "FAILURE"}
 Outcome rating: ${decision.outcome_rating}
 Actual outcome: ${decision.actual_outcome ?? "not recorded"}
 
