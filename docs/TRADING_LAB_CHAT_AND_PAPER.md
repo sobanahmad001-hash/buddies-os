@@ -2,7 +2,7 @@
 
 10 September 2026 · Implementation plan · Owner: Soban
 
-Status: this is the design baseline. The first implementation is committed locally on the review branch; public GitHub publication and production database deployment are blocked by automatic approval review. [The release record](TRADING_LAB_CHAT_PAPER_RELEASE.md) is authoritative for completed work, supported capabilities, exact approval scope and remaining acceptance. This extends [the working reference](TRADING_LAB_REFERENCE.md); it does not replace Buddies or the existing manual trade lifecycle.
+Status: this is the design baseline. The first implementation is published on the review branch; the approved production database and scheduled worker changes are deployed and live checks pass. [The release record](TRADING_LAB_CHAT_PAPER_RELEASE.md) is authoritative for completed work, supported capabilities, exact approval scope and remaining acceptance. This extends [the working reference](TRADING_LAB_REFERENCE.md); it does not replace Buddies or the existing manual trade lifecycle.
 
 ## Product decision
 

@@ -18,7 +18,7 @@ runInNewContext(compiled,{
   exports:{},Response,
   Deno:{env:{get:name=>env[name]},serve:fn=>{handler=fn;}},
   require:name=>{
-    if(name==='node:process')return {env:{}};
+    if(name==='node:process')return {env:new Proxy({}, {set(){throw new Error('Edge environment writes are forbidden');}})};
     if(name==='@supabase/supabase-js')return {createClient:(url,key)=>{assert.equal(url,env.SUPABASE_URL);assert.equal(key,env.SUPABASE_SERVICE_ROLE_KEY);return admin;}};
     if(name==='./worker.js')return {runPaperWorker:async(client)=>{workCalls++;assert.equal(client,admin);if(throwWorker)throw new Error('worker failed');return [];}};
     throw new Error('Unexpected worker import: '+name);

@@ -1,11 +1,8 @@
 // Custom bearer authentication is checked against a server-only hash before any work.
 // No user-supplied owner or run IDs are accepted by this scheduler endpoint.
 declare const Deno: {env:{get(name:string):string|undefined};serve(handler:(request:Request)=>Promise<Response>):void};
-import process from "node:process";
 import {createClient} from "@supabase/supabase-js";
 import {runPaperWorker} from "./worker.js";
-process.env.NEXT_PUBLIC_SUPABASE_URL=Deno.env.get("SUPABASE_URL");
-process.env.SUPABASE_SERVICE_ROLE_KEY=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 Deno.serve(async(req:Request)=>{
   if(req.method!=="POST")return new Response("Method not allowed",{status:405});
   const token=req.headers.get("authorization")?.replace(/^Bearer /,"")??"";

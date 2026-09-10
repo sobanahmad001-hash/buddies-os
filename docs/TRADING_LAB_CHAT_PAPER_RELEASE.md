@@ -2,7 +2,7 @@
 
 10 September 2026 · Build and acceptance record
 
-**Status: implemented and locally verified; public GitHub publication and production chat/paper deployment are blocked by automatic approval review.** The earlier manual database milestone remains deployed. The new shared chat columns and paper tables were confirmed absent after the rejected request. The implementation is committed locally; PR #17 and its preview still contain the earlier release. Browser acceptance is assigned to Soban and starts after publication and database deployment.
+**Status: source published, production database migrations applied, Edge worker deployed and live authentication/empty-cycle checks passed.** Soban explicitly approved publication and production changes. The branch preview build passed. Signed-in browser acceptance remains assigned to Soban; production frontend promotion follows that acceptance.
 
 ## Scope delivered
 
@@ -29,7 +29,7 @@ Historical replay runs use the same engine but do not create historical “pre-t
 
 ## Database and worker changes
 
-Canonical SQL is prepared in this order after the previously deployed manual milestone; none of these three new scripts is deployed yet:
+Canonical SQL was applied in this order after the previously deployed manual milestone:
 
 1. `docs/sql/trading_lab_chat.sql`: extend shared sessions/messages; guarded append/response/action receipts; shared usage writes.
 2. `docs/sql/trading_lab_paper.sql`: paper run/event and execution-pair records; shared account/journal/decision extensions; owner read policies and server-only execution; atomic lifecycle projection.
@@ -41,22 +41,18 @@ All application writes pass through the existing authenticated session or a cons
 
 Supabase CLI download was blocked by a cancelled network approval in this environment. Canonical SQL preserves the proposed change; remote migration history contains the earlier manual milestone. CLI-generated repository history reconciliation remains an administrative follow-up. No migration timestamp filename was invented.
 
-## Production approval scope
+## Approved production release scope
 
-Automatic approval review rejected `trading_lab_chat_and_paper_execution` on `vzjpaptthqrohqnbhfvn` because explicit approval for this exact production schema/security change and its shared-table impact was not established. No alternate execution path was attempted. A read-only check confirmed `trading_paper_runs` and `ai_sessions.lab_context` remain absent.
+Automatic approval review initially blocked public GitHub publication and production schema/security changes. Soban then explicitly approved both actions, including the scheduled paper worker. The reviewed implementation was published to the existing public review branch and both migrations applied successfully. No alternative path bypassed the earlier rejection.
 
-Automatic approval review also rejected publishing the GitHub tree to the existing public repository `sobanahmad001-hash/buddies-os`. Its stated reason was that explicit approval for public disclosure of the included project identifiers, URLs, schema/security details and worker infrastructure was not established. The branch was not updated through another path. The code contains no saved market-data key or generated worker bearer token; the new infrastructure documentation and schema would be public along with the implementation.
-
-Publication approval covers committing these reviewed source files and documentation to the existing review branch, updating draft PR #17, and allowing its normal Vercel preview build. Production approval covers the following database and worker release on Soban's identified Supabase project.
-
-The concrete pending release consists of:
+The approved release consists of:
 
 1. Apply the first two SQL files as migration `trading_lab_chat_and_paper_execution`, in one transaction with a five-second lock timeout and a 90-second statement timeout. It adds Lab context/revisions/drafts to shared AI sessions, message metadata/request ordering, guarded chat action/usage writes, paper run/event/pair tables, immutable execution provenance in the shared journal, and separate paper/broker outcomes in shared decisions. It adds owner policies, constrained service-only execution and invoker functions/triggers. Existing generic decision and manual execution paths remain covered by regression tests.
 2. Deploy Edge Function `trading-paper-worker` from the committed entrypoint and generated shared engine. Platform JWT verification is disabled for this endpoint because its custom bearer authentication must pass the server-only authorization function before any work. This is an internal scheduler endpoint and accepts no client-selected run/owner/price payload.
 3. Apply `trading_lab_paper_worker.sql`: enable Cron/network extensions, create the private worker-authentication hash and Vault token, and register `buddies-trading-paper-worker` every minute. It requests work only when an approved run is already active; it does not create or start a strategy. This enables background requests and their normal hosting/provider usage.
 4. Verify the deployed owner/security boundaries, denied unauthorized requests, scheduler configuration and one authenticated empty worker cycle. Then hand over the signed-in browser checklist. Production frontend promotion remains after browser acceptance.
 
-The material risk is applying new triggers/functions/security grants to the existing production AI session, decision and trading journal paths. The isolated live-schema tests cover these boundaries, but live migration/runtime verification is still pending. No broker execution, payment, subscription purchase or strategy activation is part of this deployment approval.
+The material risk is applying new triggers/functions/security grants to the existing production AI session, decision and trading journal paths. The isolated live-schema tests cover these boundaries, and live schema/permission checks plus worker authentication and an empty runtime cycle now pass. No broker execution, payment, subscription purchase or strategy activation is part of this deployment approval.
 
 ## Operational requirements and limits
 
@@ -85,10 +81,11 @@ Production frontend release follows this acceptance through the existing Buddies
 
 | Item | Verified state |
 |---|---|
-| New source | Committed locally; publishing to the public GitHub review branch was rejected by automatic approval review |
+| New source | Published to the existing review branch; app implementation commit `daca54e80f99be812efd17b3f3315c65d2f6abfd` passed Vercel deployment |
 | Earlier manual database milestone | Applied: `20260909234633_trading_lab_controlled_manual_samples` |
-| New chat/paper migration | Rejected by automatic approval review; read-only absence check passed |
-| Edge function and Cron job | Prepared and locally checked; deployment deferred with the database gate |
+| New chat/paper migration | Applied: `20260910140544_trading_lab_chat_and_paper_execution` |
+| Scheduler migration | Applied: `20260910140829_trading_lab_paper_worker`; named job active every minute |
+| Edge function | `trading-paper-worker` version 2 ACTIVE; runtime environment read mapping corrected; unauthorized HTTP 401 and authenticated empty-cycle HTTP 200 verified |
 | Forward market integration | No Twelve Data connector profile exists yet; no forward run started |
 | Signed-in browser acceptance | Assigned to Soban; not performed for this extension |
 | Production frontend promotion | Pending deployment and Soban's acceptance |
@@ -101,4 +98,10 @@ Reviewed source SHA-256 values:
 | `docs/sql/trading_lab_paper.sql` | `c19c3b8dcbfdd45495bd83fea08a9ac7c91ea2521ec4b9a7dbfcdead6e1c7faf` |
 | `docs/sql/trading_lab_paper_worker.sql` | `0fab2edf8021361e018963f8566f908b9a351a3b47d6352e4df9f172549a6d06` |
 
-Publication target: [draft PR #17](https://github.com/sobanahmad001-hash/buddies-os/pull/17), branch `codex/trading-lab-reference-and-pretrade`. The existing [Trading Lab preview](https://buddies-os-git-codex-tradin-a28328-sobanahmad001-9513s-projects.vercel.app/app/trading-lab) still reflects remote commit `de83f5f3e5f0f389a4aa629daeead96322effb27`, not this new implementation. A new compiled frontend alone cannot make the chat/paper features operational before the required database changes.
+Published handoff: [draft PR #17](https://github.com/sobanahmad001-hash/buddies-os/pull/17), branch `codex/trading-lab-reference-and-pretrade`. Open the updated [Trading Lab preview](https://buddies-os-git-codex-tradin-a28328-sobanahmad001-9513s-projects.vercel.app/app/trading-lab) for Soban's browser acceptance. The production frontend has not been promoted.
+
+Live checks confirm all three new public tables have RLS, no anonymous reads, and no authenticated direct inserts. `create_paper_run`, `commit_paper_event` and `authorize_paper_worker` allow service execution only; `lab_chat_write` allows authenticated owners. All four are SECURITY INVOKER. Invalid scheduler tokens return false. Worker requests 2 and 3 returned 401 and 200 (`ok: true`, empty results), respectively. No paper runs existed during this verification and no synthetic user records were written.
+
+The first Edge deployment failed before serving because it assigned runtime environment variables. Version 2 reads built-in Supabase variables through the generated bundle and does not rewrite protected environment values. The worker authentication regression harness now forbids environment writes. The regenerated bundle and TypeScript checks pass. Deployment package SHA-256: `de6e7e23939f2d542a5974fa9036dbf185aa6bd6b0a9088788068a29c84a7aca`.
+
+Security advisors were reviewed after deployment. The new private, service-only worker-auth table deliberately has no user policy (default deny); see [RLS policy advisory](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy). The three owner-readable paper tables are discoverable in authenticated GraphQL schema, with records restricted by RLS; see [GraphQL schema advisory](https://supabase.com/docs/guides/database/database-linter?lint=0027_pg_graphql_authenticated_table_exposed). Existing vector-schema, unrelated definer-function and leaked-password-protection notices remain outside this Trading Lab release. No new SECURITY DEFINER function was introduced.
