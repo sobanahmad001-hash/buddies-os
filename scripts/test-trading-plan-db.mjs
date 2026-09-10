@@ -62,7 +62,9 @@ const assessment = { mode: 'manual_assessment', verdict: 'WAIT' };
 const capture = async (value = plan, snapshot = definition) => (await db.query(
   'select public.capture_trading_plan($1,$2,$3,$4,$5) as result',
   [value.requestId, value.strategyVersionId, value, assessment, snapshot])).rows[0].result;
+plan.analysisEvidence = {schemaVersion:1,method:'manual_pretrade',...Object.fromEntries(['technical','volume','fundamental'].map(k=>[k,{stance:'supports',evidence:'Pre-trade fixture evidence',source:'Isolated fixture',asOf:plan.observedAt}]))};
 const saved = await capture();
+assert.deepEqual(saved.plan_snapshot.analysisEvidence, plan.analysisEvidence, "Analysis evidence persists in the immutable plan");
 assert.ok(saved.id && saved.buddies_decision_id && saved.locked_at);
 assert.equal(saved.strategy_version_id, versionId);
 assert.equal((await db.query('select probability from decisions where id = $1', [saved.buddies_decision_id])).rows[0].probability, 0);

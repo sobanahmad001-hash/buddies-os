@@ -1,6 +1,8 @@
 # Buddies OS — Trading Lab working reference
 
-Version 1.5 · 10 September 2026 · Owner: Soban
+Version 1.6 · 10 September 2026 · Owner: Soban
+
+Charts are a primary workspace. The latest [charts and analysis contribution extension](TRADING_LAB_ANALYSIS.md) adds visible indicators and pre-trade technical/volume/fundamental comparisons without replacing the strategy experiment or shared learning architecture.
 
 ## Purpose and architectural boundary
 
@@ -103,7 +105,7 @@ Update this section with each delivery; distinguish implemented, tested and depl
 - Chat/paper extension: persistent shared chat/actions, seven workspace tabs, deterministic paper/replay, durable worker, paired broker execution and shared outcome preservation are implemented. See `TRADING_LAB_CHAT_PAPER_RELEASE.md` for actual verification/deployment status and supported capabilities. The old demo selector keeps its external broker-demo meaning; dedicated paper experiments and execution provenance are explicit.
 - Review branch: `codex/trading-lab-reference-and-pretrade`, draft PR #17. Chat/paper source is published and the Vercel branch preview build passed. Soban owns browser acceptance.
 - Manual milestone implementation: strategy version creation/revisions; approved experiments; pre-trade capture; manual execution and partial/final exits; post-trade review; shared lessons/behavior/rules/memory; sample metrics and human review action.
-- Navigation now starts with Chat and includes Strategy, Implementation, Experiment, Paper Desk, Real Trades and Results & Learning. Existing charts, simulation, journal, strategy library and connectors remain under supporting tools.
+- Navigation now starts with Chat and includes Charts & Analysis, Strategy, Implementation, Experiment, Paper Desk, Real Trades and Results & Learning. Existing charts, simulation, journal, strategy library and connectors remain under supporting tools.
 - Exact version saves are atomic and retry-safe. Approving an experiment freezes its version and protocol before collecting evidence. No experiment or strategy is automatically approved by AI.
 - Event history is append-only and protected at the database boundary. Execution updates use an expected revision; stale edits and duplicate request identities are handled explicitly. Legacy quick-entry routes cannot bypass a locked plan's lifecycle.
 - Reviews write the journal, shared decision, lesson, behavior observations, linked rule violations and searchable `ai_memory_items` in one transaction. A failure rolls back the review; retrying does not duplicate learning. Review amendments preserve earlier events and supersede their retrieval memory.

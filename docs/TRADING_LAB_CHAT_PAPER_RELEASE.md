@@ -4,6 +4,8 @@
 
 **Status: source published, production database migrations applied, Edge worker deployed and live authentication/empty-cycle checks passed.** Soban explicitly approved publication and production changes. The branch preview build passed. Signed-in browser acceptance remains assigned to Soban; production frontend promotion follows that acceptance.
 
+The subsequent [charts and analysis contribution extension](TRADING_LAB_ANALYSIS.md) makes Charts & Analysis a primary tab and extends the same frozen plans and experiment results. Its verification and limits are recorded separately.
+
 ## Scope delivered
 
 Trading Lab remains a module in Buddies OS. This extension adds persistent shared AI conversations, exact action proposals and recoverable receipts, the seven workspace tabs, a deterministic paper/replay engine, a server worker, manual broker pairing and separate execution outcomes on the shared decision.

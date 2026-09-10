@@ -1,3 +1,4 @@
+import { analysisContribution } from "./analysis-evidence";
 import type { ExperimentProtocol } from "./experiment";
 import type { TradeReview } from "./lifecycle";
 
@@ -65,7 +66,7 @@ export function experimentMetrics(protocol: ExperimentProtocol, trades: LabTrade
   }
   const hours = observations.reduce((n, o) => n + (Date.parse(o.ended_at) - Date.parse(o.started_at)) / 3600_000, 0);
   const setups = observations.reduce((n, o) => n + o.qualifying_setups, 0), taken = observations.reduce((n, o) => n + o.taken_setups, 0);
-  return { schemaVersion: 1, target: protocol.targetSample, admitted: trades.length, closed: closed.length, open: trades.filter(t => t.status === "open").length,
+  return { analysisContribution: analysisContribution(trades), schemaVersion: 1, target: protocol.targetSample, admitted: trades.length, closed: closed.length, open: trades.filter(t => t.status === "open").length,
     checkpointReached: closed.length >= protocol.targetSample, evidenceStatus: "insufficient" as const,
     evidenceNote: "A completed sample is a review checkpoint. These descriptive results do not establish a strategy edge or causal behavior costs.",
     actual, strategyReference: performance(strategy.map(t => row(t, t.review_snapshot!.strategyReference.r!))),

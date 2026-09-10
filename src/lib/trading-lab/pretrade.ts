@@ -1,3 +1,4 @@
+import { analysisEvidenceSchema, analysisPillars } from "./analysis-evidence";
 import { z } from "zod";
 import type { StrategyVersion } from "./strategy-schema";
 
@@ -19,6 +20,7 @@ export const pretradeSchema = z.object({
   requestId: z.string().uuid(),
   strategyVersionId: z.string().uuid(),
   experimentId: z.string().uuid().nullable().optional(),
+  analysisEvidence: analysisEvidenceSchema.optional(),
   marketContext: z.object({
     higherTimeframe: z.string().trim().max(2000), structure: z.string().trim().max(2000),
     wyckoff: z.string().trim().max(2000), volume: z.string().trim().max(2000),
@@ -43,6 +45,10 @@ export const pretradeSchema = z.object({
   predictedProbability: z.number().int().min(0).max(100).nullable().default(null),
   assessments: z.record(z.string(), assessmentSchema),
 }).strict().superRefine((value, ctx) => {
+  if (value.analysisEvidence) for (const key of analysisPillars) {
+    const asOf = value.analysisEvidence[key].asOf;
+    if (asOf && Date.parse(asOf) > Date.parse(value.observedAt)) ctx.addIssue({ code: "custom", path: ["analysisEvidence", key, "asOf"], message: "Analysis must be available by the plan's evidence time." });
+  }
   const valid = value.direction === "long"
     ? value.stopLoss < value.entry && value.entry < value.takeProfit
     : value.takeProfit < value.entry && value.entry < value.stopLoss;
