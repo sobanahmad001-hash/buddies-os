@@ -1,6 +1,6 @@
 # Buddies OS — Trading Lab working reference
 
-Version 1.3 · 9 September 2026 · Owner: Soban
+Version 1.4 · 10 September 2026 · Owner: Soban
 
 ## Purpose and architectural boundary
 
@@ -8,13 +8,15 @@ Buddies OS is the central intelligence and operating system for trading, Anka Sp
 
 The operating loop is Context → Research → Decision → Execution → Outcome → Learning → Memory → Better Decision. The first milestone is one defined strategy, a controlled sample of manually executed trades, and an evidence-based review of strategy quality, execution quality and behavioral interference.
 
+On 10 September, Soban requested paper trading inside Trading Lab and chat as the main interface for the complete strategy workflow, with tabs showing agreed strategy, implementation and data. The next development phase adds those capabilities to the existing manual foundation. The concrete reuse audit, workspace, execution contracts and acceptance sequence are in [Trading Lab — chat workflow and paper trading](TRADING_LAB_CHAT_AND_PAPER.md). That extension is planned; it is not part of the already implemented manual milestone.
+
 Do not rebuild Buddies. Reuse shared decisions, projects, research, rules, violations, behavior, lessons, AI, ingestion and memory. Trading-specific records extend those capabilities. Preserve existing records and IDs; never invent historical predictions. Broker execution remains external. Candidate experiments and revisions require Soban's approval.
 
 ## Verified starting point
 
 Source audit: `main` at `87632e8dba6f3ee352dfcf1a60e3ddda4f26605b`, 28 August 2026. Existing Trading Lab has charts, market-analysis pillars, strategy chat, saved strategy versions, backtest calculations, ladder simulation and manual/CSV journaling. Generic Buddies learning components exist but are not fully connected to Lab.
 
-Soban identified the existing Supabase project as `sobanahmad001-hash's Project`, AWS `ap-southeast-2`, reference `vzjpaptthqrohqnbhfvn`. It is healthy and contains the existing Buddies and Lab infrastructure. The live catalog confirms shared outcome/lesson fields missing from old repository baselines and imposes additional verdict, account-type and precision constraints. These are now reconciled in the proposed implementation. See `TRADING_LAB_DEPLOYMENT.md` for exact scope and evidence. Production environment configuration and authenticated browser acceptance remain unverified.
+Soban identified the existing Supabase project as `sobanahmad001-hash's Project`, AWS `ap-southeast-2`, reference `vzjpaptthqrohqnbhfvn`. It is healthy and contains the existing Buddies and Lab infrastructure. The live catalog confirms shared outcome/lesson fields missing from old repository baselines and imposes additional verdict, account-type and precision constraints. These are reconciled in the manual implementation and applied database migration. See `TRADING_LAB_DEPLOYMENT.md` for exact scope and evidence. Authenticated branch-preview navigation and reload passed on 10 September; full write-lifecycle acceptance and production environment configuration verification remain pending.
 
 ## Reuse decisions
 
@@ -30,7 +32,8 @@ Soban identified the existing Supabase project as `sobanahmad001-hash's Project`
 | AI, research, sessions, ingestion, memory and search | REUSE and connect existing services |
 | Experiment analytics | EXTEND deterministic calculations and shared snapshot storage |
 | Counterfactual outcomes | NEW reproducible comparison capability with explicit uncertainty |
-| Discovery and automation | DEFER beyond the first manual sample |
+| Chat workflow and internal paper trading | EXTEND next, per the 10 September implementation plan |
+| Strategy discovery and live broker automation | DEFER beyond the controlled evidence workflow |
 
 ## Record contracts
 
@@ -88,15 +91,16 @@ Manual assessment is intentional: the initial form collects the user's evidence 
 
 The existing market-analysis route remains separate. New capture records use existing `trading_decisions` linked to `decisions`; no parallel decision engine or memory store is introduced. Historical Lab rows remain historical. Schema changes passed tests against a copy of the live structure. Following Soban's explicit approval, the reviewed migration was applied to production and its schema and access protections were verified.
 
-## Deferred stages
+## Updated progression
 
-Stage 1: manual Trading Lab. Stage 2: real-time Trading Copilot. Stage 3: paper automation and human/system comparison. Stage 4: controlled live automation for sufficiently evidenced strategies. No broker execution, autonomous activation, other-domain expansion or broad Buddies redesign belongs to this release.
+The original stages were manual Trading Lab, real-time Copilot, paper automation, then controlled live automation. Soban's 10 September direction brings chat with saved records, reliable paper execution and paper/broker comparison into the next development phase. Deliver persistent chat, a deterministic execution core and manual paper first, then supported rule-driven paper and paired broker review. Stronger setup detection and discovery follow evidence readiness. Controlled live broker execution remains later; experiment activation always requires approval of the exact version and protocol. Other-domain expansion and broad Buddies redesign remain outside scope.
 
 ## Work tracking
 
 Update this section with each delivery; distinguish implemented, tested and deployed.
 
 - Audit: complete against the source commit above; the restart brief governs scope.
+- Chat/paper extension: implementation plan recorded on 10 September in `TRADING_LAB_CHAT_AND_PAPER.md`. The existing builder is not yet persistent or connected to the whole strategy workflow; the existing demo account selector is manual broker-demo recording, not an internal paper engine. This documentation update does not implement those features.
 - Review branch: `codex/trading-lab-reference-and-pretrade`, draft PR #17.
 - Manual milestone implementation: strategy version creation/revisions; approved experiments; pre-trade capture; manual execution and partial/final exits; post-trade review; shared lessons/behavior/rules/memory; sample metrics and human review action.
 - Main navigation now starts with Experiments and Execution. Existing research, builder chat, simulation and historical journal remain available.
@@ -110,8 +114,8 @@ Update this section with each delivery; distinguish implemented, tested and depl
 - Verification: 74 unit/API tests; TypeScript; optimized Next.js build using placeholder local Supabase configuration; isolated PGlite 0.5.8 tests using existing migration table definitions and owner policies. Database checks include version freeze/revisions, atomic lifecycle and learning, sample admission/overflow, partial fills, gross/net accounting, probability horizon, coverage overlap, retries, optimistic concurrency, rollback and cross-owner rejection.
 - SQL scripts: `scripts/test-trading-plan-db.mjs` and `scripts/test-trading-manual-db.mjs`. Supply externally installed `@electric-sql/pglite@0.5.8` through `BUDDIES_PGLITE_MODULE`. Tests now default to the captured live catalog fixture; `BUDDIES_TEST_SCHEMA=repository` uses the older repository definitions. Both baselines passed. No production dependencies or lockfile changes.
 - Compatibility fixes preserve generic verdicts and exact Lab actions, shared predicted probability, unknown outcome ratings, real behavior trigger fields, existing violation notes, valid live/demo account types and precise fill averages. A declared live sample cannot count demo executions. Test data exists only in isolated databases.
-- UI fixture harness: `scripts/preview-trading-manual.mjs`, using optional `esbuild@0.25.10` through `BUDDIES_ESBUILD_MODULE`. It renders actual components with synthetic, schema-validated mock responses and has no account credentials. It compiled and served, but the cloud browser rejected the localhost connection. Desktop/mobile visual and authenticated browser acceptance remain pending.
-- Deployed status: production database migration applied; production app release pending. Vercel reported the preceding PR commit successfully built a branch preview, but the preview redirects to Vercel login. Updated code remains in the existing review branch. Authenticated desktop/mobile acceptance and app release remain pending.
+- UI fixture harness: `scripts/preview-trading-manual.mjs`, using optional `esbuild@0.25.10` through `BUDDIES_ESBUILD_MODULE`. It renders actual components with synthetic, schema-validated mock responses and has no account credentials. It compiled and served, but the cloud browser rejected the localhost connection. The authenticated Vercel preview subsequently provided desktop visual and navigation acceptance; full write-lifecycle and mobile checks remain pending.
+- Deployed status: production database migration applied; production app release pending. Vercel and Buddies sign-in succeeded on 10 September. Experiments/Execution navigation and reload passed in the signed-in branch preview; desktop layout was inspected. Updated code remains in the existing review branch. Full write-lifecycle, mobile and second-user browser acceptance and app release remain pending.
 - First strategy/protocol: Soban must define and approve it before starting the sample. Older preferences are not silently adopted as current trading rules.
 
 ## Manual release boundaries
@@ -125,7 +129,7 @@ Update this section with each delivery; distinguish implemented, tested and depl
 - Session observations include zero-setup periods, manually counted qualifying/taken opportunities and missed-setup reasons. Overlapping coverage is rejected. These counts are explicitly manual and are not automatically reconciled with an external market feed.
 - A reference gap or a behavioral group's associated P&L is not an attributable financial cost. Groups may overlap. Counterfactual simulation, automatic condition ablation and causal attribution remain future work.
 - A sample checkpoint and KEEP/MODIFY/RETEST/KILL action do not establish an edge. This release reports descriptive evidence as insufficient for a conclusive edge claim; a further statistical validation protocol remains necessary.
-- Existing Strategy Builder chat persistence, automated AI post-trade explanations and simulator repairs remain follow-up work. The simulator has an explicit limitations notice and is excluded from manual-sample validation.
+- Existing Strategy Builder chat persistence, automated AI post-trade explanations and simulator repairs remain follow-up work. The simulator has an explicit limitations notice and is excluded from manual-sample validation. The chat/paper extension now specifies the next delivery sequence and does not change this release boundary.
 
 ## Live acceptance sequence
 
