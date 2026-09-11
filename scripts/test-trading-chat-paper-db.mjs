@@ -7,7 +7,7 @@ const {PGlite}=await import(process.env.BUDDIES_PGLITE_MODULE||'@electric-sql/pg
 const db=new PGlite();const root=fileURLToPath(new URL('../',import.meta.url));const sql=async p=>readFile(root+p,'utf8');
 await db.exec(await sql('scripts/fixtures/trading-live-schema.sql'));
 await db.exec(`create role service_role bypassrls;grant usage on schema auth to service_role;
-create table ai_sessions(id uuid primary key default gen_random_uuid(),user_id uuid references auth.users(id),title text,messages jsonb not null default '[]',created_at timestamptz default now(),updated_at timestamptz default now(),message_count integer default 0,archived boolean default false,last_message_at timestamptz,agent_type text default 'main');
+create table ai_sessions(id uuid primary key default gen_random_uuid(),user_id uuid references auth.users(id),title text,messages jsonb not null default '[]',created_at timestamptz default now(),updated_at timestamptz default now(),message_count integer default 0,archived boolean default false,last_message_at timestamptz,agent_type text default 'main' constraint ai_sessions_agent_type_check check(agent_type in ('main','coding_agent')));
 create table ai_messages(id uuid primary key default gen_random_uuid(),user_id uuid not null references auth.users(id),session_id uuid not null references ai_sessions(id) on delete cascade,role text not null check(role in ('user','assistant','system')),content text not null,created_at timestamptz default now());
 create table ai_usage(id uuid primary key default gen_random_uuid(),user_id uuid,model text,input_tokens integer,output_tokens integer,cost_usd numeric,message_type text,session_id uuid);grant select,insert on ai_usage to authenticated;
 create table trading_accounts(id uuid primary key default gen_random_uuid(),user_id uuid not null references auth.users(id),broker text,account_number text not null,account_type text check(account_type in ('live','demo')),server text,currency text,balance numeric,equity numeric,margin numeric,is_active boolean,created_at timestamptz default now(),last_synced_at timestamptz,unique(user_id,account_number));
@@ -23,6 +23,14 @@ const login=async(role,id)=>{await db.exec('reset role');await db.query("select 
 await login('authenticated',owner);
 const chat=async(phase,payload={},revision=0,request=turn,session=sid)=>(await db.query('select lab_chat_write($1,$2,$3,$4,$5) r',[session,request,revision,phase,payload])).rows[0].r;
 const prompt={prompt:'Define the test strategy',context:{strategyId:null,strategyVersionId:null,experimentId:null,paperRunId:null}};
+// Reproduce the production failure with the actual legacy constraint, then repair it.
+await assert.rejects(chat('begin',prompt),/ai_sessions_agent_type_check/);
+assert.equal((await db.query('select count(*) n from ai_sessions where id=$1',[sid])).rows[0].n,0);
+await db.exec('reset role');
+await db.exec(await sql('supabase/migrations/20260911000100_trading_lab_chat_agent_type.sql'));
+await login('authenticated',owner);
+for(const agentType of ['main','coding_agent']) await db.query('insert into ai_sessions(user_id,agent_type) values($1,$2)',[owner,agentType]);
+await assert.rejects(db.query("insert into ai_sessions(user_id,agent_type) values($1,'unknown_agent')",[owner]),/ai_sessions_agent_type_check/);
 let r=await chat('begin',prompt);assert.equal(r.session.lab_revision,2);assert.equal(r.message.metadata.status,'pending');
 assert.equal((await chat('begin',prompt)).message.id,r.message.id);
 await assert.rejects(chat('begin',{...prompt,prompt:'different'}),/different message/);
