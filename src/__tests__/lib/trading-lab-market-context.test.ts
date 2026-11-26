@@ -33,5 +33,13 @@ test('a missing chart feed is unavailable in provider mode and explicit in previ
   await expect(getLabSnapshot('test', 'XAU/USD', false, '15min')).rejects.toThrow('No historical-bar connector');
   const preview = await getLabSnapshot('test', 'XAU/USD', true, '15min');
   expect(preview.demo).toBe(true);
+  expect(preview.feedStatus).toBe('unconfigured');
   expect(preview.dataQuality.price).toBe('preview');
+});
+
+test('a configured feed with no usable candles is identified separately from missing configuration', async () => {
+  provider([]);
+  const snapshot = await getLabSnapshot('test', 'XAU/USD', true, '15min');
+  expect(snapshot.feedStatus).toBe('unavailable');
+  expect(snapshot.dataQuality.price).toBe('preview');
 });
