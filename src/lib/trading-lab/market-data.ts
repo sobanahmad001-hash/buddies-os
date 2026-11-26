@@ -67,7 +67,14 @@ async function cftcGoldPositioning(userId: string): Promise<PillarResult & { asO
 export async function getLabSnapshot(userId: string, symbol = "XAU/USD", allowDemo = true, requestedInterval: unknown = "1h") {
   const interval = normalizeLabInterval(requestedInterval);
   let candles: LabCandle[] | null = null; let source = "Twelve Data"; let demo = false;
-  try { candles = await twelveDataCandles(userId, symbol, interval); } catch (error) { if (!allowDemo) throw error; }
+  let feedStatus: "reported" | "unconfigured" | "unavailable" = "reported";
+  try {
+    candles = await twelveDataCandles(userId, symbol, interval);
+    if (!candles) feedStatus = "unconfigured";
+  } catch (error) {
+    if (!allowDemo) throw error;
+    feedStatus = "unavailable";
+  }
   if (!candles) { if (!allowDemo) throw new Error("No historical-bar connector is configured"); candles = demoCandles(220, intervalMinutes[interval]); source = "Built-in deterministic preview dataset"; demo = true; }
   const retrievedAt = new Date().toISOString();
   const technical = technicalPillar(candles); const volume = volumePillar(candles);
@@ -91,5 +98,5 @@ export async function getLabSnapshot(userId: string, symbol = "XAU/USD", allowDe
   // cannot distinguish a closed market from delayed or missing provider data.
   const fresh = !demo && ageAtEvaluationMs >= 0 && ageAtEvaluationMs < intervalMs;
   const lastBarClosedAt = new Date(closeTime).toISOString();
-  return { symbol, interval, source, demo, retrievedAt, lastBarClosedAt, asOf: last.time, currentPrice: last.close, candles, dataQuality: { price: demo ? "preview" : fresh ? "reported" : "stale", volume: volume.available ? demo ? "preview" : "reported" : "unavailable", macro: macro.bias === "unavailable" ? "unavailable" : demo ? "preview" : "reported", positioning: positioning.bias === "unavailable" ? "unavailable" : "official-weekly", structure: structure.levels.length ? demo ? "preview" : "reported-multi-timeframe" : "unavailable" }, fundamental, positioning, technical, volume, structure, decision: decide(fundamental, technical, volume, fresh, structure) };
+  return { symbol, interval, source, demo, feedStatus, retrievedAt, lastBarClosedAt, asOf: last.time, currentPrice: last.close, candles, dataQuality: { price: demo ? "preview" : fresh ? "reported" : "stale", volume: volume.available ? demo ? "preview" : "reported" : "unavailable", macro: macro.bias === "unavailable" ? "unavailable" : demo ? "preview" : "reported", positioning: positioning.bias === "unavailable" ? "unavailable" : "official-weekly", structure: structure.levels.length ? demo ? "preview" : "reported-multi-timeframe" : "unavailable" }, fundamental, positioning, technical, volume, structure, decision: decide(fundamental, technical, volume, fresh, structure) };
 }
