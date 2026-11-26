@@ -71,6 +71,34 @@ export async function POST(req:NextRequest) {
   const begun=await write("begin",{prompt:input.prompt,context:{...input.context,research:input.research}});
   if(begun.error){const e=dbError(begun.error);return NextResponse.json({error:e.error},{status:e.status});}
   if(begun.data?.message?.metadata?.status!=="pending")return NextResponse.json(begun.data);
+  // Observation notes are saved user messages. Keep their evidence verbatim.
+  const note = /^(?:QA observation|Save observation) (TL-[0-9]+)[.:] +\S/i.exec(input.prompt);
+  const lookup = /^(?:look up|retrieve|recall|show)(?: my)?(?: saved)?(?: observation)?\s+(TL-[0-9]+)\b/i.exec(input.prompt.trim());
+  if (note || lookup) {
+    let content: string;
+    let sourceSession: string | undefined;
+    if (note) {
+      content = `Saved observation ${note[1].toUpperCase()} with its original message.`;
+      sourceSession = input.sessionId;
+    } else {
+      const label = lookup![1].toUpperCase();
+      const patterns = ["QA observation", "Save observation"].flatMap(prefix =>
+        [".", ":"].map(separator => `content.ilike.${prefix} ${label}${separator} *`));
+      const rows = await db.from("ai_messages")
+        .select("content,session_id,ai_sessions!inner(agent_type,user_id)")
+        .eq("user_id",user.id).eq("role","user").eq("ai_sessions.agent_type","trading_lab")
+        .eq("ai_sessions.user_id",user.id).or(patterns.join(",")).limit(2);
+      if (rows.error) return NextResponse.json({error:"Observation lookup failed. Retry this request."},{status:503});
+      const records = rows.data ?? [];
+      content = records.length === 1 ? records[0].content :
+        records.length ? `Multiple saved notes use ${label}. Open the source conversation to disambiguate.` :
+        `No saved observation found for ${label}.`;
+      if (records.length === 1) sourceSession = records[0].session_id;
+    }
+    const saved = await write("complete",{status:"ready",content,sourceSession});
+    if (saved.error) {const e=dbError(saved.error);return NextResponse.json({error:e.error},{status:e.status});}
+    return NextResponse.json(saved.data);
+  }
   let payload:any;
   try {
     const context:any=await contextFor(db,user.id,input.context);
