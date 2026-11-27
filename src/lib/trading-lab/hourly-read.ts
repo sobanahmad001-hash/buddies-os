@@ -82,6 +82,10 @@ export function hourlyRead(bars: Bar[]) {
   const mean=peers.length>=3 && peers.every(b=>b.volume!==null&&b.volume>0) ? peers.reduce((sum,b)=>sum+Number(b.volume),0)/peers.length : 0;
   const relative=mean && last.volume!==null && last.volume>0 ? last.volume/mean : null;
   const spread=last.high-last.low;
-  const levelMap = trackedLevel(bars);
+  const tracked = trackedLevel(bars);
+  const upperLevels = [...highs,ceiling].filter(value => value > Math.max(tracked.pivot,last.close));
+  const lowerLevels = [...lows,floor].filter(value => value < Math.min(tracked.pivot,last.close));
+  const levelMap = {...tracked, above: upperLevels.length ? Math.min(...upperLevels) : null,
+    below: lowerLevels.length ? Math.max(...lowerLevels) : null};
   return {levelMap,regime,floor,ceiling,highs:highs.slice(-2),lows:lows.slice(-2),slope,atr,spread,relative,peerCount:peers.length,location:spread?(last.close-last.low)/spread:null};
 }
