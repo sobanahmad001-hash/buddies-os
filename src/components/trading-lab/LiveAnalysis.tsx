@@ -1,7 +1,14 @@
 "use client";
 import { hourlyRead } from "@/lib/trading-lab/hourly-read";
+import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 export default function LiveAnalysis({snapshot,decision,busy,onRefresh,onConnect}:{snapshot:any;decision:any;busy:boolean;onRefresh:()=>void;onConnect:()=>void}) {
+  const [eventTime,setEventTime]=useState("");
+  const eventMs=Date.parse(eventTime+"Z");
+  const hour=3600000;
+  const anchor=Math.floor(eventMs/hour)*hour;
+  const after=Math.ceil(eventMs/hour)*hour;
+  const points=[["Pre-release close",anchor-hour],["First full post-release close",after],["Three full hours after release",after+2*hour]] as const;
   const news=decision?.news;
   const hourly = snapshot?.interval === "1h";
   const read = hourly && !snapshot.demo ? hourlyRead(snapshot.candles ?? []) : null;
@@ -17,6 +24,12 @@ export default function LiveAnalysis({snapshot,decision,busy,onRefresh,onConnect
       <p className="text-xs text-muted">{snapshot.source} · closed {snapshot.lastBarClosedAt} · retrieved {snapshot.retrievedAt}. Spot volume coverage depends on the provider.</p>
     </article>}
     <div className="grid gap-3 lg:grid-cols-3">{[["Technical",snapshot?.technical],["Volume / Wyckoff",snapshot?.volume],["Fundamental / macro",snapshot?.fundamental]].map(([label,data]:any)=><article key={label} className="rounded-xl border border-line bg-canvas p-4"><h3 className="font-bold">{label}</h3><p className="mt-2 text-sm">{data?.summary??"Waiting for source data"}</p><ul className="mt-3 space-y-1 text-xs text-muted">{data?.evidence?.map((x:string)=><li key={x}>{x}</li>)}</ul>{data?.warnings?.map((x:string)=><p key={x} className="mt-2 text-xs text-amber-600">{x}</p>)}</article>)}</div>
+    {read && <section className="rounded-xl border border-line p-4"><h3 className="font-bold">Trace a published release</h3>
+      <label className="mt-2 block text-sm">Release time (UTC) <input type="datetime-local" value={eventTime} onChange={e=>setEventTime(e.target.value)} /></label>
+      {Number.isFinite(eventMs) && <ul className="mt-3 text-sm">{points.map(([label,start])=>{
+        const bar=snapshot.candles.find((b:{time:string})=>Date.parse(/Z$|[+-]\\d\\d:\\d\\d$/.test(b.time)?b.time:b.time.replace(" ","T")+"Z")===start);
+        return <li key={label}>{label} · {new Date(start+hour).toISOString()} · {bar ? bar.close : "No completed candle available"}</li>;
+      })}</ul>}</section>}
     <section className="rounded-xl border border-line p-4"><h3 className="font-bold">Weekly events and observed reactions</h3>{!news&&<p className="mt-2 text-sm text-muted">Press Refresh news + market analysis to search current sources and compare them with technical and volume evidence. The macro panel above alone is not live news.</p>}{news?.status==="unavailable"&&<p role="alert" className="mt-2 text-sm text-amber-600">{news.error}</p>}{news?.status==="available"&&<><p className="mt-2 text-xs text-muted">Research completed {news.completedAt} · market candle {news.marketAsOf??"unavailable"}. Retrieval time is not article publication time.</p><div className="mt-4 space-y-3 text-sm leading-6"><ReactMarkdown>{news.reply}</ReactMarkdown></div><ul className="mt-4 space-y-2 text-xs">{news.citations.map((c:any)=><li key={c.url}><a href={c.url} target="_blank" rel="noreferrer" className="text-accent underline">{c.title}</a></li>)}</ul><p className="mt-3 text-xs text-muted">Source-backed research includes interpretation. Check source publication times and the evidence before forming a hypothesis.</p></>}</section>
     {decision?.persistenceWarning&&<p role="alert" className="text-sm text-amber-600">{decision.persistenceWarning}</p>}
     {decision?.decisionId&&<p className="text-xs text-muted">Analysis snapshot saved. This is an observation, not an approved pre-trade plan.</p>}
