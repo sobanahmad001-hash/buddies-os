@@ -5,6 +5,56 @@ function utcHour(time: string) {
   return new Date(/Z$|[+-]\d\d:\d\d$/.test(iso) ? iso : iso + "Z").getUTCHours();
 }
 
+// A test remains active for its signal candle and six later completed bars.
+function trackedLevel(bars: Bar[]) {
+  let pivot = 0, resistance = true, tested = -1, broken = false, held = false;
+  let stage = "", evidence = "", outlook = "", invalidation = "";
+  for (let i = 20; i < bars.length; i++) {
+    const bar = bars[i];
+    if (tested < 0 || i - tested > 6) {
+      const prior = bars.slice(i - 20, i);
+      const high = Math.max(...prior.map(b => b.high));
+      const low = Math.min(...prior.map(b => b.low));
+      const hitsHigh = bar.high >= high, hitsLow = bar.low <= low;
+      tested = -1; broken = false; held = false;
+      resistance = Math.abs(bar.close-high) <= Math.abs(bar.close-low);
+      if (hitsHigh !== hitsLow) resistance = hitsHigh;
+      pivot = resistance ? high : low;
+      if (hitsHigh && hitsLow && bar.close <= high && bar.close >= low) {
+        stage = "Both sides tested"; evidence = "The candle touched both boundaries and closed inside.";
+        outlook = "Direction unresolved."; invalidation = "Watch for a close outside either boundary."; continue;
+      }
+      if (!hitsLow && !hitsHigh) {
+        stage = "Awaiting test"; evidence = "The latest candle stayed inside the preceding 20-bar range.";
+        outlook = "Neither direction has confirmation."; invalidation = "Reassess on a boundary test."; continue;
+      }
+      tested = i;
+    }
+    const outside = resistance ? bar.close > pivot : bar.close < pivot;
+    const inside = resistance ? bar.close < pivot : bar.close > pivot;
+    const touched = bar.low <= pivot && bar.high >= pivot;
+    const side = resistance ? "above" : "below", back = resistance ? "below" : "above";
+    evidence = `Hourly bar opened ${bar.time} · high ${bar.high.toFixed(2)}, low ${bar.low.toFixed(2)}, close ${bar.close.toFixed(2)}.`;
+    if (outside) {
+      held = held || (broken && touched);
+      stage = held ? "Retest held" : "Breakout candidate";
+      outlook = held ? `The original level held on a later test. This supports ${resistance ? "upward" : "downward"} continuation.` : `Price closed ${side} the level. A later retest is still needed.`;
+      invalidation = `An hourly close ${back} the original level weakens continuation.`;
+      broken = true;
+    } else if (inside) {
+      stage = broken ? "Breakout failed" : touched || i === tested ? "Rejected at level" : "Inside after test";
+      outlook = "The close favors rotation inside the prior range.";
+      invalidation = `An hourly close ${side} the original level reopens the breakout scenario.`;
+      broken = false; held = false;
+    } else {
+      stage = "Testing level"; outlook = "The close is on the boundary. Direction is unresolved.";
+      invalidation = "Watch the next completed close.";
+    }
+  }
+  return {pivot,boundary:resistance ? "prior 20-bar high" : "prior 20-bar low",stage,evidence,outlook,invalidation,
+    testedAt:tested >= 0 ? bars[tested].time : null};
+}
+
 export function hourlyRead(bars: Bar[]) {
   if (bars.length < 30) return null;
   const last = bars[bars.length - 1];
@@ -32,19 +82,6 @@ export function hourlyRead(bars: Bar[]) {
   const mean=peers.length>=3 && peers.every(b=>b.volume!==null&&b.volume>0) ? peers.reduce((sum,b)=>sum+Number(b.volume),0)/peers.length : 0;
   const relative=mean && last.volume!==null && last.volume>0 ? last.volume/mean : null;
   const spread=last.high-last.low;
-  // Freeze levels before the signal candle so its own extremes cannot move the trigger.
-  const inside = last.close >= floor && last.close <= ceiling;
-  const pivot = Math.abs(last.close - ceiling) <= Math.abs(last.close - floor) ? ceiling : floor;
-  const nextAbove = [...highs, ceiling].filter(level => level > Math.max(pivot, last.close));
-  const nextBelow = [...lows, floor].filter(level => level < Math.min(pivot, last.close));
-  const levelMap = {
-    pivot, boundary: pivot === ceiling ? "prior 20-bar high" : "prior 20-bar low",
-    stage: !inside ? (last.close > ceiling ? "Closed above resistance" : "Closed below support")
-      : last.high > ceiling && last.low < floor ? "Tested both boundaries and closed inside"
-      : last.high > ceiling ? "Upside break rejected"
-      : last.low < floor ? "Downside break rejected" : "Inside prior boundaries",
-    above: nextAbove.length ? Math.min(...nextAbove) : null,
-    below: nextBelow.length ? Math.max(...nextBelow) : null
-  };
+  const levelMap = trackedLevel(bars);
   return {levelMap,regime,floor,ceiling,highs:highs.slice(-2),lows:lows.slice(-2),slope,atr,spread,relative,peerCount:peers.length,location:spread?(last.close-last.low)/spread:null};
 }
