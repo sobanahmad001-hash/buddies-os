@@ -4,7 +4,7 @@ import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 export default function LiveAnalysis({snapshot,decision,busy,onRefresh,onConnect}:{snapshot:any;decision:any;busy:boolean;onRefresh:()=>void;onConnect:()=>void}) {
   const [eventTime,setEventTime]=useState("");
-  const eventMs=Date.parse(eventTime+"Z");
+  const eventMs=Date.parse(eventTime.trim().replace(" ","T")+"Z");
   const hour=3600000;
   const anchor=Math.floor(eventMs/hour)*hour;
   const after=Math.ceil(eventMs/hour)*hour;
@@ -25,7 +25,7 @@ export default function LiveAnalysis({snapshot,decision,busy,onRefresh,onConnect
     </article>}
     <div className="grid gap-3 lg:grid-cols-3">{[["Technical",snapshot?.technical],["Volume / Wyckoff",snapshot?.volume],["Fundamental / macro",snapshot?.fundamental]].map(([label,data]:any)=><article key={label} className="rounded-xl border border-line bg-canvas p-4"><h3 className="font-bold">{label}</h3><p className="mt-2 text-sm">{data?.summary??"Waiting for source data"}</p><ul className="mt-3 space-y-1 text-xs text-muted">{data?.evidence?.map((x:string)=><li key={x}>{x}</li>)}</ul>{data?.warnings?.map((x:string)=><p key={x} className="mt-2 text-xs text-amber-600">{x}</p>)}</article>)}</div>
     {read && <section className="rounded-xl border border-line p-4"><h3 className="font-bold">Trace a published release</h3>
-      <label className="mt-2 block text-sm">Release time (UTC) <input type="datetime-local" value={eventTime} onChange={e=>setEventTime(e.target.value)} /></label>
+      <label className="mt-2 block text-sm">Release time (UTC) <input type="text" placeholder="YYYY-MM-DD HH:mm" value={eventTime} onChange={e=>setEventTime(e.target.value)} /></label>
       {Number.isFinite(eventMs) && <ul className="mt-3 text-sm">{points.map(([label,start])=>{
         const bar=snapshot.candles.find((b:{time:string})=>Date.parse(/Z$|[+-]\\d\\d:\\d\\d$/.test(b.time)?b.time:b.time.replace(" ","T")+"Z")===start);
         return <li key={label}>{label} · {new Date(start+hour).toISOString()} · {bar ? bar.close : "No completed candle available"}</li>;
