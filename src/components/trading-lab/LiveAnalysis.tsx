@@ -22,6 +22,7 @@ export default function LiveAnalysis({snapshot,decision,busy,onRefresh,onConnect
       <h3 className="pt-2 font-bold">Level to watch · {read.levelMap.pivot.toFixed(2)}</h3>
       <p><strong>{read.levelMap.stage}</strong> · {read.levelMap.boundary}. {read.levelMap.testedAt && `First tested on the bar opening ${read.levelMap.testedAt}. The reference stays fixed for six subsequent bars.`}</p>
       <p>{read.levelMap.evidence}</p>
+      <p>Next observed levels · above {read.levelMap.above?.toFixed(2) ?? "unavailable"} · below {read.levelMap.below?.toFixed(2) ?? "unavailable"}</p>
       <p>{read.levelMap.outlook} {read.levelMap.invalidation}</p>
       {read.relative === null && <p className="text-sm text-muted">Volume confirmation unavailable.</p>}
       <h3 className="pt-2 font-bold">Volume spread analysis</h3>
