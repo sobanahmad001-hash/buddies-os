@@ -19,6 +19,10 @@ export default function LiveAnalysis({snapshot,decision,busy,onRefresh,onConnect
       <h3 className="font-bold">Hourly structure and activity</h3>
       <p>Last two confirmed swing highs: {read.highs.join(" → ") || "unavailable"}. Swing lows: {read.lows.join(" → ") || "unavailable"}. Pivots require two later candles.</p>
       <p>Prior 20-hour low and high: {read.floor} – {read.ceiling}. EMA(20) change: {read.slope.toFixed(2)} USD per ounce. ATR(14): {read.atr.toFixed(2)} USD per ounce.</p>
+      <h3 className="pt-2 font-bold">Level to watch · {read.levelMap.pivot.toFixed(2)}</h3>
+      <p>{read.levelMap.stage}. Reference: {read.levelMap.boundary}, measured before the latest completed candle.</p>
+      <p><strong>Above:</strong> If hourly closes hold above {read.levelMap.pivot.toFixed(2)}, watch for {read.levelMap.above === null ? "upward continuation. No higher confirmed reference is visible in this history" : `a test of ${read.levelMap.above.toFixed(2)}, the next higher observed level`}. A close back below the reference weakens this scenario.</p>
+      <p><strong>Below:</strong> If hourly closes hold below {read.levelMap.pivot.toFixed(2)}, watch for {read.levelMap.below === null ? "downward continuation. No lower confirmed reference is visible in this history" : `a test of ${read.levelMap.below.toFixed(2)}, the next lower observed level`}. A close back above the reference weakens this scenario.</p>
       <h3 className="pt-2 font-bold">Volume spread analysis</h3>
       <p>{read.relative === null ? "Comparable-hour volume unavailable." : `Reported volume was ${read.relative.toFixed(2)}× the average of ${read.peerCount} prior bars at this UTC hour.`} Candle spread: {read.spread.toFixed(2)}. {read.location !== null && `Close at ${Math.round(read.location*100)}% of the low-to-high range.`}</p>
       <p className="text-xs text-muted">{snapshot.source} · closed {snapshot.lastBarClosedAt} · retrieved {snapshot.retrievedAt}. Spot volume coverage depends on the provider.</p>
