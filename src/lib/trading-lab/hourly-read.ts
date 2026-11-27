@@ -32,5 +32,19 @@ export function hourlyRead(bars: Bar[]) {
   const mean=peers.length>=3 && peers.every(b=>b.volume!==null&&b.volume>0) ? peers.reduce((sum,b)=>sum+Number(b.volume),0)/peers.length : 0;
   const relative=mean && last.volume!==null && last.volume>0 ? last.volume/mean : null;
   const spread=last.high-last.low;
-  return {regime,floor,ceiling,highs:highs.slice(-2),lows:lows.slice(-2),slope,atr,spread,relative,peerCount:peers.length,location:spread?(last.close-last.low)/spread:null};
+  // Freeze levels before the signal candle so its own extremes cannot move the trigger.
+  const inside = last.close >= floor && last.close <= ceiling;
+  const pivot = Math.abs(last.close - ceiling) <= Math.abs(last.close - floor) ? ceiling : floor;
+  const nextAbove = [...highs, ceiling].filter(level => level > Math.max(pivot, last.close));
+  const nextBelow = [...lows, floor].filter(level => level < Math.min(pivot, last.close));
+  const levelMap = {
+    pivot, boundary: pivot === ceiling ? "prior 20-bar high" : "prior 20-bar low",
+    stage: !inside ? (last.close > ceiling ? "Closed above resistance" : "Closed below support")
+      : last.high > ceiling && last.low < floor ? "Tested both boundaries and closed inside"
+      : last.high > ceiling ? "Upside break rejected"
+      : last.low < floor ? "Downside break rejected" : "Inside prior boundaries",
+    above: nextAbove.length ? Math.min(...nextAbove) : null,
+    below: nextBelow.length ? Math.max(...nextBelow) : null
+  };
+  return {levelMap,regime,floor,ceiling,highs:highs.slice(-2),lows:lows.slice(-2),slope,atr,spread,relative,peerCount:peers.length,location:spread?(last.close-last.low)/spread:null};
 }
